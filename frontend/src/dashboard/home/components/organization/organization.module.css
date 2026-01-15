@@ -826,6 +826,31 @@
   text-overflow: ellipsis;
 }
 
+.metaLine {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.lastSeenInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  opacity: 0.62;
+  white-space: nowrap;
+  flex: none;
+}
+
+.onlineDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(50, 220, 150, 0.9);
+  box-shadow: 0 0 0 3px rgba(50, 220, 150, 0.14);
+}
+
 .youPill {
   font-size: 11px;
   padding: 2px 8px;
@@ -842,15 +867,17 @@
 }
 
 .actionsCluster {
-  display: grid;
-  grid-template-columns: 108px 84px 124px 32px;
+  display: flex;
   align-items: center;
-  justify-content: end;
-  column-gap: 8px;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 320px;
+  flex: none;
 }
 
 .actionsRole {
-  min-width: 108px;
+  width: 140px;
+  flex: none;
   display: flex;
   justify-content: flex-end;
 }
@@ -965,16 +992,6 @@
   transform: translate(14px, -50%);
 }
 
-.lastSeen {
-  width: 124px;
-  text-align: right;
-  font-size: 11.5px;
-  opacity: 0.74;
-  margin-left: 4px; /* effective 12px gap from Access (8 + 4) */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 .chip {
   display: inline-flex;
@@ -996,6 +1013,29 @@
 .chipRoleOwner {
   background: rgba(250, 200, 70, 0.10);
   border-color: rgba(250, 200, 70, 0.22);
+}
+
+.projectsSummary {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--org-radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.projectsSummary:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.projectsSummary:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.18);
+  outline-offset: 2px;
 }
 
 .chipStatusActive {

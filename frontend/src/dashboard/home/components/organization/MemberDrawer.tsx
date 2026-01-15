@@ -16,6 +16,7 @@ export type MemberDrawerProps = {
   member: MemberRow | null;
   projects: Project[];
   access: MemberAccess | null;
+  scrollToSection?: DrawerSectionKey | null;
   canEditRole: boolean;
   canEditProfile: boolean;
   canEditAccess: boolean;
@@ -36,6 +37,7 @@ export default function MemberDrawer({
   member,
   projects,
   access,
+  scrollToSection,
   canEditRole,
   canEditProfile,
   canEditAccess,
@@ -54,6 +56,12 @@ export default function MemberDrawer({
   const [draftProjectIds, setDraftProjectIds] = useState<string[]>([]);
   const [projectSearch, setProjectSearch] = useState("");
 
+  const sectionRefs = React.useRef<Record<DrawerSectionKey, HTMLDivElement | null>>({
+    identity: null,
+    access: null,
+    audit: null,
+  });
+
   useEffect(() => {
     if (!open) return;
     setIsLoading(true);
@@ -68,6 +76,24 @@ export default function MemberDrawer({
     setDraftProjectIds(access?.projectIds ? [...access.projectIds] : []);
     setProjectSearch("");
   }, [access?.projectIds, member, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!scrollToSection) return;
+
+    setExpanded((prev) => ({ ...prev, [scrollToSection]: true }));
+    const el = sectionRefs.current[scrollToSection];
+    if (!el) return;
+
+    const t = window.setTimeout(() => {
+      try {
+        el.scrollIntoView({ block: "start", behavior: "smooth" });
+      } catch {
+        el.scrollIntoView();
+      }
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [open, scrollToSection]);
 
   useEffect(() => {
     if (!open) return;
@@ -161,7 +187,12 @@ export default function MemberDrawer({
             </div>
           ) : null}
 
-          <div className={styles.section}>
+          <div
+            className={styles.section}
+            ref={(el) => {
+              sectionRefs.current.identity = el;
+            }}
+          >
             <button
               type="button"
               className={styles.sectionHeader}
@@ -235,7 +266,12 @@ export default function MemberDrawer({
             ) : null}
           </div>
 
-          <div className={styles.section}>
+          <div
+            className={styles.section}
+            ref={(el) => {
+              sectionRefs.current.access = el;
+            }}
+          >
             <button
               type="button"
               className={styles.sectionHeader}
@@ -255,7 +291,6 @@ export default function MemberDrawer({
                       <input
                         className={styles.drawerAccessProjectsSearchInput}
                         value={projectSearch}
-                        readOnly={!canEditAccess}
                         onChange={(e) => setProjectSearch(e.target.value)}
                         placeholder="Search projects…"
                         aria-label="Search projects"
@@ -326,7 +361,12 @@ export default function MemberDrawer({
             ) : null}
           </div>
 
-          <div className={styles.section}>
+          <div
+            className={styles.section}
+            ref={(el) => {
+              sectionRefs.current.audit = el;
+            }}
+          >
             <button
               type="button"
               className={styles.sectionHeader}

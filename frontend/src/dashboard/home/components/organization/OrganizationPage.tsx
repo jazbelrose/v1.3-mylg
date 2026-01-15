@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, MoreHorizontal, Pin, Plus, Search, Users } from "lucide-react";
+import { ChevronDown, MoreHorizontal, Plus, Search, Users } from "lucide-react";
 
 import styles from "./organization.module.css";
 import type { MemberAccess, MemberRow, OrgRole, Project } from "./types";
@@ -9,12 +9,9 @@ import MemberDrawer from "./MemberDrawer";
 import InviteModal from "./InviteModal";
 import RoleDropdown from "./RoleDropdown";
 import { notify } from "@/shared/ui/ToastNotifications";
-import ProjectAvatar from "@/shared/ui/ProjectAvatar";
 import PageHeader from "@/shared/ui/PageHeader";
 import { useData } from "@/app/contexts/useData";
 import { useOrg } from "@/app/contexts/useOrg";
-import { arraysEqual } from "@/dashboard/home/utils/reorder";
-import { readPinnedOrder, reconcilePinnedOrder, writePinnedOrder } from "@/dashboard/home/utils/pinnedOrder";
 import {
   acceptCollabInvite,
   cancelCollabInvite,
@@ -25,7 +22,9 @@ import {
   updateUserRole,
 } from "@/shared/utils/api";
 
-type TabKey = "members" | "invites" | "access";
+type TabKey = "members" | "invites";
+
+type MemberDrawerSectionKey = "identity" | "access" | "audit";
 
 type SortKey = "name" | "role" | "lastActive";
 
@@ -255,46 +254,9 @@ export default function OrganizationPage() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
 
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [drawerScrollToSection, setDrawerScrollToSection] = useState<MemberDrawerSectionKey | null>(null);
 
   const [isInviteOpen, setIsInviteOpen] = useState(false);
-
-  const [projectSearchQuery, setProjectSearchQuery] = useState("");
-
-  const [isAccessProjectSwitching, setIsAccessProjectSwitching] = useState(false);
-  const didMountRef = useRef(false);
-
-  const [pinnedOrder, setPinnedOrder] = useState<string[]>(() => {
-    const fromProfile = (userData as unknown as { pinnedProjectOrder?: unknown } | null)?.pinnedProjectOrder;
-    if (Array.isArray(fromProfile)) {
-      return fromProfile.filter((id): id is string => typeof id === "string");
-    }
-    return readPinnedOrder();
-  });
-
-  useEffect(() => {
-    writePinnedOrder(pinnedOrder);
-  }, [pinnedOrder]);
-
-  useEffect(() => {
-    const fromProfile = (userData as unknown as { pinnedProjectOrder?: unknown } | null)?.pinnedProjectOrder;
-    if (!Array.isArray(fromProfile)) return;
-
-    const profileOrder = fromProfile.filter((id): id is string => typeof id === "string");
-    if (!profileOrder.length) return;
-
-    const pinnedIds = projects.filter((p) => p.pinned).map((p) => p.id);
-    const next = reconcilePinnedOrder(profileOrder, pinnedIds);
-    setPinnedOrder((prev) => (arraysEqual(prev, next) ? prev : next));
-  }, [projects, userData]);
-
-  useEffect(() => {
-    const pinnedIds = projects.filter((p) => p.pinned).map((p) => p.id);
-    setPinnedOrder((prev) => {
-      const next = reconcilePinnedOrder(prev, pinnedIds);
-      if (next.length === prev.length && next.every((id, index) => id === prev[index])) return prev;
-      return next;
-    });
-  }, [projects]);
 
   const [openMenuForMemberId, setOpenMenuForMemberId] = useState<string | null>(null);
   const menuRef = useClickOutside(() => setOpenMenuForMemberId(null));
@@ -396,7 +358,7 @@ export default function OrganizationPage() {
   );
 
   const onDrawerSave = useCallback(
-    async (nextMember: MemberRow, _nextProjectIds: string[]) => {
+    async (nextMember: MemberRow, nextProjectIds: string[]) => {
       if (!canManage) {
         notify("error", "You do not have permission.");
         return;
@@ -409,10 +371,12 @@ export default function OrganizationPage() {
           phoneNumber: nextMember.phone,
           company: nextMember.company,
           occupation: nextMember.occupation,
+          projects: nextProjectIds,
         });
         notify("success", "Saved changes.");
         await refreshUsers();
         setSelectedMemberId(null);
+        setDrawerScrollToSection(null);
       } catch {
         notify("error", "Failed to save changes.");
       }
@@ -457,112 +421,6 @@ export default function OrganizationPage() {
     [canManage]
   );
 
-  const projectsSortedForAccess = useMemo(() => {
-    const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
-    return [...projects].sort((a, b) => {
-      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-      return collator.compare(a.name, b.name);
-    });
-  }, [projects]);
-
-  const lastSelectedAccessProjectKey = useMemo(
-    () => `orgAccess:lastSelectedProjectId:${activeOrgId ?? "default"}`,
-    [activeOrgId]
-  );
-
-  const [accessProjectId, setAccessProjectId] = useState<string>(() => projectsSortedForAccess[0]?.id ?? "");
-
-  useEffect(() => {
-    const accessibleIds = new Set(projects.map((p) => p.id));
-
-    if (accessProjectId && accessibleIds.has(accessProjectId)) return;
-
-    const lastSelected = window.localStorage.getItem(lastSelectedAccessProjectKey);
-    if (lastSelected && accessibleIds.has(lastSelected)) {
-      setAccessProjectId(lastSelected);
-      return;
-    }
-
-    const fallback = projectsSortedForAccess[0]?.id;
-    if (fallback) setAccessProjectId(fallback);
-  }, [accessProjectId, lastSelectedAccessProjectKey, projects, projectsSortedForAccess]);
-
-  useEffect(() => {
-    if (!accessProjectId) return;
-    window.localStorage.setItem(lastSelectedAccessProjectKey, accessProjectId);
-  }, [accessProjectId, lastSelectedAccessProjectKey]);
-  const accessProject = useMemo(() => projects.find((p) => p.id === accessProjectId) ?? null, [accessProjectId, projects]);
-
-  const projectMemberCounts = useMemo(() => {
-    const map = new Map<string, number>();
-    projects.forEach((p) => map.set(p.id, 0));
-    access.forEach((a) => {
-      a.projectIds.forEach((pid) => {
-        map.set(pid, (map.get(pid) ?? 0) + 1);
-      });
-    });
-    return map;
-  }, [access, projects]);
-
-  const filteredProjects = useMemo(() => {
-    const q = normalizeForSearch(projectSearchQuery);
-    if (!q) return projects;
-    return projects.filter((p) => normalizeForSearch(p.name).includes(q));
-  }, [projectSearchQuery, projects]);
-
-  const orderedFilteredProjects = useMemo(() => {
-    const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
-    return [...filteredProjects].sort((a, b) => {
-      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-      return collator.compare(a.name, b.name);
-    });
-  }, [filteredProjects]);
-
-  const persistPinnedProjectOrder = useCallback(
-    (nextOrder: string[]) => {
-      if (!userData?.userId) return;
-      setUserData?.((prev) => (prev ? ({ ...prev, pinnedProjectOrder: nextOrder } as any) : prev));
-      void updateUserProfile({ ...(userData as Record<string, unknown>), userId: userData.userId, pinnedProjectOrder: nextOrder }).catch(
-        (err: unknown) => {
-          console.error("Failed to persist pinned project order", err);
-        }
-      );
-    },
-    [setUserData, updateUserProfile, userData]
-  );
-
-  const toggleProjectPin = useCallback(
-    (project: Project) => {
-      const nextPinned = !project.pinned;
-      setPinnedOrder((prev) => {
-        const next = nextPinned ? [project.id, ...prev.filter((id) => id !== project.id)] : prev.filter((id) => id !== project.id);
-        persistPinnedProjectOrder(next);
-        return next;
-      });
-      void updateProjectFields?.(project.id, { pinned: nextPinned }).catch((err: unknown) => {
-        console.error("Failed to update pinned state", err);
-      });
-    },
-    [persistPinnedProjectOrder, updateProjectFields]
-  );
-
-  const membersInSelectedProject = useMemo(() => {
-    if (!accessProjectId) return [] as MemberRow[];
-    const memberIds = new Set(access.filter((a) => a.projectIds.includes(accessProjectId)).map((a) => a.memberId));
-    return members.filter((m) => memberIds.has(m.id)).sort((a, b) => a.name.localeCompare(b.name));
-  }, [access, accessProjectId, members]);
-
-  useEffect(() => {
-    if (!didMountRef.current) {
-      didMountRef.current = true;
-      return;
-    }
-
-    setIsAccessProjectSwitching(true);
-    const t = window.setTimeout(() => setIsAccessProjectSwitching(false), 220);
-    return () => window.clearTimeout(t);
-  }, [accessProjectId]);
-
   return (
     <div className={styles.shell}>
       <div className={styles.page}>
@@ -570,7 +428,7 @@ export default function OrganizationPage() {
           sticky
           className={styles.orgPageHeader}
           title="Organization"
-          subtitle="Members, invites, roles, and access"
+          subtitle="Who is in your org and what they can access"
           actions={
             <div className={styles.topActions}>
               <button
@@ -620,75 +478,44 @@ export default function OrganizationPage() {
               >
                 Invites
               </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeTab === "access"}
-                className={`${styles.tab} ${activeTab === "access" ? styles.tabActive : ""}`}
-                onClick={() => setActiveTab("access")}
-              >
-                Access
-              </button>
             </div>
           }
           controls={
-            activeTab === "access" ? (
-              <div className={styles.headerControls}>
-                <div className={styles.accessHeaderControlsRow}>
-                  <div className={styles.accessHeaderMeta} aria-hidden>
-                    <span className={styles.accessHeaderMetaLabel}>Projects</span>
-                  </div>
-                  <div className={styles.search}>
-                    <Search size={16} />
-                    <input
-                      className={styles.searchInput}
-                      placeholder="Filter projects…"
-                      value={projectSearchQuery}
-                      onChange={(e) => setProjectSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  <div className={`${styles.pill} ${styles.accessHeaderCountPill}`} aria-label="Project count">
-                    {projectSearchQuery.trim() ? `${filteredProjects.length} / ${projects.length}` : `${projects.length}`}
-                  </div>
-                </div>
+            <div className={styles.headerControls}>
+              <div className={styles.search}>
+                <Search size={16} />
+                <input
+                  className={styles.searchInput}
+                  placeholder={activeTab === "invites" ? "Search invites…" : "Search members…"}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
-            ) : (
-              <div className={styles.headerControls}>
-                <div className={styles.search}>
-                  <Search size={16} />
-                  <input
-                    className={styles.searchInput}
-                    placeholder={activeTab === "invites" ? "Search invites…" : "Search members…"}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
 
-                <div className={styles.controls}>
-                  <select className={styles.select} value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}>
-                    <option value="all">Role ▾ (All)</option>
-                    <option value="admin">Admin</option>
-                    <option value="designer">Designer</option>
-                    <option value="builder">Builder</option>
-                    <option value="vendor">Vendor</option>
-                    <option value="client">Client</option>
-                  </select>
+              <div className={styles.controls}>
+                <select className={styles.select} value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}>
+                  <option value="all">Role ▾ (All)</option>
+                  <option value="admin">Admin</option>
+                  <option value="designer">Designer</option>
+                  <option value="builder">Builder</option>
+                  <option value="vendor">Vendor</option>
+                  <option value="client">Client</option>
+                </select>
 
-                  <select className={styles.select} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
-                    <option value="all">Status ▾ (All)</option>
-                    <option value="active">Active</option>
-                    <option value="invited">Invited</option>
-                    <option value="suspended">Suspended</option>
-                  </select>
+                <select className={styles.select} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
+                  <option value="all">Status ▾ (All)</option>
+                  <option value="active">Active</option>
+                  <option value="invited">Invited</option>
+                  <option value="suspended">Suspended</option>
+                </select>
 
-                  <select className={styles.select} value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}>
-                    <option value="name">Sort: Name</option>
-                    <option value="role">Sort: Role</option>
-                    <option value="lastActive">Sort: Last active</option>
-                  </select>
-                </div>
+                <select className={styles.select} value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}>
+                  <option value="name">Sort: Name</option>
+                  <option value="role">Sort: Role</option>
+                  <option value="lastActive">Sort: Last active</option>
+                </select>
               </div>
-            )
+            </div>
           }
         />
 
@@ -716,17 +543,34 @@ export default function OrganizationPage() {
                 const accessGranted = m.status === "active";
                 const accessDisabled = !canEditAccess;
                 const roleDisabled = !canEditRoles || !accessGranted;
-                const lastSeenShort = m.lastActiveAt ? formatRelativeTime(m.lastActiveAt) : "Last seen —";
+                const projectCount = access.find((a) => a.memberId === m.id)?.projectIds?.length ?? 0;
                 const lastSeenTitle = m.lastActiveAt ? new Date(m.lastActiveAt).toLocaleString() : "No login activity recorded";
+                let lastSeenText: string | null = null;
+                let isOnline = false;
+                if (m.lastActiveAt) {
+                  const ms = Date.now() - Date.parse(m.lastActiveAt);
+                  if (Number.isFinite(ms) && ms >= 0 && ms < 5 * 60 * 1000) {
+                    isOnline = true;
+                    lastSeenText = "Online";
+                  } else {
+                    lastSeenText = formatRelativeTime(m.lastActiveAt);
+                  }
+                }
                 return (
                   <div
                     key={m.id}
                     className={`${styles.row} ${!accessGranted ? styles.rowAccessRevoked : ""}`}
                     role="button"
                     tabIndex={0}
-                    onClick={() => setSelectedMemberId(m.id)}
+                    onClick={() => {
+                      setDrawerScrollToSection(null);
+                      setSelectedMemberId(m.id);
+                    }}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") setSelectedMemberId(m.id);
+                      if (e.key === "Enter" || e.key === " ") {
+                        setDrawerScrollToSection(null);
+                        setSelectedMemberId(m.id);
+                      }
                     }}
                     aria-label={`Open ${m.name}`}
                   >
@@ -739,11 +583,32 @@ export default function OrganizationPage() {
                           <div className={styles.name}>{m.name}</div>
                           {isYou ? <span className={styles.youPill}>You</span> : null}
                         </div>
-                        <div className={styles.email}>{m.email}</div>
+                        <div className={styles.metaLine}>
+                          <div className={styles.email}>{m.email}</div>
+                          {lastSeenText ? (
+                            <div className={styles.lastSeenInline} title={lastSeenTitle} aria-label="Last login">
+                              {isOnline ? <span className={styles.onlineDot} aria-hidden /> : null}
+                              <span>{lastSeenText}</span>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
 
                     <div className={styles.actionsCluster} aria-label="Member actions" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className={styles.projectsSummary}
+                        onClick={() => {
+                          setDrawerScrollToSection("access");
+                          setSelectedMemberId(m.id);
+                        }}
+                        title="Edit access"
+                        aria-label={`Edit project access for ${m.name}`}
+                      >
+                        {projectCount} project{projectCount === 1 ? "" : "s"}
+                      </button>
+
                       <div className={styles.actionsRole}>
                         <RoleDropdown
                           value={m.orgRole}
@@ -780,10 +645,6 @@ export default function OrganizationPage() {
                           <span className={styles.accessToggleThumb} />
                         </span>
                       </button>
-
-                      <div className={styles.lastSeen} title={lastSeenTitle} aria-label="Last login">
-                        {lastSeenShort}
-                      </div>
 
                       <div style={{ position: "relative", display: "flex", justifyContent: "flex-end" }}>
                         <button
@@ -842,13 +703,17 @@ export default function OrganizationPage() {
 
           <MemberDrawer
             open={!!selectedMember}
-            onClose={() => setSelectedMemberId(null)}
+            onClose={() => {
+              setSelectedMemberId(null);
+              setDrawerScrollToSection(null);
+            }}
             member={selectedMember}
             projects={projects}
             access={selectedAccess}
+            scrollToSection={drawerScrollToSection}
             canEditRole={canEditRoles}
             canEditProfile={canManage}
-            canEditAccess={false}
+            canEditAccess={canManage}
             onRoleChange={onInlineRoleChange}
             onSave={onDrawerSave}
           />
@@ -997,174 +862,6 @@ export default function OrganizationPage() {
                 ))}
             </div>
           )}
-        </section>
-      ) : null}
-
-      {activeTab === "access" ? (
-        <section className={`${styles.panel} ${styles.panelFlex}`} aria-label="Access">
-          <div className={styles.listHeader}>
-            <div className={styles.listTitle}>
-              <h3 className={styles.accessTitle}>Access</h3>
-              <p className={styles.accessSubtitle}>Project-centric access management</p>
-            </div>
-          </div>
-
-          <div className={styles.accessGrid}>
-            <div className={styles.accessProjectsPane}>
-              <div className={styles.accessProjectsListScroll}>
-                <div className={styles.accessProjectsList}>
-                  {orderedFilteredProjects.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className={`${styles.accessProjectRow} ${p.pinned ? styles.accessProjectRowPinned : ""} ${p.id === accessProjectId ? styles.accessProjectRowActive : ""}`}
-                      onClick={() => setAccessProjectId(p.id)}
-                      title={p.name}
-                    >
-                      <ProjectAvatar thumb={p.thumbUrl ?? undefined} name={p.name} className={styles.accessProjectAvatar} />
-                      <span className={styles.accessProjectName}>{p.name}</span>
-                      <span className={styles.accessProjectRowActions}>
-                        <button
-                          type="button"
-                          className={`${styles.accessProjectPinButton} ${p.pinned ? styles.accessProjectPinButtonPinned : ""}`}
-                          aria-label={p.pinned ? "Unpin project" : "Pin project"}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleProjectPin(p);
-                          }}
-                        >
-                          <Pin size={16} aria-hidden />
-                        </button>
-                        <span className={styles.accessProjectMemberCount} aria-label="Members with access">
-                          {projectMemberCounts.get(p.id) ?? 0}
-                        </span>
-                      </span>
-                    </button>
-                  ))}
-
-                  {filteredProjects.length === 0 ? (
-                    <div className={styles.accessProjectsEmpty}>
-                      <div style={{ fontWeight: 650 }}>No matching projects</div>
-                      <div style={{ fontSize: 12, opacity: 0.72 }}>Try a different search term.</div>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.accessMembersPane}>
-              <div className={styles.accessMembersHeader}>
-                <div className={styles.accessMembersHeaderLeft}>
-                  <ProjectAvatar
-                    thumb={accessProject?.thumbUrl ?? undefined}
-                    name={accessProject?.name ?? "Project"}
-                    className={styles.accessMembersProjectAvatar}
-                  />
-                  <div className={styles.accessMembersHeaderCopy}>
-                    <div className={styles.accessMembersProjectKicker}>Selected project</div>
-                    <div className={styles.accessMembersProjectName}>{accessProject?.name ?? "Select a project"}</div>
-                    <div className={styles.accessMembersProjectSubtitle}>Members with access</div>
-                  </div>
-                </div>
-
-                <div className={styles.accessMembersHeaderRight}>
-                  {canManage ? (
-                    <button type="button" className={styles.accessMembersInviteButton} onClick={() => setIsInviteOpen(true)}>
-                      <Plus size={16} aria-hidden /> Invite
-                    </button>
-                  ) : null}
-                  <div className={styles.pill}>{membersInSelectedProject.length}</div>
-                </div>
-              </div>
-
-              <div className={styles.accessMembersBody}>
-                {isAccessProjectSwitching ? (
-                  <div className={styles.accessMembersSkeleton} aria-label="Loading members">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className={styles.accessMembersSkeletonRow}>
-                        <div className={styles.skeleton} style={{ width: 34, height: 34, borderRadius: 999 }} />
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
-                          <div className={styles.skeleton} style={{ height: 12, width: "45%" }} />
-                          <div className={styles.skeleton} style={{ height: 10, width: "62%" }} />
-                        </div>
-                        <div className={styles.skeleton} style={{ height: 22, width: 140, borderRadius: 10 }} />
-                      </div>
-                    ))}
-                  </div>
-                ) : membersInSelectedProject.length === 0 ? (
-                  <div className={styles.accessEmptyCardWrap}>
-                    <div className={styles.accessEmptyCard}>
-                      <div className={styles.accessEmptyTitle}>No collaborators yet</div>
-                      <div className={styles.accessEmptySubtitle}>Invite members or assign access to this project.</div>
-                      <div className={styles.accessEmptyActions}>
-                        {canManage ? (
-                          <button type="button" className={styles.primaryButton} onClick={() => setIsInviteOpen(true)}>
-                            <Plus size={16} aria-hidden /> Invite
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          className={styles.secondaryButton}
-                          onClick={() => {
-                            setActiveTab("members");
-                          }}
-                        >
-                          View members
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className={styles.list}>
-                    {membersInSelectedProject.map((m) => (
-                      <div
-                        key={m.id}
-                        className={`${styles.row} ${styles.accessMemberRow}`}
-                        style={{ gridTemplateColumns: "1fr 220px" }}
-                        onClick={() => setSelectedMemberId(m.id)}
-                      >
-                        <div className={styles.identity}>
-                          <div className={styles.avatar} aria-hidden>
-                            {renderAvatar({ name: m.name, avatarUrl: m.avatarUrl })}
-                          </div>
-                          <div className={styles.nameEmail}>
-                            <div className={styles.nameLine}>
-                              <div className={styles.name}>{m.name}</div>
-                            </div>
-                            <div className={styles.email}>{m.email}</div>
-                          </div>
-                        </div>
-                        <div className={styles.chips} style={{ justifyContent: "flex-end" }}>
-                          <span className={styles.chip}>{roleLabel(m.orgRole)}</span>
-                          <span className={styles.chip} style={{ opacity: 0.72 }}>
-                            Per-project roles later
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                    {membersInSelectedProject.length < 3 ? (
-                      <div className={styles.accessSparseHint}>
-                        Tip: Invite collaborators to see activity here.
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-              </div>
-
-              <MemberDrawer
-                open={!!selectedMember}
-                onClose={() => setSelectedMemberId(null)}
-                member={selectedMember}
-                projects={projects}
-                access={selectedAccess}
-                canEditRole={canEditRoles}
-                canEditProfile={canManage}
-                canEditAccess={false}
-                onRoleChange={onInlineRoleChange}
-                onSave={onDrawerSave}
-              />
-            </div>
-          </div>
         </section>
       ) : null}
 
