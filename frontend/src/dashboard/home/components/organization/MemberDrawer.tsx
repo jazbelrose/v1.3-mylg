@@ -6,6 +6,7 @@ import type { MemberAccess, MemberRow, OrgRole, Project } from "./types";
 import { ORG_ROLE_LABELS } from "./stubData";
 import { formatRelativeTime, initialsFromName } from "./utils";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
+import RoleDropdown from "./RoleDropdown";
 
 type DrawerSectionKey = "identity" | "access" | "audit";
 
@@ -135,23 +136,13 @@ export default function MemberDrawer({
           </div>
 
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <button
-              type="button"
-              className={`${styles.chip} ${styles.chipButton}`}
+            <RoleDropdown
+              value={member.orgRole}
+              options={["admin", "designer", "builder", "vendor", "client"]}
               disabled={!canEditRole}
-              aria-label="Organization role"
-              onClick={() => {
-                if (!canEditRole) return;
-                const order: OrgRole[] = ["admin", "designer", "builder", "vendor", "client"];
-                const idx = order.indexOf(member.orgRole);
-                const next = order[(idx + 1) % order.length];
-                onRoleChange(member.id, next);
-              }}
-              title={canEditRole ? "Click to change role" : "You do not have permission"}
-            >
-              {ORG_ROLE_LABELS[member.orgRole] ?? member.orgRole}
-              <ChevronDown size={14} />
-            </button>
+              tooltip={canEditRole ? "Change role" : "Only admins can change roles"}
+              onChange={(next) => onRoleChange(member.id, next)}
+            />
 
             <button type="button" className={styles.iconButton} onClick={onClose} aria-label="Close">
               <X size={16} />
@@ -258,11 +249,11 @@ export default function MemberDrawer({
             </button>
             {expanded.access ? (
               <div className={styles.sectionBody}>
-                <div className={styles.accessProjectsScroller} aria-label="Project access">
-                  <div className={styles.accessProjectsStickyHeader}>
-                    <div className={styles.accessProjectsHeaderRow}>
+                <div className={styles.drawerAccessProjectsScroller} aria-label="Project access">
+                  <div className={styles.drawerAccessProjectsStickyHeader}>
+                    <div className={styles.drawerAccessProjectsHeaderRow}>
                       <input
-                        className={styles.accessProjectsSearchInput}
+                        className={styles.drawerAccessProjectsSearchInput}
                         value={projectSearch}
                         readOnly={!canEditAccess}
                         onChange={(e) => setProjectSearch(e.target.value)}
@@ -270,10 +261,10 @@ export default function MemberDrawer({
                         aria-label="Search projects"
                       />
 
-                      <div className={styles.accessProjectsBulkActions}>
+                      <div className={styles.drawerAccessProjectsBulkActions}>
                         <button
                           type="button"
-                          className={styles.accessProjectsBulkButton}
+                          className={styles.drawerAccessProjectsBulkButton}
                           disabled={!canEditAccess}
                           onClick={() => setDraftProjectIds(projects.map((p) => p.id))}
                         >
@@ -281,7 +272,7 @@ export default function MemberDrawer({
                         </button>
                         <button
                           type="button"
-                          className={styles.accessProjectsBulkButton}
+                          className={styles.drawerAccessProjectsBulkButton}
                           disabled={!canEditAccess}
                           onClick={() => setDraftProjectIds([])}
                         >
@@ -291,22 +282,22 @@ export default function MemberDrawer({
                     </div>
                   </div>
 
-                  <div className={styles.accessProjectsRows}>
+                  <div className={styles.drawerAccessProjectsRows}>
                     {filteredProjects.map((p) => {
                       const checked = draftProjectIds.includes(p.id);
                       return (
                         <label
                           key={p.id}
                           className={[
-                            styles.accessProjectRow,
-                            checked ? styles.accessProjectRowChecked : "",
+                            styles.drawerAccessProjectRow,
+                            checked ? styles.drawerAccessProjectRowChecked : "",
                           ]
                             .filter(Boolean)
                             .join(" ")}
                         >
                           <input
                             type="checkbox"
-                            className={styles.accessProjectCheckbox}
+                            className={styles.drawerAccessProjectCheckbox}
                             checked={checked}
                             disabled={!canEditAccess}
                             onChange={() =>
@@ -319,11 +310,11 @@ export default function MemberDrawer({
                           <ProjectAvatar
                             thumb={p.thumbUrl ?? undefined}
                             name={p.name}
-                            className={styles.accessProjectAvatar}
+                            className={styles.drawerAccessProjectAvatar}
                             radius={10}
                           />
 
-                          <span className={styles.accessProjectLabel} title={p.name}>
+                          <span className={styles.drawerAccessProjectLabel} title={p.name}>
                             {p.name}
                           </span>
                         </label>
@@ -371,17 +362,16 @@ export default function MemberDrawer({
             type="button"
             className={styles.secondaryButton}
             onClick={() => {
-              if (!member) return;
-              setDraft({ ...member });
-              setDraftProjectIds(access?.projectIds ? [...access.projectIds] : []);
-              onClose();
+              setDraft(member ? { ...member } : null);
+              setDraftProjectIds(access?.projectIds ?? []);
+              setProjectSearch("");
             }}
           >
             Cancel
           </button>
           <button
             type="button"
-            className={`${styles.primaryButton} ${!isDirty ? styles.primaryButtonDisabled : ""}`}
+            className={styles.primaryButton}
             disabled={!isDirty || (!canEditProfile && !canEditAccess)}
             onClick={() => {
               if (!draft) return;

@@ -15,7 +15,7 @@ export function formatRelativeTime(dateString?: string | null): string {
   const days = Math.floor(hours / 24);
   if (days === 1) return "Yesterday";
   if (days < 7) return `${days}d ago`;
-  return then.toLocaleDateString();
+  return then.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 export function initialsFromName(name: string): string {
