@@ -319,6 +319,12 @@
 .list {
   display: flex;
   flex-direction: column;
+
+  /* Tight, consistent right-side columns (Projects / Role / Access / Menu) */
+  --org-col-projects: minmax(0, 160px);
+  --org-col-role: 120px;
+  --org-col-access: 56px;
+  --org-col-menu: 32px;
 }
 
 .membersHeaderRow {
@@ -345,8 +351,8 @@
 
 .row {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
+  grid-template-columns: 1fr var(--org-col-projects) var(--org-col-role) var(--org-col-access) var(--org-col-menu);
+  gap: 10px;
   align-items: center;
   padding: 10px 14px;
   min-height: 56px;
@@ -354,13 +360,16 @@
   cursor: pointer;
 }
 
-
-.actionsCluster {
+.colProjects,
+.colRole,
+.colAccess,
+.colMenu {
   display: flex;
-  align-items: center;
   justify-content: flex-end;
-  gap: 10px;
-  flex: none;
+}
+
+.colMenu {
+  justify-content: flex-end;
 }
 
 .rowAccessRevoked {
@@ -914,7 +923,7 @@
 }
 
 .roleTrigger {
-  width: 120px;
+  width: 100%;
   justify-content: space-between;
 }
 
@@ -960,20 +969,17 @@
 }
 
 .accessToggle {
-  width: 46px;
+  width: 100%;
   height: 28px;
   padding: 0;
-  border: none;
-  background: transparent;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
   color: inherit;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-}
-
-.accessToggle:focus-visible {
-  outline: none;
 }
 
 .accessToggle:disabled {
@@ -983,17 +989,12 @@
 
 .accessToggleTrack {
   position: relative;
-  width: 44px;
-  height: 26px;
+  width: 28px;
+  height: 14px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
   flex: none;
-}
-
-.accessToggle:focus-visible .accessToggleTrack {
-  outline: 2px solid rgba(255, 255, 255, 0.16);
-  outline-offset: 2px;
 }
 
 .accessToggleTrackOn {
@@ -1013,9 +1014,9 @@
 .accessToggleThumb {
   position: absolute;
   top: 50%;
-  left: 3px;
-  width: 20px;
-  height: 20px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
   transform: translateY(-50%);
@@ -1023,7 +1024,7 @@
 }
 
 .accessToggle[aria-checked="true"] .accessToggleThumb {
-  transform: translate(18px, -50%);
+  transform: translate(14px, -50%);
 }
 
 
@@ -1061,8 +1062,8 @@
   height: 28px;
   padding: 0 10px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
   color: inherit;
   cursor: pointer;
   user-select: none;
@@ -1359,41 +1360,23 @@
 /* Collaborator drawer — Access list (Project access MVP) */
 .drawerAccessProjectsScroller {
   position: relative;
+  display: flex;
+  flex-direction: column;
   max-height: 300px;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
-  overscroll-behavior: contain;
+  overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--org-radius-md);
   background: rgba(255, 255, 255, 0.03);
-  isolation: isolate;
 }
 
 .drawerAccessProjectsStickyHeader {
-  position: sticky;
-  top: 0;
-  z-index: 7;
+  position: relative;
+  z-index: 6;
   padding: 10px;
   background: rgb(17, 18, 19);
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.32);
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   background-clip: padding-box;
-  isolation: isolate;
-  contain: layout style paint;
   box-sizing: border-box;
-  border-radius: var(--org-radius-md) var(--org-radius-md) 0 0;
-  transform: translateZ(0);
-}
-
-.drawerAccessProjectsStickyHeader::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -2px;
-  height: 2px;
-  background: rgb(17, 18, 19);
-  pointer-events: none;
 }
 
 .drawerAccessProjectsHeaderRow {
@@ -1449,10 +1432,13 @@
 }
 
 .drawerAccessProjectsRows {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
-  position: relative;
-  z-index: 0;
 }
 
 .drawerAccessProjectRow {
@@ -1464,8 +1450,6 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   cursor: pointer;
   user-select: none;
-  position: relative;
-  z-index: 0;
 }
 
 .drawerAccessProjectRow:hover {
