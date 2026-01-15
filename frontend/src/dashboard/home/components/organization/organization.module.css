@@ -319,12 +319,6 @@
 .list {
   display: flex;
   flex-direction: column;
-
-  /* Tight, consistent right-side columns (Projects / Role / Access / Menu) */
-  --org-col-projects: minmax(0, 160px);
-  --org-col-role: 120px;
-  --org-col-access: 56px;
-  --org-col-menu: 32px;
 }
 
 .membersHeaderRow {
@@ -351,8 +345,8 @@
 
 .row {
   display: grid;
-  grid-template-columns: 1fr var(--org-col-projects) var(--org-col-role) var(--org-col-access) var(--org-col-menu);
-  gap: 10px;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
   align-items: center;
   padding: 10px 14px;
   min-height: 56px;
@@ -360,16 +354,13 @@
   cursor: pointer;
 }
 
-.colProjects,
-.colRole,
-.colAccess,
-.colMenu {
-  display: flex;
-  justify-content: flex-end;
-}
 
-.colMenu {
+.actionsCluster {
+  display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 10px;
+  flex: none;
 }
 
 .rowAccessRevoked {
@@ -923,7 +914,7 @@
 }
 
 .roleTrigger {
-  width: 100%;
+  width: 120px;
   justify-content: space-between;
 }
 
@@ -969,17 +960,20 @@
 }
 
 .accessToggle {
-  width: 100%;
+  width: 46px;
   height: 28px;
   padding: 0;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.035);
+  border: none;
+  background: transparent;
   color: inherit;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+.accessToggle:focus-visible {
+  outline: none;
 }
 
 .accessToggle:disabled {
@@ -989,12 +983,17 @@
 
 .accessToggleTrack {
   position: relative;
-  width: 28px;
-  height: 14px;
+  width: 44px;
+  height: 26px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
   flex: none;
+}
+
+.accessToggle:focus-visible .accessToggleTrack {
+  outline: 2px solid rgba(255, 255, 255, 0.16);
+  outline-offset: 2px;
 }
 
 .accessToggleTrackOn {
@@ -1014,9 +1013,9 @@
 .accessToggleThumb {
   position: absolute;
   top: 50%;
-  left: 2px;
-  width: 10px;
-  height: 10px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
   transform: translateY(-50%);
@@ -1024,7 +1023,7 @@
 }
 
 .accessToggle[aria-checked="true"] .accessToggleThumb {
-  transform: translate(14px, -50%);
+  transform: translate(18px, -50%);
 }
 
 
@@ -1062,8 +1061,8 @@
   height: 28px;
   padding: 0 10px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
   color: inherit;
   cursor: pointer;
   user-select: none;
@@ -1373,10 +1372,9 @@
 .drawerAccessProjectsStickyHeader {
   position: sticky;
   top: 0;
-  z-index: 6;
+  z-index: 7;
   padding: 10px;
-  background: rgba(17, 18, 19, 0.98);
-  backdrop-filter: blur(10px);
+  background: rgb(17, 18, 19);
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.32);
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   background-clip: padding-box;
@@ -1384,6 +1382,18 @@
   contain: layout style paint;
   box-sizing: border-box;
   border-radius: var(--org-radius-md) var(--org-radius-md) 0 0;
+  transform: translateZ(0);
+}
+
+.drawerAccessProjectsStickyHeader::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -2px;
+  height: 2px;
+  background: rgb(17, 18, 19);
+  pointer-events: none;
 }
 
 .drawerAccessProjectsHeaderRow {
@@ -1399,7 +1409,7 @@
   padding: 0 12px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(17, 18, 19, 0.92);
+  background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.92);
   font-size: 12.5px;
   outline: none;
@@ -1422,7 +1432,7 @@
   padding: 0 14px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(17, 18, 19, 0.92);
+  background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.9);
   font-weight: 650;
   font-size: 12px;
