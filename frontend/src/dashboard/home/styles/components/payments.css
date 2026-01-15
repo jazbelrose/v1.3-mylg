@@ -1,25 +1,37 @@
 /* Payments & Invoices section (extracted from overrides.css) */
 
 .payments-section {
+  --radius: 10px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  padding: 16px;
 }
 
 .payments-line-one {
   display: flex;
   gap: 8px;
   align-items: baseline;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .last-invoice-label {
-  opacity: 0.8;
+  opacity: 0.72;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .invoice-list {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  margin-top: 6px;
 }
 
 .invoice-item a {
@@ -28,22 +40,29 @@
   display: flex;
   align-items: center;
   gap: 5px;
+  padding: 10px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.future-payment-method {
-  margin-top: 15px;
-  font-size: 0.9rem;
-  color: #999;
+.invoice-item a:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .coming-soon-badge {
   display: inline-block;
   margin-left: 5px;
-  padding: 2px 6px;
-  background-color: #666;
-  color: #fff;
-  border-radius: 4px;
-  font-size: 0.75rem;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .save-row {
@@ -54,8 +73,81 @@
 }
 
 .payments-section h2 {
-  font-size: 24px;
-  margin-bottom: 10px;
+  font-size: 18px;
+  font-weight: 750;
+  margin: 0 0 2px;
+}
+
+.payments-empty {
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  gap: 10px;
+}
+
+.payments-empty-illustration {
+  width: 100%;
+  height: 90px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(420px 120px at 20% 30%, rgba(250, 51, 86, 0.14), rgba(0, 0, 0, 0) 55%),
+    radial-gradient(380px 120px at 80% 60%, rgba(45, 212, 191, 0.12), rgba(0, 0, 0, 0) 55%),
+    rgba(0, 0, 0, 0.20);
+}
+
+.payments-empty-title {
+  font-size: 14px;
+  font-weight: 750;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.payments-empty-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.4;
+}
+
+.payments-empty-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.payments-primary-button,
+.payments-secondary-button {
+  height: 38px;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 750;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.payments-primary-button {
+  background: #FA3356;
+  border-color: rgba(250, 51, 86, 0.55);
+  color: #ffffff;
+}
+
+.payments-primary-button:hover {
+  filter: brightness(1.05);
+}
+
+.payments-secondary-button {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.payments-secondary-button:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 

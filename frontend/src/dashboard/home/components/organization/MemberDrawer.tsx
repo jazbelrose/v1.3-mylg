@@ -162,189 +162,187 @@ export default function MemberDrawer({
                 <div className={styles.skeleton} style={{ height: 14, width: "70%" }} />
               </div>
             </div>
-          ) : null}
-
-          <div
-            className={styles.section}
-          >
-            <div className={styles.sectionHeader}>
-              <div className={styles.sectionTitle}>
-                <strong>Identity</strong>
-                <span>Profile and contact details</span>
-              </div>
-            </div>
-
-            <div className={styles.sectionBody}>
-              <div className={styles.field}>
-                <div className={styles.label}>Email</div>
-                <input className={styles.input} value={member.email} readOnly />
-              </div>
-
-              <div className={styles.formGrid}>
-                <div className={styles.field}>
-                  <div className={styles.label}>First name</div>
-                  <input
-                    className={styles.input}
-                    value={draft?.firstName ?? ""}
-                    readOnly={!canEditProfile}
-                    onChange={(e) => setDraft((d) => (d ? { ...d, firstName: e.target.value } : d))}
-                  />
-                </div>
-                <div className={styles.field}>
-                  <div className={styles.label}>Last name</div>
-                  <input
-                    className={styles.input}
-                    value={draft?.lastName ?? ""}
-                    readOnly={!canEditProfile}
-                    onChange={(e) => setDraft((d) => (d ? { ...d, lastName: e.target.value } : d))}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.formGrid}>
-                <div className={styles.field}>
-                  <div className={styles.label}>Phone</div>
-                  <input
-                    className={styles.input}
-                    value={draft?.phone ?? ""}
-                    readOnly={!canEditProfile}
-                    onChange={(e) => setDraft((d) => (d ? { ...d, phone: e.target.value } : d))}
-                  />
-                </div>
-                <div className={styles.field}>
-                  <div className={styles.label}>Company</div>
-                  <input
-                    className={styles.input}
-                    value={draft?.company ?? ""}
-                    readOnly={!canEditProfile}
-                    onChange={(e) => setDraft((d) => (d ? { ...d, company: e.target.value } : d))}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.field}>
-                <div className={styles.label}>Occupation</div>
-                <input
-                  className={styles.input}
-                  value={draft?.occupation ?? ""}
-                  readOnly={!canEditProfile}
-                  onChange={(e) => setDraft((d) => (d ? { ...d, occupation: e.target.value } : d))}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div
-            className={styles.section}
-          >
-            <div className={styles.sectionHeader}>
-              <div className={styles.sectionTitle}>
-                <strong>Access</strong>
-                <span>Project access (MVP)</span>
-              </div>
-            </div>
-
-            <div className={styles.sectionBody}>
-              <div className={styles.drawerAccessProjectsScroller} aria-label="Project access">
-                <div className={styles.drawerAccessProjectsStickyHeader}>
-                  <div className={styles.drawerAccessProjectsHeaderRow}>
-                    <input
-                      className={styles.drawerAccessProjectsSearchInput}
-                      value={projectSearch}
-                      onChange={(e) => setProjectSearch(e.target.value)}
-                      placeholder="Search projects…"
-                      aria-label="Search projects"
-                    />
-
-                    <div className={styles.drawerAccessProjectsBulkActions}>
-                      <button
-                        type="button"
-                        className={styles.drawerAccessProjectsBulkButton}
-                        disabled={!canEditAccess}
-                        onClick={() => setDraftProjectIds(projects.map((p) => p.id))}
-                      >
-                        Select all
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.drawerAccessProjectsBulkButton}
-                        disabled={!canEditAccess}
-                        onClick={() => setDraftProjectIds([])}
-                      >
-                        Clear
-                      </button>
-                    </div>
+          ) : (
+            <>
+              <div className={[styles.section, styles.drawerSectionIdentity].filter(Boolean).join(" ")}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionTitle}>
+                    <strong>Identity</strong>
+                    <span>Profile and contact details</span>
                   </div>
                 </div>
 
-                <div className={styles.drawerAccessProjectsRows}>
-                  {filteredProjects.map((p) => {
-                    const checked = draftProjectIds.includes(p.id);
-                    return (
-                      <label
-                        key={p.id}
-                        className={[
-                          styles.drawerAccessProjectRow,
-                          checked ? styles.drawerAccessProjectRowChecked : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                      >
-                        <input
-                          type="checkbox"
-                          className={styles.drawerAccessProjectCheckbox}
-                          checked={checked}
-                          disabled={!canEditAccess}
-                          onChange={() =>
-                            setDraftProjectIds((prev) =>
-                              prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
-                            )
-                          }
-                        />
+                <div className={styles.sectionBody}>
+                  <div className={styles.field}>
+                    <div className={styles.label}>Email</div>
+                    <input className={styles.input} value={member.email} readOnly />
+                  </div>
 
-                        <ProjectAvatar
-                          thumb={p.thumbUrl ?? undefined}
-                          name={p.name}
-                          className={styles.drawerAccessProjectAvatar}
-                          radius={10}
-                        />
+                  <div className={styles.formGrid}>
+                    <div className={styles.field}>
+                      <div className={styles.label}>First name</div>
+                      <input
+                        className={styles.input}
+                        value={draft?.firstName ?? ""}
+                        readOnly={!canEditProfile}
+                        onChange={(e) => setDraft((d) => (d ? { ...d, firstName: e.target.value } : d))}
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <div className={styles.label}>Last name</div>
+                      <input
+                        className={styles.input}
+                        value={draft?.lastName ?? ""}
+                        readOnly={!canEditProfile}
+                        onChange={(e) => setDraft((d) => (d ? { ...d, lastName: e.target.value } : d))}
+                      />
+                    </div>
+                  </div>
 
-                        <span className={styles.drawerAccessProjectLabel} title={p.name}>
-                          {p.name}
-                        </span>
-                      </label>
-                    );
-                  })}
+                  <div className={styles.formGrid}>
+                    <div className={styles.field}>
+                      <div className={styles.label}>Phone</div>
+                      <input
+                        className={styles.input}
+                        value={draft?.phone ?? ""}
+                        readOnly={!canEditProfile}
+                        onChange={(e) => setDraft((d) => (d ? { ...d, phone: e.target.value } : d))}
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <div className={styles.label}>Company</div>
+                      <input
+                        className={styles.input}
+                        value={draft?.company ?? ""}
+                        readOnly={!canEditProfile}
+                        onChange={(e) => setDraft((d) => (d ? { ...d, company: e.target.value } : d))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className={styles.field}>
+                    <div className={styles.label}>Occupation</div>
+                    <input
+                      className={styles.input}
+                      value={draft?.occupation ?? ""}
+                      readOnly={!canEditProfile}
+                      onChange={(e) => setDraft((d) => (d ? { ...d, occupation: e.target.value } : d))}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div
-            className={styles.section}
-          >
-            <div className={styles.sectionHeader}>
-              <div className={styles.sectionTitle}>
-                <strong>Audit</strong>
-                <span>Joined, invited by, last active</span>
-              </div>
-            </div>
+              <div className={[styles.section, styles.drawerSectionAccess].filter(Boolean).join(" ")}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionTitle}>
+                    <strong>Access</strong>
+                    <span>Project access (MVP)</span>
+                  </div>
+                </div>
 
-            <div className={styles.sectionBody}>
-              <div className={styles.field}>
-                <div className={styles.label}>Joined</div>
-                <div style={{ fontSize: 12.5 }}>{member.joinedAt ? new Date(member.joinedAt).toLocaleDateString() : "—"}</div>
+                <div className={styles.sectionBody}>
+                  <div className={styles.drawerAccessProjectsScroller} aria-label="Project access">
+                    <div className={styles.drawerAccessProjectsStickyHeader}>
+                      <div className={styles.drawerAccessProjectsHeaderRow}>
+                        <input
+                          className={styles.drawerAccessProjectsSearchInput}
+                          value={projectSearch}
+                          onChange={(e) => setProjectSearch(e.target.value)}
+                          placeholder="Search projects…"
+                          aria-label="Search projects"
+                        />
+
+                        <div className={styles.drawerAccessProjectsBulkActions}>
+                          <button
+                            type="button"
+                            className={styles.drawerAccessProjectsBulkButton}
+                            disabled={!canEditAccess}
+                            onClick={() => setDraftProjectIds(projects.map((p) => p.id))}
+                          >
+                            Select all
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.drawerAccessProjectsBulkButton}
+                            disabled={!canEditAccess}
+                            onClick={() => setDraftProjectIds([])}
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={styles.drawerAccessProjectsRows}>
+                      {filteredProjects.map((p) => {
+                        const checked = draftProjectIds.includes(p.id);
+                        return (
+                          <label
+                            key={p.id}
+                            className={[
+                              styles.drawerAccessProjectRow,
+                              checked ? styles.drawerAccessProjectRowChecked : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                          >
+                            <input
+                              type="checkbox"
+                              className={styles.drawerAccessProjectCheckbox}
+                              checked={checked}
+                              disabled={!canEditAccess}
+                              onChange={() =>
+                                setDraftProjectIds((prev) =>
+                                  prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
+                                )
+                              }
+                            />
+
+                            <ProjectAvatar
+                              thumb={p.thumbUrl ?? undefined}
+                              name={p.name}
+                              className={styles.drawerAccessProjectAvatar}
+                              radius={10}
+                            />
+
+                            <span className={styles.drawerAccessProjectLabel} title={p.name}>
+                              {p.name}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className={styles.field}>
-                <div className={styles.label}>Invited by</div>
-                <div style={{ fontSize: 12.5 }}>{member.invitedBy || "—"}</div>
+
+              <div className={[styles.section, styles.drawerSectionAudit].filter(Boolean).join(" ")}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionTitle}>
+                    <strong>Audit</strong>
+                    <span>Joined, invited by, last active</span>
+                  </div>
+                </div>
+
+                <div className={styles.sectionBody}>
+                  <div className={styles.field}>
+                    <div className={styles.label}>Joined</div>
+                    <div style={{ fontSize: 12.5 }}>
+                      {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString() : "—"}
+                    </div>
+                  </div>
+                  <div className={styles.field}>
+                    <div className={styles.label}>Invited by</div>
+                    <div style={{ fontSize: 12.5 }}>{member.invitedBy || "—"}</div>
+                  </div>
+                  <div className={styles.field}>
+                    <div className={styles.label}>Last active</div>
+                    <div style={{ fontSize: 12.5 }}>{formatRelativeTime(member.lastActiveAt)}</div>
+                  </div>
+                </div>
               </div>
-              <div className={styles.field}>
-                <div className={styles.label}>Last active</div>
-                <div style={{ fontSize: 12.5 }}>{formatRelativeTime(member.lastActiveAt)}</div>
-              </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
 
         <div className={styles.drawerFooter}>

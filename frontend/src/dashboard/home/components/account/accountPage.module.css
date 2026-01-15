@@ -1,0 +1,279 @@
+.shell {
+  --radius: 10px;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  border-radius: 28px;
+  border: 2px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  background:
+    radial-gradient(900px 260px at 12% 8%, rgba(250, 51, 86, 0.10), rgba(0, 0, 0, 0) 62%),
+    radial-gradient(700px 260px at 88% 12%, rgba(45, 212, 191, 0.08), rgba(0, 0, 0, 0) 62%),
+    radial-gradient(120% 90% at 50% -12%, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0) 58%),
+    var(--bg2, #111213);
+}
+
+.shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 36%),
+    radial-gradient(120% 120% at 50% 20%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.55) 100%);
+  mix-blend-mode: soft-light;
+  opacity: 0.9;
+  z-index: 0;
+}
+
+.page {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px clamp(18px, 3vw, 28px) 22px;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px;
+  border-radius: var(--radius);
+  background: rgba(10, 10, 12, 0.72);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.headerCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.65rem, 1.35rem + 0.9vw, 2rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.savePill {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 12.5px;
+  font-weight: 650;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.savePillDirty {
+  border-color: rgba(250, 51, 86, 0.35);
+  background: rgba(250, 51, 86, 0.12);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.savePillSaving {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.savePillSaved {
+  border-color: rgba(45, 212, 191, 0.30);
+  background: rgba(45, 212, 191, 0.12);
+  color: rgba(45, 212, 191, 0.95);
+}
+
+.orgPicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+}
+
+.orgPill {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+}
+
+.orgSelectWrap {
+  position: relative;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.orgSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 36px;
+  padding: 0 34px 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.orgSelect:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.orgChevron {
+  position: absolute;
+  right: 12px;
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+.body {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 16px;
+  align-items: start;
+  min-height: 0;
+}
+
+.navDesktop {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: sticky;
+  top: 12px;
+}
+
+.navMobile {
+  display: none;
+}
+
+.navItem {
+  width: 100%;
+  text-align: left;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px 12px;
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+}
+
+.navItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.navItemActive {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.navIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(0, 0, 0, 0.22);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.navLabel {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.navDescription {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.content {
+  min-height: 0;
+}
+
+.placeholderCard {
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  padding: 16px;
+}
+
+.placeholderTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.placeholderBody {
+  margin-top: 8px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+@media (max-width: 920px) {
+  .body {
+    grid-template-columns: 1fr;
+  }
+
+  .navDesktop {
+    display: none;
+  }
+
+  .navMobile {
+    display: block;
+  }
+}

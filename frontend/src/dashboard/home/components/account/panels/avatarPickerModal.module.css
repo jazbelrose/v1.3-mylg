@@ -1,0 +1,282 @@
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 9999;
+}
+
+.modalOverlayAfterOpen {
+  opacity: 1;
+  transition: opacity 150ms ease;
+}
+
+.modalOverlayBeforeClose {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.modalContent {
+  width: min(920px, 96vw);
+  max-height: min(86vh, 860px);
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: linear-gradient(180deg, rgba(20, 20, 24, 0.96), rgba(12, 12, 14, 0.96));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.92);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.modalContentAfterOpen {
+  transform: translateY(0);
+  opacity: 1;
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.modalContentBeforeClose {
+  transform: translateY(8px);
+  opacity: 0;
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.subtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  margin-top: 4px;
+}
+
+.closeButton {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.closeButton:hover:enabled {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.closeButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.body {
+  padding: 16px 18px;
+  overflow: auto;
+}
+
+.dropZone {
+  border-radius: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 22px;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.dropZoneDragging {
+  border-color: rgba(250, 51, 86, 0.45);
+  background: rgba(250, 51, 86, 0.10);
+}
+
+.dropTitle {
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.dropHint {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.note {
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.cropLayout {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 14px;
+  min-height: 420px;
+}
+
+.cropArea {
+  position: relative;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  min-height: 420px;
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.previewSquircle {
+  width: 84px;
+  height: 84px;
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.previewSquircle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sliderRow {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.sliderRow input[type="range"] {
+  width: 100%;
+}
+
+.sideActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.progressWrap {
+  margin-top: 4px;
+  display: grid;
+  gap: 8px;
+}
+
+.progressBar {
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(250, 51, 86, 0.95), rgba(45, 212, 191, 0.9));
+}
+
+.progressLabel {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.primaryButton,
+.secondaryButton {
+  height: 40px;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.primaryButton {
+  background: #fa3356;
+  color: white;
+  border-color: rgba(250, 51, 86, 0.6);
+}
+
+.primaryButton:hover:enabled {
+  filter: brightness(1.05);
+}
+
+.primaryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.secondaryButton:hover:enabled {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.secondaryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .cropLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .side {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .sideActions {
+    flex-direction: row;
+  }
+}
+

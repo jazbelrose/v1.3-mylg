@@ -1,0 +1,245 @@
+.card {
+  --radius: 10px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.cardHeader {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cardTitle {
+  font-size: 14.5px;
+  font-weight: 750;
+  color: rgba(255, 255, 255, 0.94);
+  letter-spacing: -0.01em;
+}
+
+.cardSubtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.35;
+}
+
+.cardBody {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.twoCol {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.avatarBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.avatarSquircle {
+  width: 72px;
+  height: 72px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 18px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+.avatarSquircle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatarActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.fieldsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.fieldsGridSingle {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.input,
+.select {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 0 12px;
+  outline: none;
+  font-size: 13px;
+}
+
+.input:focus,
+.select:focus {
+  border-color: rgba(250, 51, 86, 0.4);
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.14);
+}
+
+.input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.helper {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.56);
+  line-height: 1.35;
+}
+
+.actionsRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.primaryButton,
+.secondaryButton {
+  height: 38px;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.primaryButton {
+  background: #fa3356;
+  color: #ffffff;
+  border-color: rgba(250, 51, 86, 0.55);
+}
+
+.primaryButton:hover:enabled {
+  filter: brightness(1.05);
+}
+
+.primaryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.secondaryButton:hover:enabled {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.textButton {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.textButton:hover:enabled {
+  color: rgba(255, 255, 255, 0.92);
+  text-decoration: underline;
+}
+
+.textButtonDanger {
+  color: rgba(255, 140, 140, 0.92);
+}
+
+.desktopOnly {
+  display: inline-flex;
+}
+
+.mobileSaveBar {
+  display: none;
+}
+
+.mobileSaveBarInner {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  margin-top: 10px;
+  padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 10, 12, 0.78);
+  backdrop-filter: blur(14px);
+  display: flex;
+  gap: 10px;
+}
+
+.mobileSaveBarInner button {
+  flex: 1;
+  height: 44px;
+}
+
+@media (max-width: 920px) {
+  .twoCol {
+    grid-template-columns: 1fr;
+  }
+
+  .fieldsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .desktopOnly {
+    display: none;
+  }
+
+  .mobileSaveBar {
+    display: block;
+  }
+}
+

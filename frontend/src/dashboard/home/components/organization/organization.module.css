@@ -1251,9 +1251,30 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.drawerSectionIdentity {
+  grid-row: 1;
+}
+
+.drawerSectionAccess {
+  grid-row: 2;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+}
+
+.drawerSectionAccess .sectionBody {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.drawerSectionAudit {
+  grid-row: 3;
 }
 
 .section {
@@ -1352,7 +1373,9 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  max-height: 300px;
+  flex: 1;
+  min-height: 0;
+  max-height: none;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--org-radius-md);
