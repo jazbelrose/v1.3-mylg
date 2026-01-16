@@ -260,28 +260,6 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
           )}
         </ul>
         <div className="dashboard-nav-panel__footer">
-          {onToggleCollapse ? (
-            <div className="dashboard-nav-panel__collapse-toggle-row">
-              <button
-                type="button"
-                className={
-                  isCollapsed
-                    ? "dashboard-nav-panel__collapse-toggle"
-                    : "dashboard-nav-panel__collapse-toggle dashboard-nav-panel__collapse-toggle--expanded"
-                }
-                onClick={onToggleCollapse}
-                aria-label={isCollapsed ? "Expand navigation" : "Collapse navigation"}
-                title={isCollapsed ? "Expand navigation" : "Collapse navigation"}
-              >
-                <span className="dashboard-nav-panel__collapse-toggle-icon" aria-hidden>
-                  {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-                </span>
-                {!isCollapsed ? (
-                  <span className="dashboard-nav-panel__collapse-toggle-label">Collapse</span>
-                ) : null}
-              </button>
-            </div>
-          ) : null}
           {settingsNavItem ? (
             <button
               type="button"
@@ -323,6 +301,28 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
           <ul className="nav-list nav-list--secondary">
             {bottomItems.map((item) => renderNavItem(item, isCollapsed))}
           </ul>
+          {onToggleCollapse ? (
+            <div className="dashboard-nav-panel__collapse-toggle-row">
+              <button
+                type="button"
+                className={
+                  isCollapsed
+                    ? "dashboard-nav-panel__collapse-toggle"
+                    : "dashboard-nav-panel__collapse-toggle dashboard-nav-panel__collapse-toggle--expanded"
+                }
+                onClick={onToggleCollapse}
+                aria-label={isCollapsed ? "Expand navigation" : "Collapse navigation"}
+                title={isCollapsed ? "Expand navigation" : "Collapse navigation"}
+              >
+                <span className="dashboard-nav-panel__collapse-toggle-icon" aria-hidden>
+                  {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+                </span>
+                {!isCollapsed ? (
+                  <span className="dashboard-nav-panel__collapse-toggle-label">Collapse</span>
+                ) : null}
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 

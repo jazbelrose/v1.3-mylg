@@ -71,7 +71,10 @@
 .dashboard-nav-panel__collapse-toggle-row {
   display: flex;
   justify-content: flex-start;
-  padding: 0 9px;
+  width: 100%;
+  margin-top: 0;
+  padding: 12px 9px 0;
+  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.06));
 }
 
 .dashboard-nav-panel__collapse-toggle--expanded {
@@ -393,16 +396,16 @@
 
 .nav-list--secondary {
   margin-top: 0;
-  padding-top: 16px;
-  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.06));
+  padding-top: 0;
+  border-top: none;
 }
 
 .dashboard-nav-panel__footer {
   margin-top: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 0;
+  gap: 10px;
+  padding: 0 0 10px;
 }
 
 .dashboard-nav-panel__account-button {
@@ -518,12 +521,14 @@
 }
 
 .dashboard-nav-panel--collapsed .dashboard-nav-panel__footer {
-  padding: 0;
+  padding: 0 0 12px;
   align-items: center;
+  gap: 6px;
 }
 
 .dashboard-nav-panel--collapsed .dashboard-nav-panel__collapse-toggle-row {
-  padding: 0;
+  margin-top: 0;
+  padding: 8px 0 0;
   justify-content: center;
 }
 
@@ -544,7 +549,7 @@
 }
 
 .dashboard-nav-panel--collapsed .nav-list--secondary {
-  padding: 8px 0 0;
+  padding: 4px 0 6px;
 }
 
 .nav-item {
