@@ -1,5 +1,6 @@
 import React from "react";
 import { ChevronLeft, ChevronRight, Search, User as UserIcon, X } from "lucide-react";
+import MemryLogo from '@/assets/svg/memry logo final sm.svg?react';
 import { Link } from "react-router-dom";
 import GlobalSearch from "@/dashboard/home/components/GlobalSearch";
 import Modal from "@/shared/ui/ModalWithStack";
@@ -247,7 +248,7 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
               className="dashboard-nav-panel__brand-button"
               aria-label="Go to marketing home"
             >
-              <span className="dashboard-nav-panel__brand-mark">M!</span>
+              <MemryLogo className="dashboard-nav-panel__brand-mark" />
               <span className="dashboard-nav-panel__brand-text">memry</span>
             </Link>
             {onToggleCollapse ? (
