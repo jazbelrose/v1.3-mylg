@@ -498,7 +498,7 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
             </div>
 
             <label className={styles.field}>
-              <span className={styles.label}>Bio</span>
+              
               <textarea
                 className={styles.textarea}
                 value={draft.bio}
@@ -514,7 +514,7 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
           <section className={styles.section} aria-label="Security">
             <div className={styles.sectionHeader}>
               <div className={styles.sectionTitle}>Security</div>
-              <div className={styles.sectionSubtitle}>Sensitive actions are handled in a modal.</div>
+              
             </div>
 
             <button type="button" className={styles.rowItem} onClick={() => setIsPasswordOpen(true)}>

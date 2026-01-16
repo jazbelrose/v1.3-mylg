@@ -120,6 +120,7 @@
   font-size: 0.85rem;
   letter-spacing: 0.1em;
   color: var(--muted, #9aa0a6);
+  text-transform: lowercase;
 }
 
 .navigation-drawer {
