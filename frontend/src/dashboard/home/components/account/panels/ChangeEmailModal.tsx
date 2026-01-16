@@ -78,7 +78,7 @@ export default function ChangeEmailModal({
   const submit = async () => {
     if (!canSubmit) return;
     setIsSaving(true);
-            {isSaving ? "Sending…" : "Send code"}
+    try {
       const next = newEmail.trim();
       await updateUserCognitoAttributes({ email: next });
       toast.success("Verification code sent to your new email.");
@@ -185,7 +185,7 @@ export default function ChangeEmailModal({
             disabled={!canSubmit}
           >
             <Mail size={16} aria-hidden />
-            {isSaving ? "Sending5" : "Send code"}
+            {isSaving ? "Sending…" : "Send code"}
           </button>
         </footer>
       </div>
