@@ -36,6 +36,8 @@ export default function ChangePasswordModal({ open, onClose }: ChangePasswordMod
   const [showNew, setShowNew] = React.useState(false);
   const [showConfirm, setShowConfirm] = React.useState(false);
 
+  const [newFocused, setNewFocused] = React.useState(false);
+
   const missing = React.useMemo(() => validatePasswordAgainstTypicalCognitoPolicy(newPassword), [newPassword]);
   const matches = newPassword.length > 0 && newPassword === confirmNewPassword;
 
@@ -67,6 +69,7 @@ export default function ChangePasswordModal({ open, onClose }: ChangePasswordMod
     setShowCurrent(false);
     setShowNew(false);
     setShowConfirm(false);
+    setNewFocused(false);
   }, [open]);
 
   const submit = async () => {
@@ -123,9 +126,9 @@ export default function ChangePasswordModal({ open, onClose }: ChangePasswordMod
           <div className={styles.fieldsGridSingle}>
             <label className={styles.field}>
               <span className={styles.label}>Current password</span>
-              <div className={styles.passwordRow}>
+              <div className={styles.passwordField}>
                 <input
-                  className={styles.input}
+                  className={[styles.input, styles.passwordInput].join(" ")}
                   type={showCurrent ? "text" : "password"}
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
@@ -134,7 +137,7 @@ export default function ChangePasswordModal({ open, onClose }: ChangePasswordMod
                 />
                 <button
                   type="button"
-                  className={styles.passwordToggle}
+                  className={styles.passwordEye}
                   onClick={() => setShowCurrent((v) => !v)}
                   aria-label={showCurrent ? "Hide current password" : "Show current password"}
                 >
@@ -145,35 +148,39 @@ export default function ChangePasswordModal({ open, onClose }: ChangePasswordMod
 
             <label className={styles.field}>
               <span className={styles.label}>New password</span>
-              <div className={styles.passwordRow}>
+              <div className={styles.passwordField}>
                 <input
-                  className={styles.input}
+                  className={[styles.input, styles.passwordInput].join(" ")}
                   type={showNew ? "text" : "password"}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
+                  onFocus={() => setNewFocused(true)}
+                  onBlur={() => setNewFocused(false)}
                   placeholder="New password"
                   autoComplete="new-password"
                   minLength={8}
                 />
                 <button
                   type="button"
-                  className={styles.passwordToggle}
+                  className={styles.passwordEye}
                   onClick={() => setShowNew((v) => !v)}
                   aria-label={showNew ? "Hide new password" : "Show new password"}
                 >
                   {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              <span className={styles.helper}>
-                {missing.length ? `Password rules: needs ${missing.join(", ")}.` : "Password rules: looks good."}
-              </span>
+              {newFocused || newPassword.length > 0 ? (
+                <span className={styles.helper}>
+                  {missing.length ? `Password rules: needs ${missing.join(", ")}.` : "Password rules: looks good."}
+                </span>
+              ) : null}
             </label>
 
             <label className={styles.field}>
               <span className={styles.label}>Confirm new password</span>
-              <div className={styles.passwordRow}>
+              <div className={styles.passwordField}>
                 <input
-                  className={styles.input}
+                  className={[styles.input, styles.passwordInput].join(" ")}
                   type={showConfirm ? "text" : "password"}
                   value={confirmNewPassword}
                   onChange={(e) => setConfirmNewPassword(e.target.value)}
@@ -182,7 +189,7 @@ export default function ChangePasswordModal({ open, onClose }: ChangePasswordMod
                 />
                 <button
                   type="button"
-                  className={styles.passwordToggle}
+                  className={styles.passwordEye}
                   onClick={() => setShowConfirm((v) => !v)}
                   aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
                 >

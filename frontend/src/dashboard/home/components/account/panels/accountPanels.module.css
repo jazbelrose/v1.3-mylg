@@ -994,27 +994,46 @@
   gap: 10px;
 }
 
-.passwordRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.passwordField {
+  position: relative;
+  width: 100%;
 }
 
-.passwordToggle {
-  height: 44px;
-  width: 44px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.84);
+.passwordInput {
+  width: 100%;
+  padding-right: 44px;
+}
+
+.passwordEye {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.72);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
 }
 
-.passwordToggle:hover {
-  background: rgba(255, 255, 255, 0.09);
+.passwordEye:hover {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.passwordEye:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.passwordEye:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.20);
 }
 
 @media (max-width: 767px) {
