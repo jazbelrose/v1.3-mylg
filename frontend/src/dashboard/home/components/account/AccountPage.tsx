@@ -81,30 +81,10 @@ export default function AccountPage() {
             </div>
 
             <div className={styles.headerRight}>
-              {panel === "profile" ? (
-                <div className={styles.headerActions} aria-label="Profile actions">
-                  {headerMeta.role ? (
-                    <span className={styles.rolePill} title={String(headerMeta.role)}>
-                      Role: {String(headerMeta.role).replace(/^./, (c) => c.toUpperCase())}
-                    </span>
-                  ) : null}
-                  <button
-                    type="button"
-                    className={styles.headerSecondaryButton}
-                    onClick={onCancelProfile}
-                    disabled={headerMeta.saveState !== "dirty"}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.headerPrimaryButton}
-                    onClick={onSaveProfile}
-                    disabled={!headerMeta.canSave || headerMeta.saveState !== "dirty"}
-                  >
-                    {headerMeta.saveState === "saving" ? "Saving…" : "Save changes"}
-                  </button>
-                </div>
+              {headerMeta.role ? (
+                <span className={styles.rolePill} title={String(headerMeta.role)}>
+                  Role: {String(headerMeta.role).replace(/^./, (c) => c.toUpperCase())}
+                </span>
               ) : null}
               {panel === "profile" && profileSaveState !== "clean" ? (
                 <div
@@ -151,6 +131,26 @@ export default function AccountPage() {
 
           <div className={styles.headerTabs}>
             <AccountNav value={panel} onChange={setPanel} />
+            {panel === "profile" ? (
+              <div className={styles.headerActions} aria-label="Profile actions">
+                <button
+                  type="button"
+                  className={styles.headerSecondaryButton}
+                  onClick={onCancelProfile}
+                  disabled={headerMeta.saveState !== "dirty"}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={styles.headerPrimaryButton}
+                  onClick={onSaveProfile}
+                  disabled={!headerMeta.canSave || headerMeta.saveState !== "dirty"}
+                >
+                  {headerMeta.saveState === "saving" ? "Saving…" : "Save changes"}
+                </button>
+              </div>
+            ) : null}
           </div>
         </header>
 
