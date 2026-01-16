@@ -163,6 +163,15 @@
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.58);
   white-space: nowrap;
+  line-height: 1;
+}
+
+.credentialsLabel svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  flex: 0 0 auto;
+  transform: translateY(-0.5px);
 }
 
 .credentialsValue {
@@ -246,6 +255,12 @@
   align-items: center;
   gap: 6px;
   white-space: nowrap;
+  line-height: 1;
+}
+
+.securityQuickAction svg {
+  display: block;
+  transform: translateY(-0.5px);
 }
 
 .securityQuickAction:hover:enabled {
@@ -701,7 +716,8 @@
 .label {
   font-size: 12px;
   font-weight: 650;
-  color: rgba(255, 255, 255, 0.78);
+  color: rgba(255, 255, 255, 0.72);
+  padding-left: 6px;
 }
 
 .labelRow {
