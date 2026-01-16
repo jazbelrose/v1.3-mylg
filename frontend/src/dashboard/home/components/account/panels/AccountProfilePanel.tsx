@@ -302,10 +302,18 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
             </div>
 
             <div className={styles.identityHeaderRight}>
-              <button type="button" className={styles.ghostButton} onClick={() => setIsPasswordOpen(true)}>
-                <Lock size={16} aria-hidden />
-                Change password
-              </button>
+              <div className={styles.securityQuickRow} aria-label="Security">
+                <div className={styles.securityQuickMeta}>
+                  <div className={styles.securityQuickLabel}>Security</div>
+                  <div className={styles.securityQuickValue}>
+                    Password <span aria-hidden>••••••••</span>
+                  </div>
+                </div>
+                <button type="button" className={styles.securityQuickAction} onClick={() => setIsPasswordOpen(true)}>
+                  <Lock size={14} aria-hidden />
+                  Change
+                </button>
+              </div>
             </div>
           </section>
 
