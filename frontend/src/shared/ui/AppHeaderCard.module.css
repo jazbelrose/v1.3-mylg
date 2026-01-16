@@ -2,7 +2,7 @@
   position: sticky;
   top: 0;
   z-index: 1200;
-  padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 8px;
+  
   pointer-events: none;
 }
 
