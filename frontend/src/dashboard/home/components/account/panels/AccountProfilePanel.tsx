@@ -5,8 +5,7 @@ import { ChevronDown, Lock } from "lucide-react";
 import { useData } from "@/app/contexts/useData";
 import { updateUserProfile, type UserProfile } from "@/shared/utils/api";
 import { resolveStoredFileUrl } from "@/shared/utils/media";
-import { Kebab } from "@/shared/icons/Kebab";
-import AvatarPickerModal, { type AvatarPickerResult } from "./AvatarPickerModal";
+import AvatarPickerModal, { type AvatarPickerResult, type AvatarPickerModalProps } from "./AvatarPickerModal";
 import ChangePasswordModal from "./ChangePasswordModal";
 import styles from "./accountPanels.module.css";
 
@@ -106,6 +105,7 @@ type AccountProfilePanelProps = {
 
 const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfilePanelProps>(
   ({ onSaveStateChange, onMetaChange }: AccountProfilePanelProps, ref) => {
+  const AvatarPickerModalWithRemove = AvatarPickerModal as React.FC<AvatarPickerModalProps>;
   const { refreshUser } = useData() as { refreshUser?: (force?: boolean) => Promise<void> };
   const { userData, setUserData, toggleSettingsUpdated } = useData() as {
     userData?: UserData;
@@ -171,8 +171,6 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
   const aboutMaxChars = 280;
   const aboutChars = draft?.bio?.length ?? 0;
   const showRemove = Boolean(draft?.thumbnail || userData?.thumbnail);
-
-  const photoMenuRef = React.useRef<HTMLDetailsElement | null>(null);
 
   const canSave = Boolean(
     userData &&
@@ -276,7 +274,6 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
     setDraft((prev) => (prev ? { ...prev, thumbnail: "" } : prev));
     if (avatarLocalPreview) URL.revokeObjectURL(avatarLocalPreview);
     setAvatarLocalPreview(null);
-    if (photoMenuRef.current) photoMenuRef.current.open = false;
   };
 
   const displayName = [draft.firstName.trim(), draft.lastName.trim()].filter(Boolean).join(" ") || "Your name";
@@ -299,7 +296,8 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
                 type="button"
                 className={styles.avatarButton}
                 onClick={() => setIsAvatarOpen(true)}
-                aria-label="Change photo"
+                aria-label="Edit photo"
+                title="Edit photo"
               >
                 <span className={styles.avatarSquircle} aria-hidden>
                   {avatarSrc ? <img src={avatarSrc} alt="" /> : initialsFromUser(userData)}
@@ -312,37 +310,10 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
             </div>
 
             <div className={styles.identityHeaderRight}>
-              <button type="button" className={styles.ghostButton} onClick={() => setIsAvatarOpen(true)}>
-                Change photo
+              <button type="button" className={styles.ghostButton} onClick={() => setIsPasswordOpen(true)}>
+                <Lock size={16} aria-hidden />
+                Change password
               </button>
-
-              <details className={styles.kebabMenu} ref={photoMenuRef}>
-                <summary className={styles.kebabButton} aria-label="Photo options">
-                  <Kebab size={18} />
-                </summary>
-                <div className={styles.kebabPopover} role="menu" aria-label="Photo actions">
-                  <button
-                    type="button"
-                    className={styles.menuItem}
-                    onClick={() => {
-                      setIsAvatarOpen(true);
-                      if (photoMenuRef.current) photoMenuRef.current.open = false;
-                    }}
-                    role="menuitem"
-                  >
-                    Change photo…
-                  </button>
-                  <button
-                    type="button"
-                    className={[styles.menuItem, styles.menuItemDanger].join(" ")}
-                    onClick={removeAvatar}
-                    role="menuitem"
-                    disabled={!showRemove}
-                  >
-                    Remove photo
-                  </button>
-                </div>
-              </details>
             </div>
           </section>
 
@@ -486,56 +457,41 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
                 </div>
               </details>
             </section>
-
-            <section className={[styles.section, styles.cardSpan2].join(" ")} aria-label="About">
-              <div className={styles.sectionHeaderRow}>
-                <div>
-                  <div className={styles.sectionTitle}>About</div>
-                  <div className={styles.sectionSubtitle}>Short bio shown to teammates (optional).</div>
-                </div>
-                <div className={styles.textMeta} aria-label="Bio character count">
-                  {aboutChars}/{aboutMaxChars}
-                </div>
-              </div>
-
-              <label className={styles.field}>
-                <textarea
-                  className={styles.textarea}
-                  value={draft.bio}
-                  onChange={(e) => setDraft({ ...draft, bio: e.target.value.slice(0, aboutMaxChars) })}
-                  placeholder="A sentence or two about you…"
-                  rows={6}
-                />
-              </label>
-            </section>
-
-            <section className={[styles.section, styles.cardSpan2].join(" ")} aria-label="Security">
-              <div className={styles.sectionHeader}>
-                <div className={styles.sectionTitle}>Security</div>
-              </div>
-
-              <button type="button" className={styles.rowItem} onClick={() => setIsPasswordOpen(true)}>
-                <span className={styles.rowItemLeft}>
-                  <span className={styles.rowItemIcon} aria-hidden>
-                    <Lock size={16} />
-                  </span>
-                  <span className={styles.rowItemCopy}>
-                    <span className={styles.rowItemTitle}>Change password</span>
-                    <span className={styles.rowItemSubtitle}>Update your password for this account.</span>
-                  </span>
-                </span>
-                <span className={styles.rowItemRight}>Open</span>
-              </button>
-            </section>
           </div>
+
+          <section className={styles.aboutGrow} aria-label="About">
+            <div className={styles.sectionHeaderRow}>
+              <div>
+                <div className={styles.sectionTitle}>About</div>
+                <div className={styles.sectionSubtitle}>Short bio shown to teammates (optional).</div>
+              </div>
+              <div className={styles.textMeta} aria-label="Bio character count">
+                {aboutChars}/{aboutMaxChars}
+              </div>
+            </div>
+
+            <div className={styles.aboutBody}>
+              <textarea
+                className={[styles.textarea, styles.aboutTextarea].join(" ")}
+                value={draft.bio}
+                onChange={(e) => setDraft({ ...draft, bio: e.target.value.slice(0, aboutMaxChars) })}
+                placeholder="A sentence or two about you…"
+              />
+            </div>
+          </section>
         </div>
       </article>
 
-      <AvatarPickerModal
+      <AvatarPickerModalWithRemove
         open={isAvatarOpen}
         onClose={() => setIsAvatarOpen(false)}
         userId={userData.userId}
         onSaved={handleAvatarSaved}
+        canRemove={showRemove}
+        onRemove={() => {
+          removeAvatar();
+          setIsAvatarOpen(false);
+        }}
       />
 
       <ChangePasswordModal open={isPasswordOpen} onClose={() => setIsPasswordOpen(false)} />

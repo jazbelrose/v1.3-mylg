@@ -1,5 +1,8 @@
 .card {
   --radius: 10px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   border-radius: var(--radius);
   border: 1px solid rgba(255, 255, 255, 0.10);
   background: rgba(255, 255, 255, 0.03);
@@ -35,6 +38,8 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  flex: 1;
+  min-height: 0;
 }
 
 /* Profile single-surface sections */
@@ -446,7 +451,7 @@
 .avatarSquircle {
   width: 72px;
   height: 72px;
-  border-radius: 22px;
+  border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(0, 0, 0, 0.25);
   overflow: hidden;
@@ -457,6 +462,31 @@
   font-weight: 750;
   letter-spacing: 0.02em;
   user-select: none;
+}
+
+.avatarButton:hover .avatarSquircle {
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.22);
+  border-color: rgba(250, 51, 86, 0.30);
+}
+
+.aboutGrow {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.aboutBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.aboutTextarea {
+  flex: 1;
+  min-height: 180px;
+  resize: vertical;
 }
 
 .avatarSquircle img {

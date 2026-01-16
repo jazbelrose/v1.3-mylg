@@ -20,6 +20,8 @@ export type AvatarPickerModalProps = {
   onClose: () => void;
   userId: string;
   onSaved: (result: AvatarPickerResult) => void;
+  canRemove?: boolean;
+  onRemove?: () => void;
 };
 
 function createImage(url: string): Promise<HTMLImageElement> {
@@ -71,7 +73,7 @@ function isSupportedImage(file: File): boolean {
   return file.type.startsWith("image/");
 }
 
-export default function AvatarPickerModal({ open, onClose, userId, onSaved }: AvatarPickerModalProps) {
+export default function AvatarPickerModal({ open, onClose, userId, onSaved, canRemove, onRemove }: AvatarPickerModalProps) {
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
@@ -321,6 +323,20 @@ export default function AvatarPickerModal({ open, onClose, userId, onSaved }: Av
       </div>
 
       <div className={styles.footer}>
+        {canRemove && onRemove ? (
+          <button
+            type="button"
+            className={styles.dangerButton}
+            onClick={() => {
+              if (isUploading) return;
+              onRemove();
+              onClose();
+            }}
+            disabled={isUploading}
+          >
+            Remove photo
+          </button>
+        ) : null}
         <button type="button" className={styles.secondaryButton} onClick={onClose} disabled={isUploading}>
           Cancel
         </button>
