@@ -3,8 +3,9 @@ import { toast } from "react-toastify";
 import { ChevronDown, Lock } from "lucide-react";
 
 import { useData } from "@/app/contexts/useData";
-import { updateUserProfile } from "@/shared/utils/api";
+import { updateUserProfile, type UserProfile } from "@/shared/utils/api";
 import { resolveStoredFileUrl } from "@/shared/utils/media";
+import { Kebab } from "@/shared/icons/Kebab";
 import AvatarPickerModal, { type AvatarPickerResult } from "./AvatarPickerModal";
 import ChangePasswordModal from "./ChangePasswordModal";
 import styles from "./accountPanels.module.css";
@@ -50,14 +51,6 @@ type Draft = {
   region: string;
   postalCode: string;
   country: string;
-};
-
-const ROLE_DESCRIPTIONS: Record<string, string> = {
-  admin: "Full administrative access",
-  designer: "Create and manage designs",
-  builder: "Manage build tasks",
-  vendor: "Vendor access to supply orders",
-  client: "View project progress",
 };
 
 function initialsFromUser(userData: UserData | null): string {
@@ -126,25 +119,6 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
   const [saveState, setSaveState] = React.useState<ProfileSaveState>("clean");
   const [isPasswordOpen, setIsPasswordOpen] = React.useState(false);
 
-  const [isMobile, setIsMobile] = React.useState(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-    return window.matchMedia("(max-width: 767px)").matches;
-  });
-
-  React.useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-    const q = window.matchMedia("(max-width: 767px)");
-    const update = (event: MediaQueryList | MediaQueryListEvent) => setIsMobile(event.matches);
-    update(q);
-    if (typeof q.addEventListener === "function") {
-      q.addEventListener("change", update);
-      return () => q.removeEventListener("change", update);
-    }
-    q.addListener(update);
-    return () => q.removeListener(update);
-  }, []);
-
-
   React.useEffect(() => {
     if (!userData) return;
     setDraft((prev) => {
@@ -196,9 +170,9 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
 
   const aboutMaxChars = 280;
   const aboutChars = draft?.bio?.length ?? 0;
-  const roleKey = (userData?.role || "").toLowerCase();
   const showRemove = Boolean(draft?.thumbnail || userData?.thumbnail);
-  const roleLabel = userData?.role ? `Role: ${String(userData.role).replace(/^./, (c) => c.toUpperCase())}` : "";
+
+  const photoMenuRef = React.useRef<HTMLDetailsElement | null>(null);
 
   const canSave = Boolean(
     userData &&
@@ -224,14 +198,15 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
 
     setSaveState("saving");
     try {
-      const updatedUserData: UserData = {
+      const nextThumbnail = draft.thumbnail.trim();
+      const updatedUserData: UserProfile = {
         ...userData,
         firstName: draft.firstName.trim(),
         lastName: draft.lastName.trim(),
         phoneNumber: draft.phoneNumber.trim(),
         company: draft.company.trim(),
         occupation: draft.occupation.trim(),
-        thumbnail: draft.thumbnail.trim(),
+        thumbnail: nextThumbnail,
         bio: draft.bio,
         addressLine1: draft.addressLine1,
         addressLine2: draft.addressLine2,
@@ -241,8 +216,8 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
         country: draft.country,
       };
 
-      await updateUserProfile(updatedUserData as any);
-      const thumbnailUrl = resolveStoredFileUrl(updatedUserData.thumbnail) || undefined;
+      await updateUserProfile(updatedUserData);
+      const thumbnailUrl = resolveStoredFileUrl(nextThumbnail) || undefined;
       setUserData?.({ ...updatedUserData, thumbnailUrl });
       toggleSettingsUpdated?.();
       await refreshUser?.(true);
@@ -272,7 +247,7 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
       .map((s) => s.trim())
       .filter(Boolean);
     return parts.length ? parts.join(", ") : "Optional";
-  }, [draft?.city, draft?.country, draft?.region]);
+  }, [draft]);
 
   if (!userData || !draft) {
     return (
@@ -301,7 +276,11 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
     setDraft((prev) => (prev ? { ...prev, thumbnail: "" } : prev));
     if (avatarLocalPreview) URL.revokeObjectURL(avatarLocalPreview);
     setAvatarLocalPreview(null);
+    if (photoMenuRef.current) photoMenuRef.current.open = false;
   };
+
+  const displayName = [draft.firstName.trim(), draft.lastName.trim()].filter(Boolean).join(" ") || "Your name";
+  const displayEmail = userData.email?.trim() || "";
 
   return (
     <>
@@ -311,225 +290,244 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
             <div className={styles.cardTitle}>Profile</div>
             <div className={styles.cardSubtitle}>Account details and preferences.</div>
           </div>
-
-          {userData.role ? (
-            <span className={[styles.pill, styles.pillMuted].join(" ")} title={ROLE_DESCRIPTIONS[roleKey] || ""} aria-label={roleLabel}>
-              {roleLabel}
-            </span>
-          ) : null}
         </header>
 
         <div className={styles.cardBody}>
-          <section className={styles.section} aria-label="Identity">
-            <div className={styles.sectionHeader}>
-              <div className={styles.sectionTitle}>Identity</div>
-              <div className={styles.sectionSubtitle}>Your core account details.</div>
-            </div>
-
-            <div className={styles.identitySectionGrid}>
-              <div className={styles.avatarBlock}>
-                <div className={styles.avatarSquircle} aria-label="Avatar">
+          <section className={styles.identityHeaderRow} aria-label="Identity">
+            <div className={styles.identityLeft}>
+              <button
+                type="button"
+                className={styles.avatarButton}
+                onClick={() => setIsAvatarOpen(true)}
+                aria-label="Change photo"
+              >
+                <span className={styles.avatarSquircle} aria-hidden>
                   {avatarSrc ? <img src={avatarSrc} alt="" /> : initialsFromUser(userData)}
-                </div>
-                <div className={styles.avatarActions}>
-                  <button type="button" className={styles.secondaryButton} onClick={() => setIsAvatarOpen(true)}>
-                    Change photo
-                  </button>
-                  {showRemove ? (
-                    <button type="button" className={[styles.textButton, styles.textButtonDanger].join(" ")} onClick={removeAvatar}>
-                      Remove
-                    </button>
-                  ) : null}
-                  <div className={styles.helper}>Recommended 512×512+. Square images look best.</div>
-                </div>
-              </div>
-
-              <div className={styles.fieldsGrid}>
-                <label className={styles.field}>
-                  <span className={styles.label}>First name</span>
-                  <input
-                    className={styles.input}
-                    value={draft.firstName}
-                    onChange={(e) => setDraft({ ...draft, firstName: e.target.value })}
-                    placeholder="First name"
-                    autoComplete="given-name"
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>Last name</span>
-                  <input
-                    className={styles.input}
-                    value={draft.lastName}
-                    onChange={(e) => setDraft({ ...draft, lastName: e.target.value })}
-                    placeholder="Last name"
-                    autoComplete="family-name"
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>Email</span>
-                  <input className={styles.input} value={userData.email ?? ""} disabled readOnly />
-                  <span className={styles.helper}>Email is managed by your sign-in provider.</span>
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>Phone</span>
-                  <input
-                    className={styles.input}
-                    value={draft.phoneNumber}
-                    onChange={(e) => setDraft({ ...draft, phoneNumber: e.target.value })}
-                    placeholder="(555) 555-5555"
-                    autoComplete="tel"
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>Company</span>
-                  <input
-                    className={styles.input}
-                    value={draft.company}
-                    onChange={(e) => setDraft({ ...draft, company: e.target.value })}
-                    placeholder="Company"
-                    autoComplete="organization"
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>Occupation</span>
-                  <input
-                    className={styles.input}
-                    value={draft.occupation}
-                    onChange={(e) => setDraft({ ...draft, occupation: e.target.value })}
-                    placeholder="Designer, PM, Builder…"
-                  />
-                </label>
-              </div>
-            </div>
-          </section>
-
-          <div className={styles.sectionDivider} />
-
-          <section className={styles.section} aria-label="Address">
-            <details className={styles.addressDetails}>
-              <summary className={styles.addressSummary}>
-                <span className={styles.addressSummaryLeft}>
-                  <span className={styles.addressSummaryTitle}>Address</span>
-                  <span className={styles.addressSummarySubtitle}>{addressSummary}</span>
                 </span>
-                <ChevronDown size={18} className={styles.addressChevron} aria-hidden />
-              </summary>
-
-              <div className={styles.addressBody}>
-                <div className={styles.addressTopRow}>
-                  <label className={styles.field}>
-                    <span className={styles.label}>Address line 1</span>
-                    <input
-                      className={styles.input}
-                      value={draft.addressLine1}
-                      onChange={(e) => setDraft({ ...draft, addressLine1: e.target.value })}
-                      autoComplete="address-line1"
-                      placeholder="Street address"
-                    />
-                  </label>
-                  <label className={styles.field}>
-                    <span className={styles.label}>Address line 2</span>
-                    <input
-                      className={styles.input}
-                      value={draft.addressLine2}
-                      onChange={(e) => setDraft({ ...draft, addressLine2: e.target.value })}
-                      autoComplete="address-line2"
-                      placeholder="Apt, suite, unit (optional)"
-                    />
-                  </label>
-                </div>
-                <div className={styles.addressBottomRow}>
-                  <label className={styles.field}>
-                    <span className={styles.label}>City</span>
-                    <input
-                      className={styles.input}
-                      value={draft.city}
-                      onChange={(e) => setDraft({ ...draft, city: e.target.value })}
-                      autoComplete="address-level2"
-                      placeholder="City"
-                    />
-                  </label>
-                  <label className={styles.field}>
-                    <span className={styles.label}>State / Region</span>
-                    <input
-                      className={styles.input}
-                      value={draft.region}
-                      onChange={(e) => setDraft({ ...draft, region: e.target.value })}
-                      autoComplete="address-level1"
-                      placeholder="State / Region"
-                    />
-                  </label>
-                  <label className={styles.field}>
-                    <span className={styles.label}>Zip / Postal</span>
-                    <input
-                      className={styles.input}
-                      value={draft.postalCode}
-                      onChange={(e) => setDraft({ ...draft, postalCode: e.target.value })}
-                      autoComplete="postal-code"
-                      placeholder="Zip / Postal"
-                    />
-                  </label>
-                  <label className={styles.field}>
-                    <span className={styles.label}>Country</span>
-                    <input
-                      className={styles.input}
-                      value={draft.country}
-                      onChange={(e) => setDraft({ ...draft, country: e.target.value })}
-                      autoComplete="country-name"
-                      placeholder="Country"
-                    />
-                  </label>
-                </div>
-              </div>
-            </details>
-          </section>
-
-          <div className={styles.sectionDivider} />
-
-          <section className={styles.section} aria-label="About">
-            <div className={styles.sectionHeaderRow}>
-              <div>
-                <div className={styles.sectionTitle}>About</div>
-                <div className={styles.sectionSubtitle}>Short bio shown to teammates (optional).</div>
-              </div>
-              <div className={styles.textMeta} aria-label="Bio character count">
-                {aboutChars}/{aboutMaxChars}
+              </button>
+              <div className={styles.identityNameStack}>
+                <div className={styles.identityName}>{displayName}</div>
+                {displayEmail ? <div className={styles.identityEmail}>{displayEmail}</div> : null}
               </div>
             </div>
 
+            <div className={styles.identityHeaderRight}>
+              <button type="button" className={styles.ghostButton} onClick={() => setIsAvatarOpen(true)}>
+                Change photo
+              </button>
+
+              <details className={styles.kebabMenu} ref={photoMenuRef}>
+                <summary className={styles.kebabButton} aria-label="Photo options">
+                  <Kebab size={18} />
+                </summary>
+                <div className={styles.kebabPopover} role="menu" aria-label="Photo actions">
+                  <button
+                    type="button"
+                    className={styles.menuItem}
+                    onClick={() => {
+                      setIsAvatarOpen(true);
+                      if (photoMenuRef.current) photoMenuRef.current.open = false;
+                    }}
+                    role="menuitem"
+                  >
+                    Change photo…
+                  </button>
+                  <button
+                    type="button"
+                    className={[styles.menuItem, styles.menuItemDanger].join(" ")}
+                    onClick={removeAvatar}
+                    role="menuitem"
+                    disabled={!showRemove}
+                  >
+                    Remove photo
+                  </button>
+                </div>
+              </details>
+            </div>
+          </section>
+
+          <div className={styles.formGrid} aria-label="Profile fields">
             <label className={styles.field}>
-              
-              <textarea
-                className={styles.textarea}
-                value={draft.bio}
-                onChange={(e) => setDraft({ ...draft, bio: e.target.value.slice(0, aboutMaxChars) })}
-                placeholder="A sentence or two about you…"
-                rows={6}
+              <span className={styles.label}>First name</span>
+              <input
+                className={styles.input}
+                value={draft.firstName}
+                onChange={(e) => setDraft({ ...draft, firstName: e.target.value })}
+                placeholder="First name"
+                autoComplete="given-name"
               />
             </label>
-          </section>
+            <label className={styles.field}>
+              <span className={styles.label}>Last name</span>
+              <input
+                className={styles.input}
+                value={draft.lastName}
+                onChange={(e) => setDraft({ ...draft, lastName: e.target.value })}
+                placeholder="Last name"
+                autoComplete="family-name"
+              />
+            </label>
 
-          <div className={styles.sectionDivider} />
-
-          <section className={styles.section} aria-label="Security">
-            <div className={styles.sectionHeader}>
-              <div className={styles.sectionTitle}>Security</div>
-              
-            </div>
-
-            <button type="button" className={styles.rowItem} onClick={() => setIsPasswordOpen(true)}>
-              <span className={styles.rowItemLeft}>
-                <span className={styles.rowItemIcon} aria-hidden>
-                  <Lock size={16} />
-                </span>
-                <span className={styles.rowItemCopy}>
-                  <span className={styles.rowItemTitle}>Change password</span>
-                  <span className={styles.rowItemSubtitle}>Update your password for this account.</span>
+            <label className={styles.field}>
+              <span className={styles.labelRow}>
+                <span className={styles.label}>Email</span>
+                <span className={styles.labelIcon} title="Managed by your sign-in provider" aria-label="Managed by provider">
+                  <Lock size={14} />
                 </span>
               </span>
-              <span className={styles.rowItemRight}>Open</span>
-            </button>
-          </section>
+              <input className={styles.input} value={userData.email ?? ""} disabled readOnly />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.label}>Phone</span>
+              <input
+                className={styles.input}
+                value={draft.phoneNumber}
+                onChange={(e) => setDraft({ ...draft, phoneNumber: e.target.value })}
+                placeholder="(555) 555-5555"
+                autoComplete="tel"
+              />
+            </label>
+
+            <label className={styles.field}>
+              <span className={styles.label}>Company</span>
+              <input
+                className={styles.input}
+                value={draft.company}
+                onChange={(e) => setDraft({ ...draft, company: e.target.value })}
+                placeholder="Company"
+                autoComplete="organization"
+              />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.label}>Occupation</span>
+              <input
+                className={styles.input}
+                value={draft.occupation}
+                onChange={(e) => setDraft({ ...draft, occupation: e.target.value })}
+                placeholder="Designer, PM, Builder…"
+              />
+            </label>
+
+            <section className={[styles.section, styles.cardSpan2].join(" ")} aria-label="Address">
+              <details className={styles.addressDetails}>
+                <summary className={styles.addressSummary}>
+                  <span className={styles.addressSummaryLeft}>
+                    <span className={styles.addressSummaryTitle}>Address</span>
+                    <span className={styles.addressSummarySubtitle}>{addressSummary}</span>
+                  </span>
+                  <ChevronDown size={18} className={styles.addressChevron} aria-hidden />
+                </summary>
+
+                <div className={styles.addressBody}>
+                  <div className={styles.addressTopRow}>
+                    <label className={styles.field}>
+                      <span className={styles.label}>Address line 1</span>
+                      <input
+                        className={styles.input}
+                        value={draft.addressLine1}
+                        onChange={(e) => setDraft({ ...draft, addressLine1: e.target.value })}
+                        autoComplete="address-line1"
+                        placeholder="Street address"
+                      />
+                    </label>
+                    <label className={styles.field}>
+                      <span className={styles.label}>Address line 2</span>
+                      <input
+                        className={styles.input}
+                        value={draft.addressLine2}
+                        onChange={(e) => setDraft({ ...draft, addressLine2: e.target.value })}
+                        autoComplete="address-line2"
+                        placeholder="Apt, suite, unit (optional)"
+                      />
+                    </label>
+                  </div>
+                  <div className={styles.addressBottomRow}>
+                    <label className={styles.field}>
+                      <span className={styles.label}>City</span>
+                      <input
+                        className={styles.input}
+                        value={draft.city}
+                        onChange={(e) => setDraft({ ...draft, city: e.target.value })}
+                        autoComplete="address-level2"
+                        placeholder="City"
+                      />
+                    </label>
+                    <label className={styles.field}>
+                      <span className={styles.label}>State / Region</span>
+                      <input
+                        className={styles.input}
+                        value={draft.region}
+                        onChange={(e) => setDraft({ ...draft, region: e.target.value })}
+                        autoComplete="address-level1"
+                        placeholder="State / Region"
+                      />
+                    </label>
+                    <label className={styles.field}>
+                      <span className={styles.label}>Zip / Postal</span>
+                      <input
+                        className={styles.input}
+                        value={draft.postalCode}
+                        onChange={(e) => setDraft({ ...draft, postalCode: e.target.value })}
+                        autoComplete="postal-code"
+                        placeholder="Zip / Postal"
+                      />
+                    </label>
+                    <label className={styles.field}>
+                      <span className={styles.label}>Country</span>
+                      <input
+                        className={styles.input}
+                        value={draft.country}
+                        onChange={(e) => setDraft({ ...draft, country: e.target.value })}
+                        autoComplete="country-name"
+                        placeholder="Country"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </details>
+            </section>
+
+            <section className={[styles.section, styles.cardSpan2].join(" ")} aria-label="About">
+              <div className={styles.sectionHeaderRow}>
+                <div>
+                  <div className={styles.sectionTitle}>About</div>
+                  <div className={styles.sectionSubtitle}>Short bio shown to teammates (optional).</div>
+                </div>
+                <div className={styles.textMeta} aria-label="Bio character count">
+                  {aboutChars}/{aboutMaxChars}
+                </div>
+              </div>
+
+              <label className={styles.field}>
+                <textarea
+                  className={styles.textarea}
+                  value={draft.bio}
+                  onChange={(e) => setDraft({ ...draft, bio: e.target.value.slice(0, aboutMaxChars) })}
+                  placeholder="A sentence or two about you…"
+                  rows={6}
+                />
+              </label>
+            </section>
+
+            <section className={[styles.section, styles.cardSpan2].join(" ")} aria-label="Security">
+              <div className={styles.sectionHeader}>
+                <div className={styles.sectionTitle}>Security</div>
+              </div>
+
+              <button type="button" className={styles.rowItem} onClick={() => setIsPasswordOpen(true)}>
+                <span className={styles.rowItemLeft}>
+                  <span className={styles.rowItemIcon} aria-hidden>
+                    <Lock size={16} />
+                  </span>
+                  <span className={styles.rowItemCopy}>
+                    <span className={styles.rowItemTitle}>Change password</span>
+                    <span className={styles.rowItemSubtitle}>Update your password for this account.</span>
+                  </span>
+                </span>
+                <span className={styles.rowItemRight}>Open</span>
+              </button>
+            </section>
+          </div>
         </div>
       </article>
 

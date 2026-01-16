@@ -108,6 +108,147 @@
   gap: 10px;
 }
 
+.identityHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 2px;
+}
+
+.identityLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.avatarButton {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 22px;
+}
+
+.avatarButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.20);
+}
+
+.identityNameStack {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.identityName {
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.95);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.identityEmail {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ghostButton {
+  height: 34px;
+  border-radius: 12px;
+  padding: 0 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.ghostButton:hover:enabled {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.kebabMenu {
+  position: relative;
+}
+
+.kebabMenu summary {
+  list-style: none;
+}
+
+.kebabMenu summary::-webkit-details-marker {
+  display: none;
+}
+
+.kebabButton {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.92);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.kebabButton:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.kebabPopover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(16, 16, 18, 0.96);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  z-index: 10;
+  display: grid;
+  gap: 4px;
+}
+
+.menuItem {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 10px 10px;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.menuItem:hover:enabled {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.menuItem:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.menuItemDanger {
+  color: rgba(250, 51, 86, 0.95);
+}
+
 .pill {
   height: 28px;
   padding: 0 10px;
@@ -337,6 +478,12 @@
   gap: 12px;
 }
 
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 12px;
+}
+
 .fieldsGridSingle {
   display: grid;
   grid-template-columns: 1fr;
@@ -351,7 +498,7 @@
 
 .addressBottomRow {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -364,6 +511,24 @@
   font-size: 12px;
   font-weight: 650;
   color: rgba(255, 255, 255, 0.78);
+}
+
+.labelRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.labelIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.62);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
 }
 
 .input,
@@ -522,6 +687,10 @@
   }
 
   .fieldsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .formGrid {
     grid-template-columns: 1fr;
   }
 
