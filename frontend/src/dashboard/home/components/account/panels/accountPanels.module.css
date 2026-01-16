@@ -3,6 +3,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  flex: 1;
   border-radius: var(--radius);
   border: 1px solid rgba(255, 255, 255, 0.10);
   background: rgba(255, 255, 255, 0.03);
@@ -548,7 +549,8 @@
 
 .aboutTextarea {
   flex: 1;
-  min-height: 180px;
+  min-height: 0;
+  height: 100%;
   resize: vertical;
 }
 

@@ -1,11 +1,13 @@
 import React from "react";
 import { toast } from "react-toastify";
-import { Lock } from "lucide-react";
+import { Lock, Mail } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { useData } from "@/app/contexts/useData";
 import { updateUserProfile, type UserProfile } from "@/shared/utils/api";
 import { resolveStoredFileUrl } from "@/shared/utils/media";
 import AvatarPickerModal, { type AvatarPickerResult, type AvatarPickerModalProps } from "./AvatarPickerModal";
+import ChangeEmailModal from "./ChangeEmailModal";
 import ChangePasswordModal from "./ChangePasswordModal";
 import styles from "./accountPanels.module.css";
 
@@ -105,6 +107,7 @@ type AccountProfilePanelProps = {
 
 const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfilePanelProps>(
   ({ onSaveStateChange, onMetaChange }: AccountProfilePanelProps, ref) => {
+  const navigate = useNavigate();
   const AvatarPickerModalWithRemove = AvatarPickerModal as React.FC<AvatarPickerModalProps>;
   const { refreshUser } = useData() as { refreshUser?: (force?: boolean) => Promise<void> };
   const { userData, setUserData, toggleSettingsUpdated } = useData() as {
@@ -118,6 +121,7 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
   const [avatarLocalPreview, setAvatarLocalPreview] = React.useState<string | null>(null);
   const [saveState, setSaveState] = React.useState<ProfileSaveState>("clean");
   const [isPasswordOpen, setIsPasswordOpen] = React.useState(false);
+  const [isEmailOpen, setIsEmailOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (!userData) return;
@@ -302,17 +306,30 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
             </div>
 
             <div className={styles.identityHeaderRight}>
-              <div className={styles.securityQuickRow} aria-label="Security">
-                <div className={styles.securityQuickMeta}>
-                  <div className={styles.securityQuickLabel}>Security</div>
-                  <div className={styles.securityQuickValue}>
-                    Password <span aria-hidden>••••••••</span>
+              <div style={{ display: "grid", gap: "10px" }}>
+                <div className={styles.securityQuickRow} aria-label="Email">
+                  <div className={styles.securityQuickMeta}>
+                    <div className={styles.securityQuickLabel}>Email</div>
+                    <div className={styles.securityQuickValue}>{userData.email ?? ""}</div>
                   </div>
+                  <button type="button" className={styles.securityQuickAction} onClick={() => setIsEmailOpen(true)}>
+                    <Mail size={14} aria-hidden />
+                    Change
+                  </button>
                 </div>
-                <button type="button" className={styles.securityQuickAction} onClick={() => setIsPasswordOpen(true)}>
-                  <Lock size={14} aria-hidden />
-                  Change
-                </button>
+
+                <div className={styles.securityQuickRow} aria-label="Password">
+                  <div className={styles.securityQuickMeta}>
+                    <div className={styles.securityQuickLabel}>Password</div>
+                    <div className={styles.securityQuickValue}>
+                      <span aria-hidden>••••••••</span>
+                    </div>
+                  </div>
+                  <button type="button" className={styles.securityQuickAction} onClick={() => setIsPasswordOpen(true)}>
+                    <Lock size={14} aria-hidden />
+                    Change
+                  </button>
+                </div>
               </div>
             </div>
           </section>
@@ -342,7 +359,7 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
             <label className={styles.field}>
               <span className={styles.labelRow}>
                 <span className={styles.label}>Email</span>
-                <span className={styles.labelIcon} title="Managed by your sign-in provider" aria-label="Managed by provider">
+                <span className={styles.labelIcon} title="Change requires verification" aria-label="Requires verification">
                   <Lock size={14} />
                 </span>
               </span>
@@ -484,6 +501,16 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
       />
 
       <ChangePasswordModal open={isPasswordOpen} onClose={() => setIsPasswordOpen(false)} />
+
+      <ChangeEmailModal
+        open={isEmailOpen}
+        currentEmail={userData.email}
+        onClose={() => setIsEmailOpen(false)}
+        onVerificationStarted={(newUserEmail) => {
+          setIsEmailOpen(false);
+          navigate("/email-change-verification", { state: { newUserEmail } });
+        }}
+      />
     </>
   );
 });

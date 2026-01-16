@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import styles from '../auth.module.css';
 import { confirmUserAttribute } from 'aws-amplify/auth';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { useData } from '@/app/contexts/useData';
+import { updateUserProfile } from '@/shared/utils/api';
 
 const EmailChangeVerification: React.FC = () => {
   const [otpInputs, setOtpInputs] = useState<string[]>(Array(6).fill(''));
@@ -9,6 +12,12 @@ const EmailChangeVerification: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { newUserEmail } = (location.state as { newUserEmail?: string }) || {};
+  const { userData, setUserData, refreshUser, toggleSettingsUpdated } = useData() as {
+    userData?: { userId?: string } & Record<string, unknown>;
+    setUserData?: (u: any) => void;
+    refreshUser?: (force?: boolean) => Promise<void>;
+    toggleSettingsUpdated?: () => void;
+  };
 
   const handleOtpInputChange = (index: number, value: string) => {
     const sanitized = value.replace(/\D/g, '').slice(0, 1);
@@ -47,6 +56,21 @@ const EmailChangeVerification: React.FC = () => {
         userAttributeKey: 'email',
         confirmationCode: code,
       });
+
+      const nextEmail = (newUserEmail ?? '').trim();
+      if (userData?.userId && nextEmail) {
+        try {
+          const updated = await updateUserProfile({ ...(userData as any), email: nextEmail });
+          setUserData?.({ ...(userData as any), ...updated, email: nextEmail });
+          toggleSettingsUpdated?.();
+          await refreshUser?.(true);
+        } catch (profileError) {
+          console.error('Email verified but profile update failed:', profileError);
+          toast.error('Email verified, but we could not update your profile email.');
+        }
+      }
+
+      toast.success('Email verified');
       navigate('/dashboard');
     } catch (error) {
       console.error('Error confirming user attribute:', error);

@@ -265,6 +265,7 @@
   gap: 16px;
   align-items: stretch;
   min-height: 0;
+  flex: 1;
 }
 
 .navDesktop {
