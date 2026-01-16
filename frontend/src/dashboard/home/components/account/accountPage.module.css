@@ -52,7 +52,10 @@
   
   backdrop-filter: blur(14px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.10);
-  
+
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .headerTop {
@@ -94,6 +97,75 @@
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.headerActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rolePill {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.headerPrimaryButton,
+.headerSecondaryButton {
+  height: 36px;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 750;
+  cursor: pointer;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  line-height: 1;
+}
+
+.headerPrimaryButton {
+  background: #fa3356;
+  color: #ffffff;
+  border-color: rgba(250, 51, 86, 0.55);
+}
+
+.headerPrimaryButton:hover:enabled {
+  filter: brightness(1.05);
+}
+
+.headerPrimaryButton:disabled,
+.headerSecondaryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.headerSecondaryButton {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.headerSecondaryButton:hover:enabled {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.mobileActionBar {
+  display: none;
 }
 
 .savePill {
@@ -329,5 +401,30 @@
 
   .navMobile {
     display: block;
+  }
+}
+
+@media (max-width: 767px) {
+  .headerActions {
+    display: none;
+  }
+
+  .mobileActionBar {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    margin-top: 12px;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(10, 10, 12, 0.78);
+    backdrop-filter: blur(14px);
+    display: flex;
+    gap: 10px;
+  }
+
+  .mobileActionBar button {
+    flex: 1;
+    height: 44px;
   }
 }

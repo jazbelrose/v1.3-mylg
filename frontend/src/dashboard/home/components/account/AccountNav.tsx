@@ -18,13 +18,17 @@ const NAV_ITEMS: Array<{
   Icon: React.ComponentType<{ size?: number; className?: string }>;
 }> = [
   { key: "profile", label: "Account info", description: "Profile and preferences", Icon: User },
-  { key: "security", label: "Security", description: "Password and sign-in", Icon: Shield },
+  { key: "security", label: "Security", description: "Password and account security", Icon: Shield },
   { key: "payments", label: "Payments", description: "Pay vendors and get paid", Icon: CreditCard },
 ];
 
 export default function AccountNav({ value, onChange }: AccountNavProps) {
   const mobileOptions = React.useMemo<Array<SegmentedOption<AccountPanelKey>>>(
-    () => NAV_ITEMS.map((i) => ({ value: i.key, label: i.key === "profile" ? "Profile" : i.key === "security" ? "Security" : "Payments" })),
+    () =>
+      NAV_ITEMS.map((i) => ({
+        value: i.key,
+        label: i.key === "profile" ? "Account" : i.key === "security" ? "Security" : "Payments",
+      })),
     []
   );
 

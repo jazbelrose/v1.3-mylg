@@ -37,6 +37,42 @@
   gap: 16px;
 }
 
+/* Profile single-surface sections */
+.section {
+  display: grid;
+  gap: 12px;
+}
+
+.sectionHeader {
+  display: grid;
+  gap: 2px;
+}
+
+.sectionHeaderRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 750;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.sectionSubtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.35;
+}
+
+.sectionDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.10);
+  margin: 16px 0;
+}
+
 .profilePanelContainer {
   width: 100%;
   max-width: none;
@@ -44,6 +80,12 @@
 }
 
 .profileGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.identitySectionGrid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
@@ -118,6 +160,13 @@
   overflow: hidden;
 }
 
+.addressDetails {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
 .addressSummary {
   list-style: none;
   cursor: pointer;
@@ -127,6 +176,20 @@
   justify-content: space-between;
   gap: 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.addressDetails .addressSummary {
+  border-bottom: none;
+}
+
+.addressDetails[open] .addressSummary {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.addressBody {
+  padding: 14px 16px 16px;
+  display: grid;
+  gap: 12px;
 }
 
 .addressSummary::-webkit-details-marker {
@@ -161,6 +224,10 @@
   transform: rotate(180deg);
 }
 
+.addressDetails[open] .addressChevron {
+  transform: rotate(180deg);
+}
+
 .twoCol {
   display: grid;
   grid-template-columns: 160px 1fr;
@@ -172,6 +239,67 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* Security row item */
+.rowItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+}
+
+.rowItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.rowItemLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.rowItemIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.rowItemCopy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowItemTitle {
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.rowItemSubtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.35;
+}
+
+.rowItemRight {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
 }
 
 .avatarSquircle {
@@ -374,6 +502,11 @@
     grid-template-columns: 320px 1fr;
     align-items: start;
   }
+
+  .identitySectionGrid {
+    grid-template-columns: 320px 1fr;
+    align-items: start;
+  }
 }
 
 @media (max-width: 1023px) {
@@ -399,6 +532,135 @@
   .addressBottomRow {
     grid-template-columns: 1fr;
   }
+}
+
+/* Modal styles (ChangePasswordModal) */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 200;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.modalOverlayAfterOpen {
+  opacity: 1;
+}
+
+.modalOverlayBeforeClose {
+  opacity: 0;
+}
+
+.modalContent {
+  width: min(560px, calc(100vw - 40px));
+  max-height: calc(100vh - 40px);
+  outline: none;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(12, 12, 14, 0.92);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 16px 60px rgba(0, 0, 0, 0.55);
+  transform: translateY(6px) scale(0.99);
+  transition: transform 220ms ease;
+}
+
+.modalContentAfterOpen {
+  transform: translateY(0) scale(1);
+}
+
+.modalContentBeforeClose {
+  transform: translateY(6px) scale(0.99);
+}
+
+.modalShell {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+}
+
+.modalHeader {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modalHeaderText {
+  display: grid;
+  gap: 4px;
+}
+
+.modalTitle {
+  font-size: 15px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.modalSubtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.35;
+}
+
+.iconButton {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.88);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.iconButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.modalBody {
+  padding: 14px 16px 16px;
+  overflow: auto;
+}
+
+.modalActions {
+  padding: 12px 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.passwordRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.passwordToggle {
+  height: 44px;
+  width: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.84);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.passwordToggle:hover {
+  background: rgba(255, 255, 255, 0.09);
 }
 
 @media (max-width: 767px) {
