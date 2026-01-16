@@ -471,14 +471,14 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
           </section>
 
           <section className={styles.aboutGrow} aria-label="About">
-            <div className={styles.sectionHeaderRow}>
-              <div>
+            <div className={styles.aboutHeader}>
+              <div className={styles.aboutHeaderTop}>
                 <div className={styles.sectionTitle}>About</div>
-                <div className={styles.sectionSubtitle}>Short bio shown to teammates (optional).</div>
+                <div className={[styles.textMeta, styles.aboutCounter].join(" ")} aria-label="Bio character count">
+                  {aboutChars}/{aboutMaxChars}
+                </div>
               </div>
-              <div className={styles.textMeta} aria-label="Bio character count">
-                {aboutChars}/{aboutMaxChars}
-              </div>
+              <div className={styles.sectionSubtitle}>Short bio shown to teammates (optional).</div>
             </div>
 
             <div className={styles.aboutBody}>
