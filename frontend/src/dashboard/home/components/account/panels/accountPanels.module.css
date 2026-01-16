@@ -37,6 +37,130 @@
   gap: 16px;
 }
 
+.profilePanelContainer {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.profileGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.cardSpan2 {
+  grid-column: 1 / -1;
+}
+
+.avatarCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.identityHeaderRight {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.pill {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.pillMuted {
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.textMeta {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.60);
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.textarea {
+  min-height: 132px;
+  resize: vertical;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 10px 12px;
+  outline: none;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.textarea:focus {
+  border-color: rgba(250, 51, 86, 0.4);
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.14);
+}
+
+.addressAccordion {
+  overflow: hidden;
+}
+
+.addressSummary {
+  list-style: none;
+  cursor: pointer;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.addressSummary::-webkit-details-marker {
+  display: none;
+}
+
+.addressSummaryLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.addressSummaryTitle {
+  font-size: 14.5px;
+  font-weight: 750;
+  color: rgba(255, 255, 255, 0.94);
+  letter-spacing: -0.01em;
+}
+
+.addressSummarySubtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.35;
+}
+
+.addressChevron {
+  opacity: 0.75;
+  transition: transform 0.15s ease;
+}
+
+.addressAccordion[open] .addressChevron {
+  transform: rotate(180deg);
+}
+
 .twoCol {
   display: grid;
   grid-template-columns: 160px 1fr;
@@ -88,6 +212,18 @@
 .fieldsGridSingle {
   display: grid;
   grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.addressTopRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.addressBottomRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -151,6 +287,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
+  line-height: 1;
 }
 
 .primaryButton {
@@ -225,6 +362,20 @@
   height: 44px;
 }
 
+@media (min-width: 1024px) {
+  .profileGrid {
+    grid-template-columns: 320px 1fr;
+    align-items: start;
+  }
+}
+
+@media (max-width: 1023px) {
+  .profileGrid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
 @media (max-width: 920px) {
   .twoCol {
     grid-template-columns: 1fr;
@@ -234,12 +385,23 @@
     grid-template-columns: 1fr;
   }
 
+  .addressTopRow {
+    grid-template-columns: 1fr;
+  }
+
+  .addressBottomRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767px) {
   .desktopOnly {
     display: none;
   }
 
   .mobileSaveBar {
     display: block;
+    margin-top: 14px;
   }
 }
 

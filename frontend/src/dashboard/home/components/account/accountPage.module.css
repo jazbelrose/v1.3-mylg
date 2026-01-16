@@ -107,6 +107,8 @@
   font-weight: 650;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  line-height: 1;
   white-space: nowrap;
 }
 

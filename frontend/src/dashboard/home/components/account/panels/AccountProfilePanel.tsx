@@ -1,6 +1,6 @@
 import React from "react";
 import { toast } from "react-toastify";
-import { HelpCircle } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 import { useData } from "@/app/contexts/useData";
 import { updateUserProfile } from "@/shared/utils/api";
@@ -21,6 +21,13 @@ type UserData = Record<string, unknown> & {
   thumbnailUrl?: string;
   occupation?: string;
   role?: string;
+  bio?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  region?: string;
+  postalCode?: string;
+  country?: string;
 };
 
 type Draft = {
@@ -30,6 +37,13 @@ type Draft = {
   company: string;
   occupation: string;
   thumbnail: string; // S3 key, URL, or empty string
+  bio: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  region: string;
+  postalCode: string;
+  country: string;
 };
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
@@ -57,6 +71,13 @@ function draftFromUser(userData: UserData): Draft {
     company: userData.company?.trim() || "",
     occupation: userData.occupation?.trim() || "",
     thumbnail: userData.thumbnail?.trim() || "",
+    bio: String(userData.bio ?? ""),
+    addressLine1: String(userData.addressLine1 ?? ""),
+    addressLine2: String(userData.addressLine2 ?? ""),
+    city: String(userData.city ?? ""),
+    region: String(userData.region ?? ""),
+    postalCode: String(userData.postalCode ?? ""),
+    country: String(userData.country ?? ""),
   };
 }
 
@@ -68,7 +89,14 @@ function isDraftDirty(userData: UserData, draft: Draft): boolean {
     baseline.phoneNumber !== draft.phoneNumber ||
     baseline.company !== draft.company ||
     baseline.occupation !== draft.occupation ||
-    (baseline.thumbnail || "") !== (draft.thumbnail || "")
+    (baseline.thumbnail || "") !== (draft.thumbnail || "") ||
+    baseline.bio !== draft.bio ||
+    baseline.addressLine1 !== draft.addressLine1 ||
+    baseline.addressLine2 !== draft.addressLine2 ||
+    baseline.city !== draft.city ||
+    baseline.region !== draft.region ||
+    baseline.postalCode !== draft.postalCode ||
+    baseline.country !== draft.country
   );
 }
 
@@ -88,6 +116,25 @@ export default function AccountProfilePanel({ onSaveStateChange }: AccountProfil
   const [isAvatarOpen, setIsAvatarOpen] = React.useState(false);
   const [avatarLocalPreview, setAvatarLocalPreview] = React.useState<string | null>(null);
   const [saveState, setSaveState] = React.useState<ProfileSaveState>("clean");
+
+  const [isMobile, setIsMobile] = React.useState(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+    return window.matchMedia("(max-width: 767px)").matches;
+  });
+
+  React.useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const q = window.matchMedia("(max-width: 767px)");
+    const update = (event: MediaQueryList | MediaQueryListEvent) => setIsMobile(event.matches);
+    update(q);
+    if (typeof q.addEventListener === "function") {
+      q.addEventListener("change", update);
+      return () => q.removeEventListener("change", update);
+    }
+    q.addListener(update);
+    return () => q.removeListener(update);
+  }, []);
+
 
   React.useEffect(() => {
     if (!userData) return;
@@ -151,6 +198,10 @@ export default function AccountProfilePanel({ onSaveStateChange }: AccountProfil
   const canSave = saveState === "dirty" && draft.firstName.trim() && draft.lastName.trim();
   const roleKey = (userData.role || "").toLowerCase();
   const showRemove = Boolean(draft.thumbnail || userData.thumbnail);
+  const roleLabel = userData.role ? `Role: ${String(userData.role).replace(/^./, (c) => c.toUpperCase())}` : "";
+
+  const aboutMaxChars = 280;
+  const aboutChars = draft.bio.length;
 
   const cancel = () => {
     setDraft(draftFromUser(userData));
@@ -171,6 +222,13 @@ export default function AccountProfilePanel({ onSaveStateChange }: AccountProfil
         company: draft.company.trim(),
         occupation: draft.occupation.trim(),
         thumbnail: draft.thumbnail.trim(),
+        bio: draft.bio,
+        addressLine1: draft.addressLine1,
+        addressLine2: draft.addressLine2,
+        city: draft.city,
+        region: draft.region,
+        postalCode: draft.postalCode,
+        country: draft.country,
       };
 
       await updateUserProfile(updatedUserData as any);
@@ -204,139 +262,315 @@ export default function AccountProfilePanel({ onSaveStateChange }: AccountProfil
 
   return (
     <>
-      <article className={styles.card}>
-        <header className={styles.cardHeader}>
-          <div>
-            <div className={styles.cardTitle}>Profile</div>
-            <div className={styles.cardSubtitle}>Your identity and preferences.</div>
-          </div>
-          <div className={[styles.actionsRow, styles.desktopOnly].join(" ")}>
+      <div className={styles.profilePanelContainer}>
+        <div className={styles.profileGrid}>
+          <article className={styles.card}>
+            <header className={styles.cardHeader}>
+              <div>
+                <div className={styles.cardTitle}>Avatar</div>
+                <div className={styles.cardSubtitle}>Photo and presence.</div>
+              </div>
+            </header>
+            <div className={styles.cardBody}>
+              <div className={styles.avatarCardBody}>
+                <div className={styles.avatarSquircle} aria-label="Avatar">
+                  {avatarSrc ? <img src={avatarSrc} alt="" /> : initialsFromUser(userData)}
+                </div>
+                <div className={styles.avatarActions}>
+                  <button type="button" className={styles.secondaryButton} onClick={() => setIsAvatarOpen(true)}>
+                    Change photo
+                  </button>
+                  {showRemove ? (
+                    <button
+                      type="button"
+                      className={[styles.textButton, styles.textButtonDanger].join(" ")}
+                      onClick={removeAvatar}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                  <div className={styles.helper}>Recommended 512×512+. Square images look best.</div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article className={styles.card}>
+            <header className={styles.cardHeader}>
+              <div>
+                <div className={styles.cardTitle}>Identity</div>
+                <div className={styles.cardSubtitle}>Your core account details.</div>
+              </div>
+              <div className={[styles.identityHeaderRight, styles.desktopOnly].join(" ")}>
+                {userData.role ? (
+                  <span
+                    className={[styles.pill, styles.pillMuted].join(" ")}
+                    title={ROLE_DESCRIPTIONS[roleKey] || ""}
+                    aria-label={roleLabel}
+                  >
+                    {roleLabel}
+                  </span>
+                ) : null}
+                <div className={styles.actionsRow}>
+                  <button type="button" className={styles.secondaryButton} onClick={cancel} disabled={saveState !== "dirty"}>
+                    Cancel
+                  </button>
+                  <button type="button" className={styles.primaryButton} onClick={() => void save()} disabled={!canSave}>
+                    {saveState === "saving" ? "Saving…" : "Save changes"}
+                  </button>
+                </div>
+              </div>
+            </header>
+
+            <div className={styles.cardBody}>
+              <div className={styles.fieldsGrid}>
+                <label className={styles.field}>
+                  <span className={styles.label}>First name</span>
+                  <input
+                    className={styles.input}
+                    value={draft.firstName}
+                    onChange={(e) => setDraft({ ...draft, firstName: e.target.value })}
+                    placeholder="First name"
+                    autoComplete="given-name"
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.label}>Last name</span>
+                  <input
+                    className={styles.input}
+                    value={draft.lastName}
+                    onChange={(e) => setDraft({ ...draft, lastName: e.target.value })}
+                    placeholder="Last name"
+                    autoComplete="family-name"
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.label}>Email</span>
+                  <input className={styles.input} value={userData.email ?? ""} disabled readOnly />
+                  <span className={styles.helper}>Email is managed by your sign-in provider.</span>
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.label}>Phone</span>
+                  <input
+                    className={styles.input}
+                    value={draft.phoneNumber}
+                    onChange={(e) => setDraft({ ...draft, phoneNumber: e.target.value })}
+                    placeholder="(555) 555-5555"
+                    autoComplete="tel"
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.label}>Company</span>
+                  <input
+                    className={styles.input}
+                    value={draft.company}
+                    onChange={(e) => setDraft({ ...draft, company: e.target.value })}
+                    placeholder="Company"
+                    autoComplete="organization"
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.label}>Occupation</span>
+                  <input
+                    className={styles.input}
+                    value={draft.occupation}
+                    onChange={(e) => setDraft({ ...draft, occupation: e.target.value })}
+                    placeholder="Designer, PM, Builder…"
+                  />
+                </label>
+              </div>
+            </div>
+          </article>
+
+          <article className={[styles.card, styles.cardSpan2].join(" ")}>
+            <header className={styles.cardHeader}>
+              <div>
+                <div className={styles.cardTitle}>About</div>
+                <div className={styles.cardSubtitle}>Short bio shown to teammates (optional).</div>
+              </div>
+              <div className={styles.textMeta} aria-label="Bio character count">
+                {aboutChars}/{aboutMaxChars}
+              </div>
+            </header>
+            <div className={styles.cardBody}>
+              <label className={styles.field}>
+                <span className={styles.label}>Bio</span>
+                <textarea
+                  className={styles.textarea}
+                  value={draft.bio}
+                  onChange={(e) => setDraft({ ...draft, bio: e.target.value.slice(0, aboutMaxChars) })}
+                  placeholder="A sentence or two about you…"
+                  rows={5}
+                />
+              </label>
+            </div>
+          </article>
+
+          {isMobile ? (
+            <details className={[styles.card, styles.cardSpan2, styles.addressAccordion].join(" ")} key="address-mobile">
+              <summary className={styles.addressSummary}>
+                <span className={styles.addressSummaryLeft}>
+                  <span className={styles.addressSummaryTitle}>Address</span>
+                  <span className={styles.addressSummarySubtitle}>Optional</span>
+                </span>
+                <ChevronDown size={18} className={styles.addressChevron} aria-hidden />
+              </summary>
+              <div className={styles.cardBody}>
+                <div className={styles.addressTopRow}>
+                  <label className={styles.field}>
+                    <span className={styles.label}>Address line 1</span>
+                    <input
+                      className={styles.input}
+                      value={draft.addressLine1}
+                      onChange={(e) => setDraft({ ...draft, addressLine1: e.target.value })}
+                      autoComplete="address-line1"
+                      placeholder="Street address"
+                    />
+                  </label>
+                  <label className={styles.field}>
+                    <span className={styles.label}>Address line 2</span>
+                    <input
+                      className={styles.input}
+                      value={draft.addressLine2}
+                      onChange={(e) => setDraft({ ...draft, addressLine2: e.target.value })}
+                      autoComplete="address-line2"
+                      placeholder="Apt, suite, unit (optional)"
+                    />
+                  </label>
+                </div>
+                <div className={styles.addressBottomRow}>
+                  <label className={styles.field}>
+                    <span className={styles.label}>City</span>
+                    <input
+                      className={styles.input}
+                      value={draft.city}
+                      onChange={(e) => setDraft({ ...draft, city: e.target.value })}
+                      autoComplete="address-level2"
+                      placeholder="City"
+                    />
+                  </label>
+                  <label className={styles.field}>
+                    <span className={styles.label}>State / Region</span>
+                    <input
+                      className={styles.input}
+                      value={draft.region}
+                      onChange={(e) => setDraft({ ...draft, region: e.target.value })}
+                      autoComplete="address-level1"
+                      placeholder="State / Region"
+                    />
+                  </label>
+                  <label className={styles.field}>
+                    <span className={styles.label}>Zip / Postal</span>
+                    <input
+                      className={styles.input}
+                      value={draft.postalCode}
+                      onChange={(e) => setDraft({ ...draft, postalCode: e.target.value })}
+                      autoComplete="postal-code"
+                      placeholder="Zip / Postal"
+                    />
+                  </label>
+                  <label className={styles.field}>
+                    <span className={styles.label}>Country</span>
+                    <input
+                      className={styles.input}
+                      value={draft.country}
+                      onChange={(e) => setDraft({ ...draft, country: e.target.value })}
+                      autoComplete="country-name"
+                      placeholder="Country"
+                    />
+                  </label>
+                </div>
+              </div>
+            </details>
+          ) : (
+            <article className={[styles.card, styles.cardSpan2].join(" ")}>
+              <header className={styles.cardHeader}>
+                <div>
+                  <div className={styles.cardTitle}>Address</div>
+                  <div className={styles.cardSubtitle}>Physical address (optional).</div>
+                </div>
+              </header>
+              <div className={styles.cardBody}>
+                <div className={styles.addressTopRow}>
+                  <label className={styles.field}>
+                    <span className={styles.label}>Address line 1</span>
+                    <input
+                      className={styles.input}
+                      value={draft.addressLine1}
+                      onChange={(e) => setDraft({ ...draft, addressLine1: e.target.value })}
+                      autoComplete="address-line1"
+                      placeholder="Street address"
+                    />
+                  </label>
+                  <label className={styles.field}>
+                    <span className={styles.label}>Address line 2</span>
+                    <input
+                      className={styles.input}
+                      value={draft.addressLine2}
+                      onChange={(e) => setDraft({ ...draft, addressLine2: e.target.value })}
+                      autoComplete="address-line2"
+                      placeholder="Apt, suite, unit (optional)"
+                    />
+                  </label>
+                </div>
+                <div className={styles.addressBottomRow}>
+                  <label className={styles.field}>
+                    <span className={styles.label}>City</span>
+                    <input
+                      className={styles.input}
+                      value={draft.city}
+                      onChange={(e) => setDraft({ ...draft, city: e.target.value })}
+                      autoComplete="address-level2"
+                      placeholder="City"
+                    />
+                  </label>
+                  <label className={styles.field}>
+                    <span className={styles.label}>State / Region</span>
+                    <input
+                      className={styles.input}
+                      value={draft.region}
+                      onChange={(e) => setDraft({ ...draft, region: e.target.value })}
+                      autoComplete="address-level1"
+                      placeholder="State / Region"
+                    />
+                  </label>
+                  <label className={styles.field}>
+                    <span className={styles.label}>Zip / Postal</span>
+                    <input
+                      className={styles.input}
+                      value={draft.postalCode}
+                      onChange={(e) => setDraft({ ...draft, postalCode: e.target.value })}
+                      autoComplete="postal-code"
+                      placeholder="Zip / Postal"
+                    />
+                  </label>
+                  <label className={styles.field}>
+                    <span className={styles.label}>Country</span>
+                    <input
+                      className={styles.input}
+                      value={draft.country}
+                      onChange={(e) => setDraft({ ...draft, country: e.target.value })}
+                      autoComplete="country-name"
+                      placeholder="Country"
+                    />
+                  </label>
+                </div>
+              </div>
+            </article>
+          )}
+        </div>
+
+        <div className={styles.mobileSaveBar}>
+          <div className={styles.mobileSaveBarInner}>
             <button type="button" className={styles.secondaryButton} onClick={cancel} disabled={saveState !== "dirty"}>
               Cancel
             </button>
             <button type="button" className={styles.primaryButton} onClick={() => void save()} disabled={!canSave}>
-              {saveState === "saving" ? "Saving…" : "Save changes"}
+              {saveState === "saving" ? "Saving…" : "Save"}
             </button>
           </div>
-        </header>
-
-        <div className={styles.cardBody}>
-          <div className={styles.twoCol}>
-            <div className={styles.avatarBlock}>
-              <div className={styles.avatarSquircle} aria-label="Avatar">
-                {avatarSrc ? <img src={avatarSrc} alt="" /> : initialsFromUser(userData)}
-              </div>
-              <div className={styles.avatarActions}>
-                <button type="button" className={styles.secondaryButton} onClick={() => setIsAvatarOpen(true)}>
-                  Change photo
-                </button>
-                {showRemove ? (
-                  <button
-                    type="button"
-                    className={[styles.textButton, styles.textButtonDanger].join(" ")}
-                    onClick={removeAvatar}
-                  >
-                    Remove
-                  </button>
-                ) : null}
-                <div className={styles.helper}>Recommended 512×512+. Square images look best.</div>
-              </div>
-            </div>
-
-            <div className={styles.fieldsGrid}>
-              <label className={styles.field}>
-                <span className={styles.label}>First name</span>
-                <input
-                  className={styles.input}
-                  value={draft.firstName}
-                  onChange={(e) => setDraft({ ...draft, firstName: e.target.value })}
-                  placeholder="First name"
-                  autoComplete="given-name"
-                />
-              </label>
-              <label className={styles.field}>
-                <span className={styles.label}>Last name</span>
-                <input
-                  className={styles.input}
-                  value={draft.lastName}
-                  onChange={(e) => setDraft({ ...draft, lastName: e.target.value })}
-                  placeholder="Last name"
-                  autoComplete="family-name"
-                />
-              </label>
-              <label className={styles.field}>
-                <span className={styles.label}>Email</span>
-                <input className={styles.input} value={userData.email ?? ""} disabled readOnly />
-                <span className={styles.helper}>Email is managed by your sign-in provider.</span>
-              </label>
-              <label className={styles.field}>
-                <span className={styles.label}>Phone</span>
-                <input
-                  className={styles.input}
-                  value={draft.phoneNumber}
-                  onChange={(e) => setDraft({ ...draft, phoneNumber: e.target.value })}
-                  placeholder="(555) 555-5555"
-                  autoComplete="tel"
-                />
-              </label>
-              <label className={styles.field}>
-                <span className={styles.label}>Company</span>
-                <input
-                  className={styles.input}
-                  value={draft.company}
-                  onChange={(e) => setDraft({ ...draft, company: e.target.value })}
-                  placeholder="Company"
-                  autoComplete="organization"
-                />
-              </label>
-              <label className={styles.field}>
-                <span className={styles.label}>Occupation</span>
-                <input
-                  className={styles.input}
-                  value={draft.occupation}
-                  onChange={(e) => setDraft({ ...draft, occupation: e.target.value })}
-                  placeholder="Designer, PM, Builder…"
-                />
-              </label>
-            </div>
-          </div>
-
-          {userData.role ? (
-            <div className={styles.helper} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontWeight: 700, color: "rgba(255,255,255,0.86)" }}>Role:</span>
-              <span
-                style={{
-                  padding: "4px 10px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(255,255,255,0.14)",
-                  background: "rgba(255,255,255,0.06)",
-                  color: "rgba(255,255,255,0.9)",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  textTransform: "capitalize",
-                }}
-                title={ROLE_DESCRIPTIONS[roleKey] || ""}
-              >
-                {userData.role}
-              </span>
-              <span title={ROLE_DESCRIPTIONS[roleKey] || ""} aria-label="Role help">
-                <HelpCircle size={14} style={{ opacity: 0.7 }} />
-              </span>
-            </div>
-          ) : null}
-
-          <div className={styles.mobileSaveBar}>
-            <div className={styles.mobileSaveBarInner}>
-              <button type="button" className={styles.secondaryButton} onClick={cancel} disabled={saveState !== "dirty"}>
-                Cancel
-              </button>
-              <button type="button" className={styles.primaryButton} onClick={() => void save()} disabled={!canSave}>
-                {saveState === "saving" ? "Saving…" : "Save"}
-              </button>
-            </div>
-          </div>
         </div>
-      </article>
+      </div>
 
       <AvatarPickerModal
         open={isAvatarOpen}
