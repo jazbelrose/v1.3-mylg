@@ -34,27 +34,25 @@ export default function AccountNav({ value, onChange }: AccountNavProps) {
         <SegmentedControl<AccountPanelKey> value={value} onChange={onChange} options={mobileOptions} aria-label="Account sections" />
       </div>
 
-      <nav className={styles.navDesktop} aria-label="Account navigation">
-        {NAV_ITEMS.map(({ key, label, description, Icon }) => {
-          const active = key === value;
-          return (
-            <button
-              key={key}
-              type="button"
-              className={[styles.navItem, active ? styles.navItemActive : ""].filter(Boolean).join(" ")}
-              onClick={() => onChange(key)}
-              aria-current={active ? "page" : undefined}
-            >
-              <span className={styles.navIcon} aria-hidden>
-                <Icon size={18} />
-              </span>
-              <span className={styles.navCopy}>
-                <span className={styles.navLabel}>{label}</span>
-                <span className={styles.navDescription}>{description}</span>
-              </span>
-            </button>
-          );
-        })}
+      <nav className={styles.navDesktop} aria-label="Account navigation" role="tablist">
+        <div className={styles.tabs}>
+          {NAV_ITEMS.map(({ key, label, Icon }) => {
+            const active = key === value;
+            return (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={[styles.tab, active ? styles.tabActive : ""].filter(Boolean).join(" ")}
+                onClick={() => onChange(key)}
+              >
+                <Icon size={16} className={styles.tabIcon} aria-hidden />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
       </nav>
     </>
   );

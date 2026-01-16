@@ -23,57 +23,62 @@ export default function AccountPage() {
     <div className={[styles.shell, "noise-surface"].join(" ")}>
       <div className={styles.page}>
         <header className={styles.header}>
-          <div className={styles.headerCopy}>
-            <h1 className={styles.title}>Account</h1>
-            <p className={styles.subtitle}>Profile and preferences</p>
+          <div className={styles.headerTop}>
+            <div className={styles.headerCopy}>
+              <h1 className={styles.title}>Account</h1>
+              <p className={styles.subtitle}>Profile and preferences</p>
+            </div>
+
+            <div className={styles.headerRight}>
+              {panel === "profile" && profileSaveState !== "clean" ? (
+                <div
+                  className={[
+                    styles.savePill,
+                    profileSaveState === "dirty" ? styles.savePillDirty : "",
+                    profileSaveState === "saving" ? styles.savePillSaving : "",
+                    profileSaveState === "saved" ? styles.savePillSaved : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  aria-live="polite"
+                >
+                  {profileSaveState === "dirty"
+                    ? "Unsaved"
+                    : profileSaveState === "saving"
+                      ? "Saving…"
+                      : profileSaveState === "saved"
+                        ? "Saved ✓"
+                        : null}
+                </div>
+              ) : null}
+              <div className={styles.orgPicker} aria-label="Organization">
+                <span className={styles.orgSelectWrap}>
+                  <select
+                    className={styles.orgSelect}
+                    value={activeOrgId ?? ""}
+                    disabled={orgsLoading || orgs.length <= 1}
+                    onChange={(e) => setActiveOrgId(e.target.value)}
+                    aria-label="Select organization"
+                  >
+                    {orgs.map((o) => (
+                      <option key={o.orgId} value={o.orgId}>
+                        {o.name?.trim() || o.orgId}
+                      </option>
+                    ))}
+                    {!orgs.length ? <option value="">{orgLabel}</option> : null}
+                  </select>
+                  <ChevronDown size={16} className={styles.orgChevron} aria-hidden />
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className={styles.headerRight}>
-            {panel === "profile" && profileSaveState !== "clean" ? (
-              <div
-                className={[
-                  styles.savePill,
-                  profileSaveState === "dirty" ? styles.savePillDirty : "",
-                  profileSaveState === "saving" ? styles.savePillSaving : "",
-                  profileSaveState === "saved" ? styles.savePillSaved : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                aria-live="polite"
-              >
-                {profileSaveState === "dirty"
-                  ? "Unsaved"
-                  : profileSaveState === "saving"
-                    ? "Saving…"
-                    : profileSaveState === "saved"
-                      ? "Saved ✓"
-                      : null}
-              </div>
-            ) : null}
-            <div className={styles.orgPicker} aria-label="Organization">
-              <span className={styles.orgSelectWrap}>
-                <select
-                  className={styles.orgSelect}
-                  value={activeOrgId ?? ""}
-                  disabled={orgsLoading || orgs.length <= 1}
-                  onChange={(e) => setActiveOrgId(e.target.value)}
-                  aria-label="Select organization"
-                >
-                  {orgs.map((o) => (
-                    <option key={o.orgId} value={o.orgId}>
-                      {o.name?.trim() || o.orgId}
-                    </option>
-                  ))}
-                  {!orgs.length ? <option value="">{orgLabel}</option> : null}
-                </select>
-                <ChevronDown size={16} className={styles.orgChevron} aria-hidden />
-              </span>
-            </div>
+          <div className={styles.headerTabs}>
+            <AccountNav value={panel} onChange={setPanel} />
           </div>
         </header>
 
         <div className={styles.body}>
-          <AccountNav value={panel} onChange={setPanel} />
           <section className={styles.content} aria-label="Account content">
             {panel === "profile" ? <AccountProfilePanel onSaveStateChange={setProfileSaveState} /> : null}
             {panel === "security" ? <AccountSecurityPanel /> : null}
