@@ -311,14 +311,6 @@ export default function AccountProfilePanel({ onSaveStateChange }: AccountProfil
                     {roleLabel}
                   </span>
                 ) : null}
-                <div className={styles.actionsRow}>
-                  <button type="button" className={styles.secondaryButton} onClick={cancel} disabled={saveState !== "dirty"}>
-                    Cancel
-                  </button>
-                  <button type="button" className={styles.primaryButton} onClick={() => void save()} disabled={!canSave}>
-                    {saveState === "saving" ? "Saving…" : "Save changes"}
-                  </button>
-                </div>
               </div>
             </header>
 
@@ -379,30 +371,6 @@ export default function AccountProfilePanel({ onSaveStateChange }: AccountProfil
                   />
                 </label>
               </div>
-            </div>
-          </article>
-
-          <article className={[styles.card, styles.cardSpan2].join(" ")}>
-            <header className={styles.cardHeader}>
-              <div>
-                <div className={styles.cardTitle}>About</div>
-                <div className={styles.cardSubtitle}>Short bio shown to teammates (optional).</div>
-              </div>
-              <div className={styles.textMeta} aria-label="Bio character count">
-                {aboutChars}/{aboutMaxChars}
-              </div>
-            </header>
-            <div className={styles.cardBody}>
-              <label className={styles.field}>
-                <span className={styles.label}>Bio</span>
-                <textarea
-                  className={styles.textarea}
-                  value={draft.bio}
-                  onChange={(e) => setDraft({ ...draft, bio: e.target.value.slice(0, aboutMaxChars) })}
-                  placeholder="A sentence or two about you…"
-                  rows={5}
-                />
-              </label>
             </div>
           </article>
 
@@ -558,6 +526,39 @@ export default function AccountProfilePanel({ onSaveStateChange }: AccountProfil
               </div>
             </article>
           )}
+
+          <article className={[styles.card, styles.cardSpan2].join(" ")}>
+            <header className={styles.cardHeader}>
+              <div>
+                <div className={styles.cardTitle}>About</div>
+                <div className={styles.cardSubtitle}>Short bio shown to teammates (optional).</div>
+              </div>
+              <div className={styles.textMeta} aria-label="Bio character count">
+                {aboutChars}/{aboutMaxChars}
+              </div>
+            </header>
+            <div className={styles.cardBody}>
+              <label className={styles.field}>
+                <span className={styles.label}>Bio</span>
+                <textarea
+                  className={styles.textarea}
+                  value={draft.bio}
+                  onChange={(e) => setDraft({ ...draft, bio: e.target.value.slice(0, aboutMaxChars) })}
+                  placeholder="A sentence or two about you…"
+                  rows={5}
+                />
+              </label>
+            </div>
+          </article>
+        </div>
+
+        <div className={styles.bottomActions}>
+          <button type="button" className={styles.secondaryButton} onClick={cancel} disabled={saveState !== "dirty"}>
+            Cancel
+          </button>
+          <button type="button" className={styles.primaryButton} onClick={() => void save()} disabled={!canSave}>
+            {saveState === "saving" ? "Saving…" : "Save changes"}
+          </button>
         </div>
 
         <div className={styles.mobileSaveBar}>

@@ -39,8 +39,8 @@
 
 .profilePanelContainer {
   width: 100%;
-  max-width: 1120px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
 }
 
 .profileGrid {
@@ -343,6 +343,13 @@
   display: none;
 }
 
+.bottomActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
 .mobileSaveBarInner {
   position: sticky;
   bottom: 0;
@@ -396,6 +403,10 @@
 
 @media (max-width: 767px) {
   .desktopOnly {
+    display: none;
+  }
+
+  .bottomActions {
     display: none;
   }
 
