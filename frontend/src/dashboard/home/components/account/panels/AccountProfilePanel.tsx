@@ -24,6 +24,8 @@ type UserData = Record<string, unknown> & {
   lastName?: string;
   company?: string;
   email?: string;
+  emailVerified?: boolean;
+  email_verified?: boolean;
   phoneNumber?: string;
   thumbnail?: string;
   thumbnailUrl?: string;
@@ -246,12 +248,6 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
   if (!userData || !draft) {
     return (
       <div className={styles.card} role="status" aria-label="Loading profile">
-        <div className={styles.cardHeader}>
-          <div>
-            <div className={styles.cardTitle}>Profile</div>
-            <div className={styles.cardSubtitle}>Loading your account details…</div>
-          </div>
-        </div>
         <div className={styles.cardBody}>
           <div className={styles.helper}>Please wait.</div>
         </div>
@@ -274,17 +270,16 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
 
   const displayName = [draft.firstName.trim(), draft.lastName.trim()].filter(Boolean).join(" ") || "Your name";
   const displayEmail = userData.email?.trim() || "";
+  const emailVerified =
+    typeof userData.emailVerified === "boolean"
+      ? userData.emailVerified
+      : typeof userData.email_verified === "boolean"
+        ? userData.email_verified
+        : undefined;
 
   return (
     <>
       <article className={styles.card}>
-        <header className={styles.cardHeader}>
-          <div>
-            <div className={styles.cardTitle}>Profile</div>
-            <div className={styles.cardSubtitle}>Account details and preferences.</div>
-          </div>
-        </header>
-
         <div className={styles.cardBody}>
           <section className={styles.identityHeaderRow} aria-label="Identity">
             <div className={styles.identityLeft}>
@@ -306,27 +301,43 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
             </div>
 
             <div className={styles.identityHeaderRight}>
-              <div style={{ display: "grid", gap: "10px" }}>
-                <div className={styles.securityQuickRow} aria-label="Email">
-                  <div className={styles.securityQuickMeta}>
-                    <div className={styles.securityQuickLabel}>Email</div>
-                    <div className={styles.securityQuickValue}>{userData.email ?? ""}</div>
+              <div className={styles.credentialsStrip} aria-label="Credentials">
+                <div className={styles.credentialsRow} aria-label="Email">
+                  <div className={styles.credentialsMeta}>
+                    <div className={styles.credentialsLabel}>
+                      <Mail size={14} aria-hidden />
+                      Email
+                    </div>
+                    <div className={styles.credentialsValue}>
+                      <span className={styles.credentialsValueText}>{userData.email ?? ""}</span>
+                      {typeof emailVerified === "boolean" && displayEmail ? (
+                        <span
+                          className={styles.credentialsStatusDot}
+                          data-status={emailVerified ? "verified" : "unverified"}
+                          title={emailVerified ? "Verified" : "Unverified"}
+                          aria-label={emailVerified ? "Email verified" : "Email unverified"}
+                        />
+                      ) : null}
+                    </div>
                   </div>
                   <button type="button" className={styles.securityQuickAction} onClick={() => setIsEmailOpen(true)}>
-                    <Mail size={14} aria-hidden />
                     Change
                   </button>
                 </div>
 
-                <div className={styles.securityQuickRow} aria-label="Password">
-                  <div className={styles.securityQuickMeta}>
-                    <div className={styles.securityQuickLabel}>Password</div>
-                    <div className={styles.securityQuickValue}>
-                      <span aria-hidden>••••••••</span>
+                <div className={styles.credentialsRow} aria-label="Password">
+                  <div className={styles.credentialsMeta}>
+                    <div className={styles.credentialsLabel}>
+                      <Lock size={14} aria-hidden />
+                      Password
+                    </div>
+                    <div className={styles.credentialsValue}>
+                      <span className={styles.credentialsValueText} aria-hidden>
+                        ••••••••
+                      </span>
                     </div>
                   </div>
                   <button type="button" className={styles.securityQuickAction} onClick={() => setIsPasswordOpen(true)}>
-                    <Lock size={14} aria-hidden />
                     Change
                   </button>
                 </div>

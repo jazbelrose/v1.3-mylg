@@ -122,6 +122,82 @@
   gap: 10px;
 }
 
+.credentialsStrip {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+  min-width: 300px;
+}
+
+.credentialsRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  min-height: 46px;
+}
+
+.credentialsRow + .credentialsRow {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.credentialsMeta {
+  display: grid;
+  grid-template-columns: 104px 1fr;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.credentialsLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.58);
+  white-space: nowrap;
+}
+
+.credentialsValue {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.credentialsValueText {
+  font-size: 12.5px;
+  font-weight: 750;
+  color: rgba(255, 255, 255, 0.86);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.credentialsStatusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.28);
+}
+
+.credentialsStatusDot[data-status="verified"] {
+  background: rgba(110, 231, 183, 0.95);
+}
+
+.credentialsStatusDot[data-status="unverified"] {
+  background: rgba(251, 191, 36, 0.95);
+}
+
 .securityQuickRow {
   display: grid;
   grid-template-columns: 1fr auto;
