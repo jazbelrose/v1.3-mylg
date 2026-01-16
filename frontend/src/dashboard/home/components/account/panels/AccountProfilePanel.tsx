@@ -345,7 +345,7 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
             </div>
           </section>
 
-          <div className={styles.formGrid} aria-label="Profile fields">
+          <section className={styles.coreInfoGrid} aria-label="Core info">
             <label className={styles.field}>
               <span className={styles.label}>First name</span>
               <input
@@ -367,15 +367,6 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
               />
             </label>
 
-            <label className={styles.field}>
-              <span className={styles.labelRow}>
-                <span className={styles.label}>Email</span>
-                <span className={styles.labelIcon} title="Change requires verification" aria-label="Requires verification">
-                  <Lock size={14} />
-                </span>
-              </span>
-              <input className={styles.input} value={userData.email ?? ""} disabled readOnly />
-            </label>
             <label className={styles.field}>
               <span className={styles.label}>Phone</span>
               <input
@@ -407,74 +398,77 @@ const AccountProfilePanel = React.forwardRef<ProfilePanelHandle, AccountProfileP
               />
             </label>
 
-            <section className={[styles.section, styles.cardSpan2].join(" ")} aria-label="Address">
-              <div className={styles.groupLabel}>Address</div>
-              <div className={styles.addressGrid}>
-                <label className={styles.field}>
-                  <span className={styles.label}>Address line 1</span>
-                  <input
-                    className={styles.input}
-                    value={draft.addressLine1}
-                    onChange={(e) => setDraft({ ...draft, addressLine1: e.target.value })}
-                    autoComplete="address-line1"
-                    placeholder="Street address"
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>Address line 2</span>
-                  <input
-                    className={styles.input}
-                    value={draft.addressLine2}
-                    onChange={(e) => setDraft({ ...draft, addressLine2: e.target.value })}
-                    autoComplete="address-line2"
-                    placeholder="Apt, suite, unit (optional)"
-                  />
-                </label>
+            <div className={styles.coreSpacer} aria-hidden />
+          </section>
 
-                <label className={styles.field}>
-                  <span className={styles.label}>City</span>
-                  <input
-                    className={styles.input}
-                    value={draft.city}
-                    onChange={(e) => setDraft({ ...draft, city: e.target.value })}
-                    autoComplete="address-level2"
-                    placeholder="City"
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>State / Region</span>
-                  <input
-                    className={styles.input}
-                    value={draft.region}
-                    onChange={(e) => setDraft({ ...draft, region: e.target.value })}
-                    autoComplete="address-level1"
-                    placeholder="State / Region"
-                  />
-                </label>
+          <div className={styles.rhythmGap} aria-hidden />
 
-                <label className={styles.field}>
-                  <span className={styles.label}>Zip / Postal</span>
-                  <input
-                    className={styles.input}
-                    value={draft.postalCode}
-                    onChange={(e) => setDraft({ ...draft, postalCode: e.target.value })}
-                    autoComplete="postal-code"
-                    placeholder="Zip / Postal"
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>Country</span>
-                  <input
-                    className={styles.input}
-                    value={draft.country}
-                    onChange={(e) => setDraft({ ...draft, country: e.target.value })}
-                    autoComplete="country-name"
-                    placeholder="Country"
-                  />
-                </label>
-              </div>
-            </section>
-          </div>
+          <section className={styles.section} aria-label="Address">
+            <div className={styles.addressGrid}>
+              <label className={styles.field}>
+                <span className={styles.label}>Address line 1</span>
+                <input
+                  className={styles.input}
+                  value={draft.addressLine1}
+                  onChange={(e) => setDraft({ ...draft, addressLine1: e.target.value })}
+                  autoComplete="address-line1"
+                  placeholder="Street address"
+                />
+              </label>
+              <label className={styles.field}>
+                <span className={styles.label}>Address line 2</span>
+                <input
+                  className={styles.input}
+                  value={draft.addressLine2}
+                  onChange={(e) => setDraft({ ...draft, addressLine2: e.target.value })}
+                  autoComplete="address-line2"
+                  placeholder="Apt, suite, unit (optional)"
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.label}>City</span>
+                <input
+                  className={styles.input}
+                  value={draft.city}
+                  onChange={(e) => setDraft({ ...draft, city: e.target.value })}
+                  autoComplete="address-level2"
+                  placeholder="City"
+                />
+              </label>
+              <label className={styles.field}>
+                <span className={styles.label}>State / Region</span>
+                <input
+                  className={styles.input}
+                  value={draft.region}
+                  onChange={(e) => setDraft({ ...draft, region: e.target.value })}
+                  autoComplete="address-level1"
+                  placeholder="State / Region"
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.label}>Zip / Postal</span>
+                <input
+                  className={styles.input}
+                  value={draft.postalCode}
+                  onChange={(e) => setDraft({ ...draft, postalCode: e.target.value })}
+                  autoComplete="postal-code"
+                  placeholder="Zip / Postal"
+                />
+              </label>
+              <label className={styles.field}>
+                <span className={styles.label}>Country</span>
+                <input
+                  className={styles.input}
+                  value={draft.country}
+                  onChange={(e) => setDraft({ ...draft, country: e.target.value })}
+                  autoComplete="country-name"
+                  placeholder="Country"
+                />
+              </label>
+            </div>
+          </section>
 
           <section className={styles.aboutGrow} aria-label="About">
             <div className={styles.sectionHeaderRow}>

@@ -655,6 +655,20 @@
   gap: 16px 12px;
 }
 
+.coreInfoGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 12px;
+}
+
+.coreSpacer {
+  min-height: 1px;
+}
+
+.rhythmGap {
+  height: 8px;
+}
+
 .addressGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -869,6 +883,14 @@
 
   .formGrid {
     grid-template-columns: 1fr;
+  }
+
+  .coreInfoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .coreSpacer {
+    display: none;
   }
 
   .addressGrid {
