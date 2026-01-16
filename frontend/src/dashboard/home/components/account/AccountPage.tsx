@@ -29,7 +29,7 @@ export default function AccountPage() {
           </div>
 
           <div className={styles.headerRight}>
-            {panel === "profile" ? (
+            {panel === "profile" && profileSaveState !== "clean" ? (
               <div
                 className={[
                   styles.savePill,
@@ -47,11 +47,10 @@ export default function AccountPage() {
                     ? "Saving…"
                     : profileSaveState === "saved"
                       ? "Saved ✓"
-                      : "Up to date"}
+                      : null}
               </div>
             ) : null}
             <div className={styles.orgPicker} aria-label="Organization">
-              <span className={styles.orgPill}>Org</span>
               <span className={styles.orgSelectWrap}>
                 <select
                   className={styles.orgSelect}
