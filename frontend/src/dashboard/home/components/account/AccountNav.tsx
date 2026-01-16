@@ -1,10 +1,10 @@
 import React from "react";
-import { CreditCard, Shield, User } from "lucide-react";
+import { CreditCard, User } from "lucide-react";
 
 import SegmentedControl, { type SegmentedOption } from "./ui/SegmentedControl";
 import styles from "./accountPage.module.css";
 
-export type AccountPanelKey = "profile" | "security" | "payments";
+export type AccountPanelKey = "profile" | "payments";
 
 type AccountNavProps = {
   value: AccountPanelKey;
@@ -18,7 +18,6 @@ const NAV_ITEMS: Array<{
   Icon: React.ComponentType<{ size?: number; className?: string }>;
 }> = [
   { key: "profile", label: "Account info", description: "Profile and preferences", Icon: User },
-  { key: "security", label: "Security", description: "Password and account security", Icon: Shield },
   { key: "payments", label: "Payments", description: "Pay vendors and get paid", Icon: CreditCard },
 ];
 
@@ -27,7 +26,7 @@ export default function AccountNav({ value, onChange }: AccountNavProps) {
     () =>
       NAV_ITEMS.map((i) => ({
         value: i.key,
-        label: i.key === "profile" ? "Account" : i.key === "security" ? "Security" : "Payments",
+        label: i.key === "profile" ? "Account" : "Payments",
       })),
     []
   );
