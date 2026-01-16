@@ -46,9 +46,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   border: 1px solid var(--line, rgba(255, 255, 255, 0.06));
   background: transparent;
   color: inherit;
@@ -60,12 +60,51 @@
 .dashboard-nav-panel__collapse-toggle:hover,
 .dashboard-nav-panel__collapse-toggle:focus-visible {
   background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
 }
 
 .dashboard-nav-panel__collapse-toggle:focus-visible {
   outline: 2px solid var(--accent, #FA3356);
   outline-offset: 2px;
+}
+
+.dashboard-nav-panel__collapse-toggle-row {
+  display: flex;
+  justify-content: flex-start;
+  padding: 0 9px;
+}
+
+.dashboard-nav-panel__collapse-toggle--expanded {
+  width: calc(100% - 18px);
+  min-height: 44px;
+  height: auto;
+  padding: 0 14px;
+  margin: 0 9px;
+  border: none;
+  border-radius: 12px;
+  background: var(--bg3, #181a1b);
+  box-shadow: inset 0 0 0 1px var(--line, rgba(255, 255, 255, 0.06));
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  justify-content: initial;
+}
+
+.dashboard-nav-panel__collapse-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-nav-panel__collapse-toggle-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text, #eaecee);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dashboard-nav-panel__brand-row {
@@ -481,6 +520,11 @@
 .dashboard-nav-panel--collapsed .dashboard-nav-panel__footer {
   padding: 0;
   align-items: center;
+}
+
+.dashboard-nav-panel--collapsed .dashboard-nav-panel__collapse-toggle-row {
+  padding: 0;
+  justify-content: center;
 }
 
 .dashboard-nav-panel--collapsed .dashboard-nav-panel__account-button {
