@@ -3,8 +3,12 @@
 @import './overrides.css';
 
 .dashboard-root {
+  --dashboard-nav-expanded-width: 280px;
+  --dashboard-nav-collapsed-width: 120px;
+  --dashboard-nav-width: var(--dashboard-nav-expanded-width);
+
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: var(--dashboard-nav-width) minmax(0, 1fr);
   height: 100vh;
   max-width: 1920px;
   margin: 0 auto;
@@ -12,7 +16,7 @@
 }
 
 .dashboard-root--nav-collapsed {
-  grid-template-columns: 120px 1fr;
+  --dashboard-nav-width: var(--dashboard-nav-collapsed-width);
 }
 
 .dashboard-root > aside {
@@ -21,14 +25,14 @@
   align-self: start;
   height: 100vh;
   display: flex;
-}
-
-.dashboard-root--nav-collapsed > aside {
-  width: 120px;
+  min-width: 0;
+  width: var(--dashboard-nav-width);
 }
 
 .dashboard-root > aside > * {
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .dashboard-main {
@@ -37,7 +41,7 @@
   height: 100vh;
   min-width: 0;
   overflow: hidden;
-  padding: 0 12px;
+  
 }
 
 .dashboard-wrapper {

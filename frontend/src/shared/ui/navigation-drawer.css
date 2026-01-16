@@ -39,7 +39,10 @@
   gap: 16px;
   color: var(--text, #eaecee);
   padding: 16px;
-  padding-right: 0;
+  padding-right: 9px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .dashboard-nav-panel__collapse-toggle {
@@ -82,7 +85,7 @@
   min-height: 44px;
   height: auto;
   padding: 0 14px;
-  margin: 0 9px;
+ 
   border: none;
   border-radius: 12px;
   background: var(--bg3, #181a1b);
@@ -187,6 +190,7 @@
 
 .dashboard-nav-panel--collapsed {
   padding: 12px 8px;
+  padding-right: 9px;
 }
 
 .dashboard-nav-panel--collapsed .navigation-drawer-content {
@@ -339,6 +343,8 @@
   overflow: hidden;
   isolation: isolate;
   padding: 16px;
+
+  min-width: 0;
 
   
   border-radius: 32px 32px 32px 32px;
