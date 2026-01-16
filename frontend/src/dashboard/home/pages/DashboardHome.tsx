@@ -5,7 +5,6 @@ import { UserLite } from "@/app/contexts/DataProvider";
 import { slugify } from "@/shared/utils/slug";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { prefetchBudgetData } from "@/dashboard/project/features/budget/context/useBudget";
-import WelcomeHeader from "@/dashboard/home/components/WelcomeHeader";
 import AllProjects from "@/dashboard/home/components/AllProjects";
 import ProjectsPanelMobile from "@/dashboard/home/components/ProjectsPanelMobile";
 import NotificationsPage from "@/dashboard/home/components/NotificationsPage";
@@ -20,6 +19,7 @@ import TasksOverviewCard from "@/dashboard/home/components/TasksOverviewCard";
 import MobileTasksOverviewCard from "@/dashboard/home/components/MobileTasksOverviewCard";
 import NavigationDrawer from "@/shared/ui/NavigationDrawer";
 import DashboardNavPanel from "@/shared/ui/DashboardNavPanel";
+import AppHeaderCard from "@/shared/ui/AppHeaderCard";
 import ProjectsPanelDesktop from "@/dashboard/home/components/ProjectsPanelDesktop";
 import { getColor } from "@/shared/utils/colorUtils";
 import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
@@ -456,19 +456,16 @@ const WelcomeScreen: React.FC = () => {
 
   const mainContent = (
     <main className="dashboard-main">
+      {!isDesktop ? (
+        <AppHeaderCard
+          leftMode="menu"
+          onLeftAction={handleOpenNavigation}
+          navigationDrawerId={drawerId}
+          isNavigationOpen={isNavigationOpen}
+          centerMode="search"
+        />
+      ) : null}
       <div className="dashboard-wrapper welcome-screen no-vertical-center">
-        {!isDesktop ? (
-          <WelcomeHeader
-            userName={userName}
-            setActiveView={setActiveView}
-            onToggleNavigation={handleOpenNavigation}
-            isNavigationOpen={isNavigationOpen}
-            navigationDrawerId={drawerId}
-            isDesktopLayout={isDesktop}
-            showDesktopGreeting={false}
-          />
-        ) : null}
-
         <div className="row-layout">
           <div className="welcome-screen-details">
             <div className="dashboard-content">

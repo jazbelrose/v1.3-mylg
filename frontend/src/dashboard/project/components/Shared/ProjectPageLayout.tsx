@@ -1,11 +1,14 @@
 import React from "react";
 import ProjectMessagesThread from "@/dashboard/features/messages/ProjectMessagesThread";
 import DashboardNavPanel from "@/shared/ui/DashboardNavPanel";
+import AppHeaderCard from "@/shared/ui/AppHeaderCard";
 import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
 import ChatPanel from "./ChatPanel";
 import type { ProjectAccentPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { useData } from "@/app/contexts/useData";
 import Spinner from "@/shared/ui/Spinner";
+import { useLocation, useNavigate } from "react-router-dom";
+import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 
 type ProjectPageLayoutProps = {
   projectId?: string;
@@ -53,6 +56,8 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
 }) => {
   const projectHeaderRef = React.useRef<HTMLDivElement | null>(null);
   const layoutRef = React.useRef<HTMLDivElement | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const themeStyle = React.useMemo<React.CSSProperties | undefined>(() => {
     if (!theme) return undefined;
@@ -128,7 +133,9 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
   // Measure global + project header heights
   React.useLayoutEffect(() => {
     const updateHeights = () => {
-      const navBar = document.querySelector<HTMLElement>("header.header .nav-bar");
+      const navBar = document.querySelector<HTMLElement>(
+        "[data-app-header-card]"
+      );
       const globalHeight = navBar ? navBar.getBoundingClientRect().height : 0;
       const projectHeight = projectHeaderRef.current
         ? projectHeaderRef.current.getBoundingClientRect().height
@@ -235,6 +242,23 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
   const headerOffset = headerHeights.global + headerHeights.project;
   const contentHeight = `calc(${viewportUnit} - ${headerOffset}px)`;
 
+  const projectBackTarget = React.useMemo(() => {
+    if (!projectId) return "/dashboard/projects";
+
+    const segments = location.pathname.split("/").filter(Boolean);
+    const isProjectRoot =
+      segments[0] === "dashboard" &&
+      segments[1] === "projects" &&
+      segments[2] === projectId &&
+      segments.length <= 4;
+
+    if (isProjectRoot) {
+      return "/dashboard/projects";
+    }
+
+    return getProjectDashboardPath(projectId, activeProject?.title);
+  }, [activeProject?.title, location.pathname, projectId]);
+
   const layoutStyles = React.useMemo<React.CSSProperties>(
     () => ({
       height: isMobile ? undefined : contentHeight,
@@ -311,11 +335,19 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
       data-project-theme={theme ? "" : undefined}
       style={themeStyle}
     >
+      {!isDesktop ? (
+        <AppHeaderCard
+          leftMode="back"
+          onLeftAction={() => navigate(projectBackTarget)}
+          centerMode="search"
+          title={activeProject?.title || "Project"}
+        />
+      ) : null}
       <div
         ref={projectHeaderRef}
         style={{
           position: "sticky",
-          top: 0,
+          top: headerHeights.global,
           zIndex: 5,
           backgroundColor: "#0c0c0c",
           display: "flex",

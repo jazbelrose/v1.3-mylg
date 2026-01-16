@@ -44,14 +44,24 @@
 
 .global-search-input {
   width: 100%;
-  padding: 12px 180px 12px 40px;
+  padding: 12px 44px 12px 40px;
   min-height: 44px;
   background: transparent;
+  background-color: transparent;
+  appearance: none;
+  -webkit-appearance: none;
   border: none;
   outline: none;
   color: white;
   font-size: 16px;
   font-family: inherit;
+}
+
+.global-search-input::-webkit-search-decoration,
+.global-search-input::-webkit-search-cancel-button,
+.global-search-input::-webkit-search-results-button,
+.global-search-input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
 }
 
 .global-search-input::placeholder {
@@ -85,12 +95,16 @@
   top: 100%;
   left: 0;
   right: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   background: #1a1a1a;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 16px;
   margin-top: 8px;
   max-height: 400px;
   overflow-y: auto;
+  overflow-x: hidden;
   z-index: 1000;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
 }

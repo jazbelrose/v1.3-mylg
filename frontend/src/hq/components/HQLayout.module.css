@@ -608,7 +608,7 @@
   margin: 0 0 16px;
 }
 
-:global(body.hq-hide-marketing-nav header.header .nav-bar) {
+:global(body.hq-hide-marketing-nav header.header .nav-bar:not([data-app-header-card])) {
   display: none !important;
 }
 
@@ -727,7 +727,7 @@
     width: 100%;
     margin: 0;
     border-radius: 0;
-    padding: 28px 20px 40px;
+    padding: 18px 12px 28px;
     box-shadow: none;
   }
 

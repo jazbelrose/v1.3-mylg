@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { resetPassword, confirmResetPassword } from 'aws-amplify/auth';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { Eye, EyeOff } from 'lucide-react';
+import AppHeaderCard from '@/shared/ui/AppHeaderCard';
 import styles from '../auth.module.css';
 
 const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*]).{8,}$/;
 
 const ForgotPassword: React.FC = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -51,6 +53,18 @@ const ForgotPassword: React.FC = () => {
         <title>Forgot Password | *MYLG!*</title>
       </Helmet>
       <div className={styles.authPage}>
+        <AppHeaderCard
+          leftMode="back"
+          onLeftAction={() => {
+            if (window.history.length > 2) {
+              navigate(-1);
+            } else {
+              navigate("/login", { replace: true });
+            }
+          }}
+          centerMode="search"
+          title="Reset password"
+        />
         <div className={styles.authCard}>
           <div className={styles.wordmark}>*MYLG!*</div>
 

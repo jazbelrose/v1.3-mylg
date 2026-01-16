@@ -1,6 +1,6 @@
 import React, { useState, FormEvent } from "react";
 import { Helmet, HelmetProvider } from "react-helmet-async";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import EmailVerification from "../email-verification/EmailVerification";
 import { signUp, resendSignUpCode } from "@aws-amplify/auth";
 import { useData } from "@/app/contexts/useData";
@@ -9,6 +9,7 @@ import {
   updateUserProfilePending,
 } from "../../../../shared/utils/api";
 import { Eye, EyeOff } from "lucide-react";
+import AppHeaderCard from "@/shared/ui/AppHeaderCard";
 import styles from "../auth.module.css";
 
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
@@ -74,6 +75,7 @@ export function Register() {
   const [signUpError, setSignUpError] = useState<string>("");
 
   const { opacity } = useData();
+  const navigate = useNavigate();
   const [errors, setErrors] = useState<FormErrors>({});
   const opacityClass = opacity === 1 ? "opacity-high" : "opacity-low";
 
@@ -202,6 +204,18 @@ export function Register() {
       </Helmet>
 
       <div className={`${opacityClass} ${styles.authPage}`}>
+        <AppHeaderCard
+          leftMode="back"
+          onLeftAction={() => {
+            if (window.history.length > 2) {
+              navigate(-1);
+            } else {
+              navigate("/", { replace: true });
+            }
+          }}
+          centerMode="search"
+          title="Register"
+        />
         <div className={styles.authCard}>
           <div className={styles.wordmark}>*MYLG!*</div>
           <h1 className={styles.authTitle}>Create your account</h1>

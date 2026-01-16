@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useData } from '@/app/contexts/useData';
 import { updateUserProfile } from '@/shared/utils/api';
+import AppHeaderCard from '@/shared/ui/AppHeaderCard';
 
 const EmailChangeVerification: React.FC = () => {
   const [otpInputs, setOtpInputs] = useState<string[]>(Array(6).fill(''));
@@ -80,6 +81,18 @@ const EmailChangeVerification: React.FC = () => {
 
   return (
     <div className={styles.authPage}>
+      <AppHeaderCard
+        leftMode="back"
+        onLeftAction={() => {
+          if (window.history.length > 2) {
+            navigate(-1);
+          } else {
+            navigate("/dashboard/settings", { replace: true });
+          }
+        }}
+        centerMode="search"
+        title="Verify email"
+      />
       <div className={styles.authCard}>
         <div className={styles.wordmark}>*MYLG!*</div>
         <h1 className={styles.authTitle}>Verify your email</h1>

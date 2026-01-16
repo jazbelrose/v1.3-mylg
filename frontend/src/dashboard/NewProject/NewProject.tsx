@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { FaArrowLeft } from "react-icons/fa";
 import { parseBudget } from "@/shared/utils/budgetUtils";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
+import AppHeaderCard from "@/shared/ui/AppHeaderCard";
 import {
   POST_PROJECTS_URL,
   POST_PROJECT_TO_USER_URL,
@@ -319,6 +320,12 @@ const NewProject: React.FC = () => {
       </Helmet>
 
       <div className={styles.newProjectPage}>
+        <AppHeaderCard
+          leftMode="back"
+          onLeftAction={() => navigate("/dashboard/projects")}
+          centerMode="search"
+          title="Start something"
+        />
         <div className={styles.newProjectWrapper}>
           {/* Header Section */}
           <header className={styles.newProjectHeader}>

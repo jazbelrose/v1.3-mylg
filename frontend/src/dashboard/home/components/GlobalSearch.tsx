@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Search, X, FileText, FolderOpen, MessageSquare, User, Loader2 } from 'lucide-react';
 import { useData } from '@/app/contexts/useData';
 import { useNavigate } from 'react-router-dom';
+import './GlobalSearch.css';
 import { slugify } from '@/shared/utils/slug';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
 import type { Project, Message, UserLite } from '@/app/contexts/DataProvider';

@@ -33,6 +33,7 @@ export { default as ScrambleButton } from "./ScrambleButton";
 export { default as ScrollToTopButton } from "./ScrollToTopButton";
 export { default as Spinner } from "./Spinner";
 export { default as Squircle } from "./Squircle";
+export { default as AppHeaderCard } from "./AppHeaderCard";
 
 
 

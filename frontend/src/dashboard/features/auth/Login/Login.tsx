@@ -12,6 +12,7 @@ import { Alert, Button as AntButton } from "antd";
 import { useAuth } from "@/app/contexts/useAuth";
 import { useData } from "@/app/contexts/useData";
 import SpinnerOverlay from "../../../../shared/ui/SpinnerOverlay";
+import AppHeaderCard from "@/shared/ui/AppHeaderCard";
 import { Eye, EyeOff } from "lucide-react";
 import styles from "../auth.module.css";
 import VerificationCodeModal from "../../../../shared/ui/VerificationCodeModal";
@@ -219,6 +220,18 @@ export function Login() {
 
       <div className={`${opacityClass} ${styles.authPage}`}>
         {isLoading && <SpinnerOverlay />}
+        <AppHeaderCard
+          leftMode="back"
+          onLeftAction={() => {
+            if (window.history.length > 2) {
+              navigate(-1);
+            } else {
+              navigate("/", { replace: true });
+            }
+          }}
+          centerMode="search"
+          title="Sign in"
+        />
 
         <div className={styles.authCard}>
           <div className={styles.wordmark}>*MYLG!*</div>

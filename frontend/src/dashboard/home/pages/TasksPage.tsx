@@ -2,6 +2,7 @@ import React, { useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import GlobalTaskDrawer from "../components/GlobalTaskDrawer";
 import type { QuickCreateTaskModalTask } from "../components/QuickCreateTaskModal";
+import AppHeaderCard from "@/shared/ui/AppHeaderCard";
 
 /**
  * TasksPage - Route wrapper for GlobalTaskDrawer
@@ -55,16 +56,24 @@ const TasksPage: React.FC = () => {
   } : undefined;
 
   return (
-    <GlobalTaskDrawer 
-      open={true} 
-      onClose={handleClose} 
-      initialProjectFilter={projectId}
-      fullPage={true}
-      backLabel={backLabel}
-      calendarAction={calendarAction}
-      openInCreateMode={openInCreateMode}
-      initialTaskDraft={taskDraft}
-    />
+    <>
+      <AppHeaderCard
+        leftMode="back"
+        onLeftAction={handleClose}
+        centerMode="search"
+        title="Tasks"
+      />
+      <GlobalTaskDrawer 
+        open={true} 
+        onClose={handleClose} 
+        initialProjectFilter={projectId}
+        fullPage={true}
+        backLabel={backLabel}
+        calendarAction={calendarAction}
+        openInCreateMode={openInCreateMode}
+        initialTaskDraft={taskDraft}
+      />
+    </>
   );
 };
 

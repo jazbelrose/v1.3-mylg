@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useData } from '@/app/contexts/useData';
 import { upsertUserProfile } from '../../../../shared/utils/api';
 import { useAuth } from '@/app/contexts/useAuth';
+import AppHeaderCard from '@/shared/ui/AppHeaderCard';
 import styles from '../auth.module.css';
 
 interface RegistrationData {
@@ -150,6 +151,18 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({ registrationData,
         <title>Email Verification | *MYLG!*</title>
       </Helmet>
       <div className={`${opacityClass} ${styles.authPage}`}>
+        <AppHeaderCard
+          leftMode="back"
+          onLeftAction={() => {
+            if (window.history.length > 2) {
+              navigate(-1);
+            } else {
+              navigate("/register", { replace: true });
+            }
+          }}
+          centerMode="search"
+          title="Verify email"
+        />
         <div className={styles.authCard}>
           <div className={styles.wordmark}>*MYLG!*</div>
           <h1 className={styles.authTitle}>Verify your email</h1>

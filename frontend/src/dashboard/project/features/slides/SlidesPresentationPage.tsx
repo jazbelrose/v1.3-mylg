@@ -6,6 +6,7 @@ import { useData } from "@/app/contexts/useData";
 import type { Slide } from "@/app/contexts/DataProvider";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { getFileUrl, apiFetch, deckVersionUrl } from "@/shared/utils/api";
+import AppHeaderCard from "@/shared/ui/AppHeaderCard";
 
 import SlideReadOnlyRenderer from "./components/SlideReadOnlyRenderer";
 import "./presentation.css";
@@ -284,6 +285,14 @@ const SlidesPresentationPage: React.FC = () => {
 
   return (
     <div className="slides-presentation" ref={containerRef}>
+      {!isFullscreen ? (
+        <AppHeaderCard
+          leftMode="back"
+          onLeftAction={exitPresentation}
+          centerMode="search"
+          title="Presentation"
+        />
+      ) : null}
       <div className="slides-presentation__controls" data-prevent-slide-advance>
         <button
           type="button"
@@ -340,4 +349,3 @@ const SlidesPresentationPage: React.FC = () => {
 };
 
 export default SlidesPresentationPage;
-

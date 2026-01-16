@@ -1,12 +1,14 @@
 import React, { useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useData } from "@/app/contexts/useData";
+import AppHeaderCard from "@/shared/ui/AppHeaderCard";
 import "./404.css";
 import ScrambleButton from "./ScrambleButton";
 
 const NotFound: React.FC = () => {
   const { opacity } = useData();
+  const navigate = useNavigate();
   const opacityClass = opacity === 1 ? "opacity-high" : "opacity-low";
 
   useEffect(() => {
@@ -18,6 +20,18 @@ const NotFound: React.FC = () => {
 
   return (
     <div className={`not-found-container ${opacityClass}`}>
+      <AppHeaderCard
+        leftMode="back"
+        onLeftAction={() => {
+          if (window.history.length > 2) {
+            navigate(-1);
+          } else {
+            navigate("/", { replace: true });
+          }
+        }}
+        centerMode="search"
+        title="Not found"
+      />
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

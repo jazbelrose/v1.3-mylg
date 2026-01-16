@@ -147,7 +147,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   useLayoutEffect(() => {
     const updateOffset = () => {
       const navBar = document.querySelector(
-        "header.header .nav-bar"
+        "[data-app-header-card]"
       ) as HTMLElement | null;
       const projectHeader = document.querySelector(
         ".project-header"

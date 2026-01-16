@@ -525,6 +525,12 @@
   }
 }
 
+@media (max-width: 1023px) {
+  .newProjectHeader {
+    display: none;
+  }
+}
+
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   .newProjectPage { transform: none; }

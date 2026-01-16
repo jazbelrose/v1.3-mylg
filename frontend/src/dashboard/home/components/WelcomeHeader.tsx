@@ -4,7 +4,6 @@ import { useData } from '@/app/contexts/useData';
 import { useNavigate } from 'react-router-dom';
 import { useOnlineStatus } from '@/app/contexts/OnlineStatusContext';
 import GlobalSearch from './GlobalSearch';
-import './GlobalSearch.css';
 import { getFileUrl } from '../../../shared/utils/api';
 
 interface WelcomeHeaderProps {

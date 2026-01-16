@@ -3,11 +3,11 @@ import React, {
   useEffect,
   useId,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import DashboardNavPanel from "@/shared/ui/DashboardNavPanel";
 import NavigationDrawer from "@/shared/ui/NavigationDrawer";
+import AppHeaderCard from "@/shared/ui/AppHeaderCard";
 import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
 import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
@@ -16,7 +16,6 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { FaExclamationTriangle, FaTrash } from "react-icons/fa";
 import { deleteHqImportRun, fetchHqSummary, resetHqData } from "@/hq/lib/hqApi";
 import "@/dashboard/home/pages/dashboard-styles.css";
-import WelcomeHeader from "@/dashboard/home/components/WelcomeHeader";
 import Modal from "@/shared/ui/ModalWithStack";
 import PageHeader from "@/shared/ui/PageHeader";
 import styles from "./HQLayout.module.css";
@@ -48,7 +47,7 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   actions,
   children,
 }) => {
-  const { userName, isAdmin } = useUser();
+  const { isAdmin } = useUser();
   const { orgs, activeOrgId, activeOrgRole, setActiveOrgId, isLoading: orgsLoading, createOrg, deleteOrg } = useOrg();
   const [flags, setFlags] = useState<ViewportFlags>(() => getViewportFlags());
   const [isNavCollapsed, setIsNavCollapsed] = useNavCollapsed("dashboard");
@@ -58,7 +57,6 @@ const HQLayout: React.FC<HQLayoutProps> = ({
     () => `hq-nav-${rawDrawerId.replace(/[^a-zA-Z0-9_-]/g, "")}`,
     [rawDrawerId]
   );
-  const mobileWelcomeHeaderRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleResize = () => setFlags(getViewportFlags());
@@ -90,10 +88,6 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   const handleOpenNavigation = () => setIsNavigationOpen(true);
   const handleCloseNavigation = () => setIsNavigationOpen(false);
   const handleToggleCollapse = () => setIsNavCollapsed((previous) => !previous);
-
-  const handleSetActiveView = useCallback((view: string) => {
-    void view;
-  }, []);
 
   const handleCreateOrg = useCallback(async () => {
     const name = window.prompt("Organization name?");
@@ -736,25 +730,16 @@ const HQLayout: React.FC<HQLayoutProps> = ({
     </Modal>
   );
 
-  const mobileWelcomeHeader = !flags.isDesktop ? (
-    <div ref={mobileWelcomeHeaderRef} className={styles.mobileWelcomeHeader}>
-      <WelcomeHeader
-        userName={userName}
-        setActiveView={handleSetActiveView}
-        onToggleNavigation={handleOpenNavigation}
-        isNavigationOpen={isNavigationOpen}
-        navigationDrawerId={drawerId}
-        isDesktopLayout={flags.isDesktop}
-        showDesktopGreeting={false}
-        showGlobalSearch
-        showAvatar
-      />
-    </div>
-  ) : null;
-
   const mainContent = (
     <main className="dashboard-main">
-      {mobileWelcomeHeader}
+      <AppHeaderCard
+        leftMode="menu"
+        onLeftAction={handleOpenNavigation}
+        navigationDrawerId={drawerId}
+        isNavigationOpen={isNavigationOpen}
+        centerMode="search"
+        title={title}
+      />
       <div className={`dashboard-wrapper ${styles.wrapper}`}>
         {shredConfirmModal}
         {whatStaysModal}

@@ -16,6 +16,7 @@ import { useData } from "@/app/contexts/useData";
 import { slugify } from "@/shared/utils/slug";
 import { fetchGalleries, fileUrlsToKeys, getFileUrl } from "@/shared/utils/api";
 import Preloader from "@/shared/ui/Preloader";
+import AppHeaderCard from "@/shared/ui/AppHeaderCard";
 import * as pdfjsLibLocal from "pdfjs-dist/legacy/build/pdf";
 import GalleryMasonry from "./GalleryMasonry";
 
@@ -556,6 +557,12 @@ const GalleryPage: FC<GalleryPageProps> = ({ projectId: propProjectId }) => {
   if (!unlocked) {
     return (
       <div className={styles.passwordWrapper}>
+        <AppHeaderCard
+          leftMode="back"
+          onLeftAction={handleBack}
+          centerMode="search"
+          title="Gallery"
+        />
         <form onSubmit={verify} className={styles.passwordContainer}>
           <h2>Enter Password</h2>
           <input
@@ -575,6 +582,12 @@ const GalleryPage: FC<GalleryPageProps> = ({ projectId: propProjectId }) => {
 
   return (
     <div className={`gallery-page ${styles.galleryPage}`}>
+      <AppHeaderCard
+        leftMode="back"
+        onLeftAction={handleBack}
+        centerMode="search"
+        title="Gallery"
+      />
       {(loading || loadingGalleries) && <Preloader />}
       {error && <p className="text-danger mt-3">{error}</p>}
 

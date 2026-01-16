@@ -15,7 +15,7 @@ type PresenceMessage = {
   online?: boolean;
 };
 
-const OnlineStatusContext = createContext<OnlineCtx | undefined>(undefined);
+export const OnlineStatusContext = createContext<OnlineCtx | undefined>(undefined);
 
 export const useOnlineStatus = () => {
   const ctx = useContext(OnlineStatusContext);
