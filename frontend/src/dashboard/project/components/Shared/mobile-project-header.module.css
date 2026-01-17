@@ -17,7 +17,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-bottom: 6px;
+  margin: 6px 0;
 }
 
 .wrapper::after {
@@ -49,30 +49,6 @@
   gap: 10px;
   min-width: 0;
   flex: 1;
-}
-
-.backButton {
-  border: none;
-  background: transparent;
-  padding: 4px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 9999px;
-  color: #ffffff;
-  cursor: pointer;
-}
-
-.backButton:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.45);
-  outline-offset: 2px;
-}
-
-.backIcon {
-  width: 18px;
-  height: 18px;
 }
 
 .logoWrapper {

@@ -9,7 +9,7 @@
  * The hero is now "decision-first" - entry point to deck/tasks.
  */
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   AlertTriangle, 
@@ -168,6 +168,20 @@ export function ProjectPoster({
   showConjurePlan = false,
   onConjurePlan,
 }: ProjectPosterProps) {
+  const [isMobileHero, setIsMobileHero] = useState(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return window.matchMedia('(max-width: 640px)').matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mediaQuery = window.matchMedia('(max-width: 640px)');
+    const listener = (event: MediaQueryListEvent) => setIsMobileHero(event.matches);
+    setIsMobileHero(mediaQuery.matches);
+    mediaQuery.addEventListener('change', listener);
+    return () => mediaQuery.removeEventListener('change', listener);
+  }, []);
+
   const navigate = useNavigate();
 
   // Check if we have valid coordinates for real map
@@ -234,7 +248,9 @@ export function ProjectPoster({
   };
 
   return (
-    <div className={styles.heroBanner}>
+    <div
+      className={[styles.heroBanner, isMobileHero ? styles.heroBannerMobile : ''].join(' ')}
+    >
       {/* Left: Project Info Stack */}
       <div 
         className={styles.heroInfoColumn}
@@ -320,6 +336,7 @@ export function ProjectPoster({
             lat={locationCoords.lat}
             lng={locationCoords.lng}
             cityLabel={locationLabel}
+            variant={isMobileHero ? 'mobileHero' : 'default'}
             onClick={handleMapClick}
           />
         ) : (

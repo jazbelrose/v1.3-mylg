@@ -56,18 +56,14 @@ interface MiniMapTileProps {
   lng: number;
   cityLabel?: string; // e.g., "San Francisco" or "Downtown LA"
   radiusKm?: number; // Desired context radius (default: 2.5km for neighborhood view)
+  variant?: 'default' | 'mobileHero';
   onClick?: () => void;
   className?: string;
 }
 
-export function MiniMapTile({ 
-  lat, 
-  lng, 
-  cityLabel, 
-  radiusKm = 2.5, // Show ~2.5km radius by default (neighborhood context)
-  onClick, 
-  className 
-}: MiniMapTileProps) {
+export function MiniMapTile(props: MiniMapTileProps) {
+  const { lat, lng, cityLabel, onClick, className, variant = 'default' } = props;
+  const radiusKm = props.radiusKm ?? (variant === 'mobileHero' ? 3.5 : 2.5);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -82,13 +78,10 @@ export function MiniMapTile({
       mapRef.current = null;
     }
 
-    // Calculate bounds for reference
-    const bounds = getBoundsForRadius(lat, lng, radiusKm);
-
     // Create map - fully locked down, no interactions
     const map = L.map(containerRef.current, {
       center: [lat, lng],
-      zoom: 14,  // Deterministic neighborhood zoom (no guessing)
+      zoom: 14, // Initial zoom; will be adjusted via fitBounds for context radius
       zoomControl: false,
       attributionControl: false,
       dragging: false,
@@ -112,6 +105,10 @@ export function MiniMapTile({
     // Add marker
     L.marker([lat, lng], { icon: PIN_ICON }).addTo(map);
 
+    // Fit to desired context radius (2–4km feels "neighborhood / city context").
+    const bounds = getBoundsForRadius(lat, lng, radiusKm);
+    map.fitBounds(bounds, { padding: [24, 24], animate: false, maxZoom: 14 });
+
     mapRef.current = map;
 
     return () => {
@@ -120,9 +117,44 @@ export function MiniMapTile({
     };
   }, [lat, lng, radiusKm]);
 
+  // Ensure Leaflet resizes correctly when container height changes (mobile hero, orientation, etc.)
+  useEffect(() => {
+    if (!containerRef.current) return;
+    if (!mapRef.current) return;
+
+    const map = mapRef.current;
+    let rafId = 0;
+
+    const scheduleInvalidate = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        map.invalidateSize();
+      });
+    };
+
+    scheduleInvalidate();
+
+    const resizeObserver = new ResizeObserver(() => {
+      scheduleInvalidate();
+    });
+
+    resizeObserver.observe(containerRef.current);
+    window.addEventListener('orientationchange', scheduleInvalidate);
+
+    return () => {
+      window.removeEventListener('orientationchange', scheduleInvalidate);
+      resizeObserver.disconnect();
+      cancelAnimationFrame(rafId);
+    };
+  }, [lat, lng, radiusKm, variant]);
+
   return (
     <div
-      className={`${styles.heroMapTile} ${className || ''}`}
+      className={[
+        styles.heroMapTile,
+        variant === 'mobileHero' ? styles.heroMapTileMobileHero : '',
+        className || '',
+      ].join(' ')}
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -138,19 +170,32 @@ export function MiniMapTile({
       {/* Leaflet container */}
       <div ref={containerRef} className={styles.heroMapLeaflet} />
       
-      {/* Bottom gradient + city label */}
-      <div className={styles.heroMapOverlay}>
-        <div className={styles.heroMapContextRow}>
-          {cityLabel && (
-            <span className={styles.heroMapLabel}>{cityLabel}</span>
-          )}
+      {variant === 'mobileHero' ? (
+        <div className={styles.heroMapTopOverlay} aria-hidden="true">
+          {cityLabel ? (
+            <div className={styles.heroMapTopLabel} title={cityLabel}>
+              {cityLabel}
+            </div>
+          ) : null}
+          <div className={styles.heroMapOpenPill}>Open map</div>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Bottom gradient + city label */}
+          <div className={styles.heroMapOverlay}>
+            <div className={styles.heroMapContextRow}>
+              {cityLabel && (
+                <span className={styles.heroMapLabel}>{cityLabel}</span>
+              )}
+            </div>
+          </div>
 
-      {/* Hover state */}
-      <div className={`${styles.heroMapHover} ${isHovered ? styles.heroMapHoverVisible : ''}`}>
-        <span>Open Map</span>
-      </div>
+          {/* Hover state */}
+          <div className={`${styles.heroMapHover} ${isHovered ? styles.heroMapHoverVisible : ''}`}>
+            <span>Open Map</span>
+          </div>
+        </>
+      )}
 
       <button
         type="button"
@@ -162,7 +207,7 @@ export function MiniMapTile({
         aria-label="Open tasks map"
         title="Open tasks map"
       >
-        <MapIcon size={14} aria-hidden />
+        <MapIcon size={variant === 'mobileHero' ? 18 : 14} aria-hidden />
       </button>
     </div>
   );
