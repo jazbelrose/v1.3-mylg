@@ -38,6 +38,34 @@ const ToastMessage: React.FC<{ message: string }> = ({ message }) => {
 
 const renderToast = (message: string) => () => <ToastMessage message={message} />;
 
+const ToastActionMessage: React.FC<{
+  message: string;
+  actionLabel: string;
+  onAction: () => void;
+}> = ({ message, actionLabel, onAction }) => {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <motion.div
+      className={`${styles.body} ${styles.actionRow}`}
+      initial={reduceMotion ? false : { opacity: 0, y: -6, scale: 0.94 }}
+      animate={reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
+      whileHover={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
+      whileFocus={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
+      transition={reduceMotion ? undefined : SPRING_SOFT}
+    >
+      <span>{message}</span>
+      <button type="button" className={styles.actionButton} onClick={onAction}>
+        {actionLabel}
+      </button>
+    </motion.div>
+  );
+};
+
+const renderActionToast =
+  (message: string, actionLabel: string, onAction: () => void) => () =>
+    <ToastActionMessage message={message} actionLabel={actionLabel} onAction={onAction} />;
+
 export const notify = (type: ToastType, message: string) => {
   toast.dismiss();
   return toast(renderToast(message), {
@@ -53,6 +81,18 @@ export const notifyLoading = (message: string) => {
   return toast.loading(renderToast(message), {
     className: styles.toast,
     containerId: TOAST_CONTAINER_ID,
+  });
+};
+
+export const notifyAction = (type: ToastType, message: string, actionLabel: string, onAction: () => void) => {
+  toast.dismiss();
+  return toast(renderActionToast(message, actionLabel, onAction), {
+    type,
+    icon: icons[type],
+    className: styles.toast,
+    containerId: TOAST_CONTAINER_ID,
+    autoClose: 6000,
+    closeOnClick: false,
   });
 };
 

@@ -67,6 +67,36 @@
   font-weight: 400;
 }
 
+.pageTitleRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+
+  /* Keep sizing consistent with the right-side action controls */
+  --hq-control-h: 36px;
+}
+
+.pageTitleRow button {
+  height: var(--hq-control-h);
+  padding: 0 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.pageTitleText {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .actionsRow {
   display: flex;
   flex-wrap: nowrap;

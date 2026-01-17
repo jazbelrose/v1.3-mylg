@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useId, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useData } from "@/app/contexts/useData";
 import { UserLite } from "@/app/contexts/DataProvider";
+import { useOrg } from "@/app/contexts/useOrg";
 import { slugify } from "@/shared/utils/slug";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { prefetchBudgetData } from "@/dashboard/project/features/budget/context/useBudget";
@@ -14,15 +15,20 @@ import Organization from "@/dashboard/home/components/organization";
 import SpinnerScreen from "@/shared/ui/SpinnerScreen";
 import PendingApprovalScreen from "@/shared/ui/PendingApprovalScreen";
 import AllProjectsWeekWidget from "@/dashboard/home/components/AllProjectsWeekWidget";
-import WeekWidgetDesktop, { type Track, type Dot } from "@/dashboard/home/components/WeekWidgetDesktop";
-import TasksOverviewCard from "@/dashboard/home/components/TasksOverviewCard";
-import MobileTasksOverviewCard from "@/dashboard/home/components/MobileTasksOverviewCard";
+import GlobalSearch from "@/dashboard/home/components/GlobalSearch";
+import QuickCreateTaskModal from "@/dashboard/home/components/QuickCreateTaskModal";
+import Outlook14d, { type OutlookDay, type OutlookRange } from "@/dashboard/home/components/Outlook14d";
+import TriageStream from "@/dashboard/home/components/TriageStream";
+import { useTasksOverview } from "@/dashboard/home/hooks/useTasksOverview";
+import { parseProjectStatusToNumber } from "@/dashboard/home/hooks/useProjectKpis";
 import NavigationDrawer from "@/shared/ui/NavigationDrawer";
 import DashboardNavPanel from "@/shared/ui/DashboardNavPanel";
 import AppHeaderCard from "@/shared/ui/AppHeaderCard";
 import ProjectsPanelDesktop from "@/dashboard/home/components/ProjectsPanelDesktop";
-import { getColor } from "@/shared/utils/colorUtils";
 import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
+import { updateTask } from "@/shared/utils/api";
+import commandCenterStyles from "@/dashboard/home/components/ProjectsCommandCenter.module.css";
+import { notify, notifyAction } from "@/shared/ui/ToastNotifications";
 
 import "./dashboard-styles.css";
 
@@ -35,7 +41,7 @@ declare global {
   }
 }
 
-type TimelineEvent = { date?: string; description?: string; [k: string]: unknown };
+type TimelineEvent = { date?: string; timestamp?: string; description?: string };
 type ProjectWithDetails = {
   projectId: string;
   title?: string;
@@ -45,13 +51,36 @@ type ProjectWithDetails = {
   timelineEvents?: TimelineEvent[];
 };
 
-function toDay(d?: string | Date | number) {
-  if (!d) return null;
-  const v = d instanceof Date ? d : new Date(d);
-  return Number.isNaN(v.getTime()) ? null : new Date(v.getFullYear(), v.getMonth(), v.getDate());
+type DashboardView = "all" | "my" | "team" | "pinned";
+type DashboardKpi = "overdue" | "due14d" | "atRisk" | "unread" | "unassigned" | "noLocation";
+type DashboardDateWindow = { start: Date | null; end: Date | null };
+
+function startOfDay(value: Date): Date {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
 }
+
+function addDays(value: Date, days: number): Date {
+  const copy = new Date(value.getTime());
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
 function sameDay(a: Date | null, b: Date | null) {
   return !!(a && b) && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function dateKey(value: Date): string {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+}
+
+function isDateInWindow(date: Date, window: DashboardDateWindow): boolean {
+  if (!window.start || !window.end) return true;
+  const d = startOfDay(date).getTime();
+  const s = startOfDay(window.start).getTime();
+  const e = startOfDay(window.end).getTime();
+  const min = Math.min(s, e);
+  const max = Math.max(s, e);
+  return d >= min && d <= max;
 }
 
 export const PROJECTS_OVERVIEW_VIEW = "projects-overview" as const;
@@ -139,79 +168,327 @@ const WelcomeScreen: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [weekOf, setWeekOf] = useState<Date>(new Date());
-
-  // Map for consistent colors
-  const colorMap = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const p of (projects as ProjectWithDetails[])) m[p.projectId] = p.color || getColor(p.projectId);
-    return m;
-  }, [projects]);
-
-  // Bars across the week
-  const tracks: Track[] = useMemo(() => {
-    return (projects as ProjectWithDetails[])
-      .map((p) => {
-        const start = toDay(p.dateCreated);
-        const end = toDay(p.finishline);
-        if (!start || !end || end < start) return null;
-        return { id: p.projectId, color: colorMap[p.projectId] || "#FA3356", start, end };
-      })
-      .filter(Boolean) as Track[];
-  }, [projects, colorMap]);
-
-  // Dots from timeline events
-  const dots: Dot[] = useMemo(() => {
-    const out: Dot[] = [];
-    for (const p of (projects as ProjectWithDetails[])) {
-      for (const ev of p.timelineEvents ?? []) {
-        const d = toDay(ev.date);
-        if (d) out.push({ date: d, color: colorMap[p.projectId] || "#FA3356" });
-      }
-    }
-    return out;
-  }, [projects, colorMap]);
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
 
   // 👉 Tooltip data for a tapped day (projects running that day + same-day events)
-  const getTooltipItems = (date: Date) => {
-    const day = toDay(date)!;
-    const items: { id: string; title?: string; color?: string; note?: string; onSelect?: () => void }[] = [];
 
-    for (const p of (projects as ProjectWithDetails[])) {
-      const color = colorMap[p.projectId] || "#FA3356";
-      const start = toDay(p.dateCreated);
-      const end = toDay(p.finishline);
 
-      if (start && end && day >= start && day <= end) {
-        items.push({
-          id: p.projectId,
-          title: p.title || p.projectId,
-          color,
-          onSelect: () => void handleNavigateToProject({ projectId: p.projectId }),
-        });
-      }
-      for (const ev of p.timelineEvents ?? []) {
-        const d = toDay(ev.date);
-        if (sameDay(d, day)) {
-          const note = (ev.description as string) || undefined;
-          const hit = items.find((i) => i.id === p.projectId);
-          if (hit) {
-            hit.note ??= note;
-            if (!hit.onSelect) hit.onSelect = () => void handleNavigateToProject({ projectId: p.projectId });
-          } else {
-            items.push({
-              id: p.projectId,
-              title: p.title || p.projectId,
-              color,
-              note,
-              onSelect: () => void handleNavigateToProject({ projectId: p.projectId }),
-            });
-          }
-        }
+  const { orgs, activeOrgId, setActiveOrgId } = useOrg();
+  const [orgMenuOpen, setOrgMenuOpen] = useState(false);
+
+  const activeOrg = useMemo(() => {
+    if (!orgs.length) return null;
+    if (!activeOrgId) return orgs[0] ?? null;
+    return orgs.find((o) => o.orgId === activeOrgId) ?? orgs[0] ?? null;
+  }, [activeOrgId, orgs]);
+  const activeOrgName = activeOrg?.name || activeOrg?.orgId || "Organization";
+  const activeOrgInitial = String(activeOrgName || "O").trim().slice(0, 1).toUpperCase();
+
+  const tasksOverview = useTasksOverview();
+  const tasksReady = !tasksOverview.loading && !tasksOverview.error;
+  const openTasks = tasksOverview.openTasks ?? [];
+  const undatedTasks = tasksOverview.undatedTasks ?? [];
+
+  const [dashboardView, setDashboardView] = useState<DashboardView>("all");
+  const [activeKpi, setActiveKpi] = useState<DashboardKpi | null>(null);
+  const [dateWindow, setDateWindow] = useState<DashboardDateWindow>({ start: null, end: null });
+  const [outlookStart, setOutlookStart] = useState<Date>(() => startOfDay(new Date()));
+
+  const panelsRef = useRef<HTMLDivElement | null>(null);
+  const PANEL_SPLIT_STORAGE_KEY = "projects-dashboard-panel-split";
+  const [panelSplit, setPanelSplit] = useState<number>(() => {
+    if (typeof window === "undefined") return 0.6;
+    const raw = window.localStorage.getItem(PANEL_SPLIT_STORAGE_KEY);
+    const parsed = raw ? Number.parseFloat(raw) : Number.NaN;
+    if (!Number.isFinite(parsed)) return 0.6;
+    return Math.min(0.8, Math.max(0.3, parsed));
+  });
+
+  const snapPanelSplit = useCallback((value: number) => {
+    const points = [0.7, 0.6, 0.5];
+    return points.reduce((best, point) => (Math.abs(point - value) < Math.abs(best - value) ? point : best), points[0]);
+  }, []);
+
+  const persistPanelSplit = useCallback((value: number) => {
+    setPanelSplit(value);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(PANEL_SPLIT_STORAGE_KEY, String(value));
+      } catch {
+        // ignore storage failures
       }
     }
-    return items;
-  };
+  }, []);
+
+  const handlePanelDividerPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!panelsRef.current) return;
+      if (event.button !== 0) return;
+
+      const el = panelsRef.current;
+      const rect = el.getBoundingClientRect();
+      const startY = event.clientY;
+      const startSplit = panelSplit;
+      let current = startSplit;
+
+      const clamp = (v: number) => Math.min(0.8, Math.max(0.3, v));
+
+      const onMove = (e: PointerEvent) => {
+        const dy = e.clientY - startY;
+        current = clamp(startSplit + dy / Math.max(1, rect.height));
+        setPanelSplit(current);
+      };
+
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        persistPanelSplit(snapPanelSplit(current));
+      };
+
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp, { once: true });
+      (event.currentTarget as HTMLDivElement).setPointerCapture(event.pointerId);
+      event.preventDefault();
+    },
+    [panelSplit, persistPanelSplit, snapPanelSplit],
+  );
+
+  const projectsById = useMemo(() => {
+    const map = new Map<string, ProjectWithDetails>();
+    (projects as ProjectWithDetails[]).forEach((p) => {
+      if (p?.projectId) map.set(p.projectId, p);
+    });
+    return map;
+  }, [projects]);
+
+  const myUserId = userData?.userId ? String(userData.userId) : null;
+
+  const extractTeamIds = useCallback((project: ProjectWithDetails): string[] => {
+    const raw = (project as unknown as { team?: unknown }).team;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((member) => {
+        if (typeof member === "string") return member.trim();
+        if (member && typeof member === "object" && "userId" in (member as Record<string, unknown>)) {
+          return String((member as Record<string, unknown>).userId || "").trim();
+        }
+        return "";
+      })
+      .filter(Boolean);
+  }, []);
+
+  const isMyProject = useCallback(
+    (project: ProjectWithDetails): boolean => {
+      if (!myUserId) return false;
+      const teamIds = extractTeamIds(project);
+      const ownerId = (project as unknown as { ownerId?: string }).ownerId;
+      return teamIds.includes(myUserId) || (ownerId ? String(ownerId) === myUserId : false);
+    },
+    [extractTeamIds, myUserId],
+  );
+
+  const isTeamProject = useCallback(
+    (project: ProjectWithDetails): boolean => {
+      const teamIds = extractTeamIds(project);
+      if (!teamIds.length) return false;
+      if (!myUserId) return true;
+      return !teamIds.includes(myUserId);
+    },
+    [extractTeamIds, myUserId],
+  );
+
+  const taskKpiData = useMemo(() => {
+    const today = startOfDay(new Date());
+    const fourteenEnd = addDays(today, 13);
+
+    const overdue = openTasks.filter((t) => Boolean(t.dueDate && startOfDay(t.dueDate).getTime() < today.getTime()));
+    const due14d = openTasks.filter((t) => {
+      if (!t.dueDate) return false;
+      const d = startOfDay(t.dueDate).getTime();
+      return d >= today.getTime() && d <= fourteenEnd.getTime();
+    });
+
+    const unassigned = [...openTasks, ...undatedTasks].filter((t) => !t.assigneeId);
+    const noLocation = [...openTasks, ...undatedTasks].filter((t) => !t.address && !t.location);
+
+    const overdueProjectIds = new Set(overdue.map((t) => t.projectId));
+    const due14ProjectIds = new Set(due14d.map((t) => t.projectId));
+    const unassignedProjectIds = new Set(unassigned.map((t) => t.projectId));
+    const noLocationProjectIds = new Set(noLocation.map((t) => t.projectId));
+
+    const unreadProjectIds = new Set(
+      (projects as ProjectWithDetails[])
+        .filter((p) => Number((p as { unreadCount?: number }).unreadCount ?? 0) > 0)
+        .map((p) => p.projectId),
+    );
+
+    const atRiskProjectIds = new Set(
+      (projects as ProjectWithDetails[])
+        .filter((p) => {
+          const finishline = p.finishline ? new Date(p.finishline) : null;
+          if (!finishline || Number.isNaN(finishline.getTime())) return false;
+          const statusNum = parseProjectStatusToNumber((p as unknown as { status?: unknown }).status);
+          const isLate = startOfDay(finishline).getTime() < today.getTime() && statusNum < 100;
+          const isSoon = startOfDay(finishline).getTime() <= fourteenEnd.getTime() && statusNum < 80;
+          return isLate || isSoon;
+        })
+        .map((p) => p.projectId),
+    );
+
+    return {
+      counts: {
+        overdue: overdue.length,
+        due14d: due14d.length,
+        atRisk: atRiskProjectIds.size,
+        unread: unreadProjectIds.size,
+        unassigned: unassigned.length,
+        noLocation: noLocation.length,
+      },
+      projectSets: {
+        overdue: overdueProjectIds,
+        due14d: due14ProjectIds,
+        atRisk: atRiskProjectIds,
+        unread: unreadProjectIds,
+        unassigned: unassignedProjectIds,
+        noLocation: noLocationProjectIds,
+      },
+      queues: {
+        needsOwner: unassigned.length,
+        needsDate: undatedTasks.length,
+        needsLocation: noLocation.length,
+      },
+    };
+  }, [openTasks, projects, undatedTasks]);
+
+  const selectedWindowProjectIds = useMemo(() => {
+    if (!dateWindow.start || !dateWindow.end) return null;
+    const set = new Set<string>();
+    openTasks.forEach((task) => {
+      if (task.dueDate && isDateInWindow(task.dueDate, dateWindow)) {
+        set.add(task.projectId);
+      }
+    });
+    return set;
+  }, [dateWindow.end, dateWindow.start, openTasks]);
+
+  const filteredOpenTasks = useMemo(() => {
+    const afterView = openTasks.filter((task) => {
+      const project = projectsById.get(task.projectId);
+      if (!project) return false;
+      if (dashboardView === "pinned") return Boolean((project as { pinned?: boolean }).pinned);
+      if (dashboardView === "my") return isMyProject(project);
+      if (dashboardView === "team") return isTeamProject(project);
+      return true;
+    });
+
+    const afterKpi = activeKpi
+      ? afterView.filter((task) => {
+          if (activeKpi === "overdue") return taskKpiData.projectSets.overdue.has(task.projectId);
+          if (activeKpi === "due14d") return taskKpiData.projectSets.due14d.has(task.projectId);
+          if (activeKpi === "atRisk") return taskKpiData.projectSets.atRisk.has(task.projectId);
+          if (activeKpi === "unread") return taskKpiData.projectSets.unread.has(task.projectId);
+          if (activeKpi === "unassigned") return !task.assigneeId;
+          if (activeKpi === "noLocation") return !task.address && !task.location;
+          return true;
+        })
+      : afterView;
+
+    if (!dateWindow.start || !dateWindow.end) return afterKpi;
+    return afterKpi.filter((task) => task.dueDate && isDateInWindow(task.dueDate, dateWindow));
+  }, [
+    activeKpi,
+    dashboardView,
+    dateWindow.end,
+    dateWindow.start,
+    isMyProject,
+    isTeamProject,
+    openTasks,
+    projectsById,
+    taskKpiData.projectSets,
+  ]);
+
+  const filteredUndatedTasks = useMemo(() => {
+    const afterView = undatedTasks.filter((task) => {
+      const project = projectsById.get(task.projectId);
+      if (!project) return false;
+      if (dashboardView === "pinned") return Boolean((project as { pinned?: boolean }).pinned);
+      if (dashboardView === "my") return isMyProject(project);
+      if (dashboardView === "team") return isTeamProject(project);
+      return true;
+    });
+
+    if (!activeKpi) return afterView;
+    if (activeKpi === "unassigned") return afterView.filter((t) => !t.assigneeId);
+    if (activeKpi === "noLocation") return afterView.filter((t) => !t.address && !t.location);
+    return [];
+  }, [activeKpi, dashboardView, isMyProject, isTeamProject, projectsById, undatedTasks]);
+
+  const outlookDays = useMemo(() => {
+    const start = startOfDay(outlookStart);
+    const days: OutlookDay[] = Array.from({ length: 14 }, (_, idx) => {
+      const date = addDays(start, idx);
+      const key = dateKey(date);
+      const tasks = openTasks.filter((t) => t.dueDate && dateKey(t.dueDate) === key).length;
+
+      const events = (projects as ProjectWithDetails[]).reduce((acc, p) => {
+        const list = Array.isArray(p.timelineEvents) ? p.timelineEvents : [];
+        const hit = list.filter((ev) => {
+          const d = ev?.date ? new Date(String(ev.date)) : ev?.timestamp ? new Date(String(ev.timestamp)) : null;
+          return Boolean(d && !Number.isNaN(d.getTime()) && dateKey(d) === key);
+        }).length;
+        return acc + hit;
+      }, 0);
+
+      const exception = idx === 0 && taskKpiData.counts.overdue > 0;
+      return { date, tasks, events, exception };
+    });
+    return days;
+  }, [openTasks, outlookStart, projects, taskKpiData.counts.overdue]);
+
+  const projectExternalFilter = useCallback(
+    (project: { projectId: string; finishline?: string; pinned?: boolean; unreadCount?: number } & ProjectWithDetails) => {
+      const hasWindow = Boolean(dateWindow.start && dateWindow.end);
+
+      if (dashboardView === "pinned" && !project.pinned) return false;
+      if (dashboardView === "my" && !isMyProject(project)) return false;
+      if (dashboardView === "team" && !isTeamProject(project)) return false;
+
+      if (activeKpi) {
+        if (activeKpi === "overdue" && tasksReady && !taskKpiData.projectSets.overdue.has(project.projectId)) return false;
+        if (activeKpi === "due14d" && tasksReady && !taskKpiData.projectSets.due14d.has(project.projectId)) return false;
+        if (activeKpi === "atRisk" && !taskKpiData.projectSets.atRisk.has(project.projectId)) return false;
+        if (activeKpi === "unread" && !taskKpiData.projectSets.unread.has(project.projectId)) return false;
+        if (activeKpi === "noLocation" && tasksReady && !taskKpiData.projectSets.noLocation.has(project.projectId)) return false;
+        if (activeKpi === "unassigned") {
+          const teamIds = extractTeamIds(project);
+          const hasTeam = teamIds.length > 0;
+          const hasUnassignedTasks = tasksReady ? taskKpiData.projectSets.unassigned.has(project.projectId) : true;
+          if (hasTeam && !hasUnassignedTasks) return false;
+        }
+      }
+
+      if (hasWindow) {
+        if (tasksReady && selectedWindowProjectIds) {
+          return selectedWindowProjectIds.has(project.projectId);
+        }
+        const deadline = project.finishline ? new Date(project.finishline) : null;
+        return Boolean(deadline && !Number.isNaN(deadline.getTime()) && isDateInWindow(deadline, dateWindow));
+      }
+
+      return true;
+    },
+    [
+      activeKpi,
+      dashboardView,
+      dateWindow,
+      extractTeamIds,
+      isMyProject,
+      isTeamProject,
+      selectedWindowProjectIds,
+      taskKpiData.projectSets,
+      tasksReady,
+    ],
+  );
 
   const parsePath = () => parseDashboardPath(location.pathname);
 
@@ -360,40 +637,398 @@ const WelcomeScreen: React.FC = () => {
 
   const renderWelcomeView = () => {
     if (isDesktop) {
+      const projectsFlex = Math.round(panelSplit * 1000) / 10;
+      const triageFlex = Math.round((1 - panelSplit) * 1000) / 10;
+      const filteredProjectsCount = (projects as ProjectWithDetails[]).filter((p) =>
+        projectExternalFilter(p as unknown as ProjectWithDetails),
+      ).length;
+
       return (
         <div className="welcome-desktop-layout">
-          <section
-            id="calendar"
-            className="welcome-section-anchor welcome-desktop-header"
-          >
-            <WeekWidgetDesktop
-              weekOf={weekOf}
-              tracks={tracks}
-              dots={dots}
-              onPrevWeek={(d) => setWeekOf(d)}
-              onNextWeek={(d) => setWeekOf(d)}
-              onSelectDate={(d) => setWeekOf(d)}
-              getTooltipItems={getTooltipItems}
-            />
-          </section>
-          <section
-            id="projects"
-            className="welcome-section-anchor welcome-desktop-projects"
-          >
-            <div className="welcome-desktop-projects-scroll">
-              <ProjectsPanelDesktop
-                onOpenProject={(projectId) =>
-                  handleNavigateToProject({ projectId })
-                }
+          <section id="projects" className="welcome-section-anchor welcome-desktop-command-shell">
+            <div className="projects-command-shell">
+              <div className="projects-command-center">
+                <div className={commandCenterStyles.commandCenter}>
+              <div className={commandCenterStyles.headerRow}>
+                <div className={commandCenterStyles.leftGroup}>
+                  <div className={commandCenterStyles.title}>Projects</div>
+
+                  <div className={commandCenterStyles.orgChipWrap}>
+                    <button
+                      id="projects-org-chip"
+                      type="button"
+                      className={commandCenterStyles.orgChip}
+                      aria-haspopup="menu"
+                      aria-expanded={orgMenuOpen}
+                      aria-controls="projects-org-menu"
+                      onClick={() => setOrgMenuOpen((prev) => !prev)}
+                    >
+                      <span className={commandCenterStyles.orgDot} aria-hidden>
+                        {activeOrgInitial}
+                      </span>
+                      <span className={commandCenterStyles.orgName}>{activeOrgName}</span>
+                    </button>
+
+                    {orgMenuOpen && orgs.length ? (
+                      <div id="projects-org-menu" className={commandCenterStyles.orgMenu} role="menu">
+                        {orgs.map((org) => (
+                          <button
+                            key={org.orgId}
+                            type="button"
+                            role="menuitem"
+                            className={[
+                              commandCenterStyles.orgMenuItem,
+                              org.orgId === activeOrgId ? commandCenterStyles.orgMenuItemActive : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                            onClick={() => {
+                              setActiveOrgId(org.orgId);
+                              setOrgMenuOpen(false);
+                            }}
+                          >
+                            {org.name || org.orgId}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className={commandCenterStyles.viewSelector} role="group" aria-label="View selector">
+                    {[
+                      ["all", "All"],
+                      ["my", "My"],
+                      ["team", "Team"],
+                      ["pinned", "Pinned"],
+                    ].map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={[
+                          commandCenterStyles.viewBtn,
+                          dashboardView === (value as DashboardView) ? commandCenterStyles.viewBtnActive : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        aria-pressed={dashboardView === (value as DashboardView)}
+                        onClick={() => setDashboardView(value as DashboardView)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={commandCenterStyles.rightGroup}>
+                  <div style={{ minWidth: 260, flex: "1 1 320px" }}>
+                    <GlobalSearch />
+                  </div>
+
+                  <div className={commandCenterStyles.actions}>
+                    <button type="button" className={commandCenterStyles.actionBtn} onClick={() => navigate("/dashboard/new")}>
+                      New project
+                    </button>
+                    <button type="button" className={commandCenterStyles.actionBtn} onClick={() => setTaskModalOpen(true)}>
+                      New task
+                    </button>
+                    <button
+                      type="button"
+                      className={commandCenterStyles.actionBtn}
+                      onClick={() => navigate("/dashboard/projects/allprojects")}
+                    >
+                      Filters
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className={commandCenterStyles.kpisRow} aria-label="KPI filters">
+                {[
+                  ["overdue", "Overdue", taskKpiData.counts.overdue],
+                  ["due14d", "Due 14d", taskKpiData.counts.due14d],
+                  ["atRisk", "At risk", taskKpiData.counts.atRisk],
+                  ["unread", "Unread", taskKpiData.counts.unread],
+                  ["unassigned", "Unassigned", taskKpiData.counts.unassigned],
+                  ["noLocation", "No location", taskKpiData.counts.noLocation],
+                ].map(([kpiKey, label, count]) => (
+                  <button
+                    key={kpiKey}
+                    type="button"
+                    className={[
+                      commandCenterStyles.kpiChip,
+                      activeKpi === (kpiKey as DashboardKpi) ? commandCenterStyles.kpiChipActive : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    aria-pressed={activeKpi === (kpiKey as DashboardKpi)}
+                    onClick={() =>
+                      setActiveKpi((prev) => (prev === (kpiKey as DashboardKpi) ? null : (kpiKey as DashboardKpi)))
+                    }
+                    disabled={
+                      !tasksReady && (kpiKey === "overdue" || kpiKey === "due14d" || kpiKey === "unassigned" || kpiKey === "noLocation")
+                    }
+                    title={
+                      !tasksReady && (kpiKey === "overdue" || kpiKey === "due14d" || kpiKey === "unassigned" || kpiKey === "noLocation")
+                        ? "Loading tasks."
+                        : undefined
+                    }
+                  >
+                    <span className={commandCenterStyles.kpiLabel}>{label}</span>
+                    <span className={commandCenterStyles.kpiValue}>{count}</span>
+                  </button>
+                ))}
+              </div>
+
+              <Outlook14d
+                days={outlookDays}
+                selected={dateWindow as OutlookRange}
+                onPrevRange={() => {
+                  const nextStart = addDays(outlookStart, -14);
+                  const rangeStart = startOfDay(outlookStart);
+                  const rangeEnd = addDays(rangeStart, 13);
+                  const isRangeSelected = Boolean(
+                    dateWindow.start &&
+                      dateWindow.end &&
+                      sameDay(startOfDay(dateWindow.start), rangeStart) &&
+                      sameDay(startOfDay(dateWindow.end), rangeEnd),
+                  );
+                  setOutlookStart(nextStart);
+                  if (isRangeSelected) {
+                    const ns = startOfDay(nextStart);
+                    setDateWindow({ start: ns, end: addDays(ns, 13) });
+                  }
+                }}
+                onNextRange={() => {
+                  const nextStart = addDays(outlookStart, 14);
+                  const rangeStart = startOfDay(outlookStart);
+                  const rangeEnd = addDays(rangeStart, 13);
+                  const isRangeSelected = Boolean(
+                    dateWindow.start &&
+                      dateWindow.end &&
+                      sameDay(startOfDay(dateWindow.start), rangeStart) &&
+                      sameDay(startOfDay(dateWindow.end), rangeEnd),
+                  );
+                  setOutlookStart(nextStart);
+                  if (isRangeSelected) {
+                    const ns = startOfDay(nextStart);
+                    setDateWindow({ start: ns, end: addDays(ns, 13) });
+                  }
+                }}
+                onSelectDay={(day) => setDateWindow({ start: startOfDay(day), end: startOfDay(day) })}
+                onToggleSelectRange={() => {
+                  const rangeStart = startOfDay(outlookStart);
+                  const rangeEnd = addDays(rangeStart, 13);
+                  const isRangeSelected = Boolean(
+                    dateWindow.start &&
+                      dateWindow.end &&
+                      sameDay(startOfDay(dateWindow.start), rangeStart) &&
+                      sameDay(startOfDay(dateWindow.end), rangeEnd),
+                  );
+                  setDateWindow(isRangeSelected ? { start: null, end: null } : { start: rangeStart, end: rangeEnd });
+                }}
               />
             </div>
-          </section>
+          </div>
 
-          <section
-            id="tasks"
-            className="welcome-section-anchor welcome-desktop-footer"
-          >
-            <TasksOverviewCard className="welcome-header-tasks-card" />
+              <div className="projects-command-panels" ref={panelsRef}>
+                <div className="projects-command-projects" style={{ flex: `${projectsFlex} 1 0` }}>
+                  <div className="projects-command-panel-header">
+                    <div className="projects-command-panel-title">Projects</div>
+                    <div className="projects-command-panel-meta">
+                      <span className="projects-command-count">{filteredProjectsCount}</span>
+                      <button
+                        type="button"
+                        className={commandCenterStyles.actionBtn}
+                        onClick={() => {
+                          setDashboardView("all");
+                          setActiveKpi(null);
+                          setDateWindow({ start: null, end: null });
+                        }}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <div className="projects-command-panel-body">
+                    <ProjectsPanelDesktop
+                      onOpenProject={(projectId) => handleNavigateToProject({ projectId })}
+                      hideHeader
+                      externalProjectFilter={projectExternalFilter}
+                      variant="embedded"
+                    />
+                  </div>
+                </div>
+
+                <div
+                  className="projects-command-divider"
+                  role="separator"
+                  aria-orientation="horizontal"
+                  onPointerDown={handlePanelDividerPointerDown}
+                  onDoubleClick={() => persistPanelSplit(0.6)}
+                  title="Drag to resize panels"
+                />
+
+                <div className="projects-command-triage" style={{ flex: `${triageFlex} 1 0` }}>
+                  <div className="projects-command-panel-body projects-command-panel-body--triage">
+                    <TriageStream
+                      className="projects-command-triage-fill"
+                      variant="embedded"
+                      tasks={filteredOpenTasks}
+                      undatedTasks={filteredUndatedTasks}
+                      headerFilters={
+                        <>
+                          <button
+                            type="button"
+                            className={[
+                              commandCenterStyles.kpiChip,
+                              activeKpi === "overdue" ? commandCenterStyles.kpiChipActive : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                            aria-pressed={activeKpi === "overdue"}
+                            onClick={() => {
+                              setActiveKpi("overdue");
+                              setDateWindow({ start: null, end: null });
+                            }}
+                          >
+                            <span className={commandCenterStyles.kpiLabel}>Overdue</span>
+                            <span className={commandCenterStyles.kpiValue}>{taskKpiData.counts.overdue}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={[
+                              commandCenterStyles.kpiChip,
+                              activeKpi === "unassigned" ? commandCenterStyles.kpiChipActive : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                            aria-pressed={activeKpi === "unassigned"}
+                            onClick={() => {
+                              setActiveKpi("unassigned");
+                              setDateWindow({ start: null, end: null });
+                            }}
+                          >
+                            <span className={commandCenterStyles.kpiLabel}>Needs owner</span>
+                            <span className={commandCenterStyles.kpiValue}>{taskKpiData.queues.needsOwner}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={[
+                              commandCenterStyles.kpiChip,
+                              activeKpi === "noLocation" ? commandCenterStyles.kpiChipActive : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                            aria-pressed={activeKpi === "noLocation"}
+                            onClick={() => {
+                              setActiveKpi("noLocation");
+                              setDateWindow({ start: null, end: null });
+                            }}
+                          >
+                            <span className={commandCenterStyles.kpiLabel}>Needs location</span>
+                            <span className={commandCenterStyles.kpiValue}>{taskKpiData.queues.needsLocation}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={commandCenterStyles.kpiChip}
+                            onClick={() => {
+                              setDashboardView("all");
+                              setActiveKpi(null);
+                              setDateWindow({ start: null, end: null });
+                            }}
+                          >
+                            <span className={commandCenterStyles.kpiLabel}>Clear</span>
+                          </button>
+                        </>
+                      }
+                      onOpenProject={(projectId) => handleNavigateToProject({ projectId })}
+                      onMarkDone={async (task) => {
+                        const id = task.taskId ?? task.id;
+                        try {
+                          await tasksOverview.markTaskDone(id);
+                          notify("success", "Task marked done");
+                        } catch (err) {
+                          console.error("Failed to mark task done", err);
+                          notify("error", "Failed to mark task done");
+                        }
+                      }}
+                      onReschedule={async (task, nextDue) => {
+                        const taskId =
+                          task.taskId ??
+                          (task.rawTask as { taskId?: string; id?: string }).taskId ??
+                          (task.rawTask as { id?: string }).id ??
+                          task.id;
+                        if (!taskId) return;
+                        const prev = task.dueDate ? new Date(task.dueDate.getTime()) : null;
+
+                        tasksOverview.updateTaskStatus(task.id, task.status, { dueDate: nextDue ?? null });
+
+                        const toIso = (d: Date | null) => (d ? new Date(d.getTime()).toISOString() : null);
+                        const payload = nextDue
+                          ? { dueDate: toIso(nextDue), dueAt: toIso(nextDue) }
+                          : { dueDate: null, dueAt: null };
+
+                        try {
+                          await updateTask({
+                            projectId: task.projectId,
+                            taskId,
+                            title: task.title,
+                            ...(payload as unknown as Record<string, unknown>),
+                          });
+                          void tasksOverview.refreshTasks();
+                          notifyAction("info", "Rescheduled task", "Undo", () => {
+                            void (async () => {
+                              tasksOverview.updateTaskStatus(task.id, task.status, { dueDate: prev });
+                              try {
+                                await updateTask({
+                                  projectId: task.projectId,
+                                  taskId,
+                                  title: task.title,
+                                  ...(prev
+                                    ? ({ dueDate: toIso(prev), dueAt: toIso(prev) } as unknown as Record<string, unknown>)
+                                    : ({ dueDate: null, dueAt: null } as unknown as Record<string, unknown>)),
+                                });
+                                void tasksOverview.refreshTasks();
+                              } catch (err) {
+                                console.error("Undo reschedule failed", err);
+                                notify("error", "Undo failed");
+                              }
+                            })();
+                          });
+                        } catch (err) {
+                          console.error("Failed to reschedule task", err);
+                          tasksOverview.updateTaskStatus(task.id, task.status, { dueDate: prev });
+                          notify("error", "Failed to reschedule");
+                        }
+                      }}
+                      emptyQueues={[
+                        {
+                          id: "needs-owner",
+                          label: "Needs owner",
+                          count: taskKpiData.queues.needsOwner,
+                          onClick: () => setActiveKpi("unassigned"),
+                        },
+                        {
+                          id: "needs-date",
+                          label: "Needs date",
+                          count: taskKpiData.queues.needsDate,
+                          onClick: () => {
+                            setActiveKpi(null);
+                            setDateWindow({ start: null, end: null });
+                          },
+                        },
+                        {
+                          id: "needs-location",
+                          label: "Needs location",
+                          count: taskKpiData.queues.needsLocation,
+                          onClick: () => setActiveKpi("noLocation"),
+                        },
+                      ]}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
       );
@@ -407,15 +1042,15 @@ const WelcomeScreen: React.FC = () => {
         <div className="mobile-projects-tasks">
           <div className="mobile-projects-section">
             <div className="mobile-projects-panel">
-              <ProjectsPanelMobile
-                onOpenProject={(projectId) =>
-                  handleNavigateToProject({ projectId })
-                }
-              />
+              <ProjectsPanelMobile onOpenProject={(projectId) => handleNavigateToProject({ projectId })} />
             </div>
           </div>
           <div className="mobile-tasks-section dashboard-footer">
-            <MobileTasksOverviewCard />
+            <TriageStream
+              tasks={filteredOpenTasks}
+              undatedTasks={filteredUndatedTasks}
+              onOpenProject={(projectId) => handleNavigateToProject({ projectId })}
+            />
           </div>
         </div>
       </div>
@@ -483,6 +1118,15 @@ const WelcomeScreen: React.FC = () => {
           </div>
         </div>
       </div>
+      <QuickCreateTaskModal
+        open={taskModalOpen}
+        onClose={() => setTaskModalOpen(false)}
+        projects={(tasksOverview.projectOptions || []).map((p) => ({ id: p.id, name: p.name, color: p.color }))}
+        onCreated={() => {
+          setTaskModalOpen(false);
+          void tasksOverview.refreshTasks();
+        }}
+      />
     </main>
   );
 

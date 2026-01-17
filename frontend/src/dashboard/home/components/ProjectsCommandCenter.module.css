@@ -1,0 +1,214 @@
+.commandCenter {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px 12px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.leftGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  color: rgba(255, 255, 255, 0.96);
+}
+
+.orgChipWrap {
+  position: relative;
+}
+
+.orgChip {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  padding: 6px 10px 6px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  max-width: 280px;
+}
+.orgChip:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.orgDot {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.orgName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orgMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  min-width: 240px;
+  max-width: 320px;
+  background: rgba(18, 18, 18, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+}
+
+.orgMenuItem {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 10px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+.orgMenuItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.orgMenuItemActive {
+  background: rgba(250, 51, 86, 0.12);
+  border: 1px solid rgba(250, 51, 86, 0.24);
+}
+
+.viewSelector {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.viewBtn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  padding: 7px 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+}
+.viewBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.viewBtnActive {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.rightGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actionBtn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.actionBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.kpisRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.kpiChip {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.kpiChip:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.kpiChipActive {
+  border-color: rgba(250, 51, 86, 0.45);
+  box-shadow: 0 0 0 2px rgba(250, 51, 86, 0.10);
+}
+
+.kpiValue {
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.kpiLabel {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 2px 0 0;
+}
+
+@media (max-width: 900px) {
+  .headerRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .rightGroup {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+

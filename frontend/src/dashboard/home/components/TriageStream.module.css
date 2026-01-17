@@ -1,0 +1,230 @@
+.triage {
+  margin: 14px 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.embedded {
+  margin: 0;
+  border-radius: 16px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex: 0 0 auto;
+}
+
+.title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: rgba(255, 255, 255, 0.92);
+  text-transform: uppercase;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.filterBtn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  padding: 6px 9px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+}
+.filterBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.filterBtnActive {
+  border-color: rgba(250, 51, 86, 0.45);
+  box-shadow: 0 0 0 2px rgba(250, 51, 86, 0.10);
+}
+
+.body {
+  padding: 10px 12px 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.group {
+  margin-top: 10px;
+}
+.group:first-child {
+  margin-top: 0;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 8px 2px 6px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.groupCount {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.10);
+  cursor: pointer;
+  position: relative;
+}
+.item:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.projectPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  max-width: 180px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.projectDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.main {
+  min-width: 0;
+}
+
+.taskTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  margin-top: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kicker {
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.menuBtn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.86);
+  border-radius: 10px;
+  padding: 6px 8px;
+  cursor: pointer;
+  line-height: 1;
+}
+.menuBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.menu {
+  position: absolute;
+  right: 8px;
+  top: calc(100% + 6px);
+  z-index: 30;
+  min-width: 200px;
+  background: rgba(18, 18, 18, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+}
+
+.menuItem {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 10px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+.menuItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.empty {
+  padding: 14px 8px 10px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 13px;
+}
+
+.emptyQueues {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.emptyQueueBtn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+.emptyQueueBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}

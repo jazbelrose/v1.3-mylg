@@ -222,74 +222,79 @@ const HQLayout: React.FC<HQLayoutProps> = ({
 
   const isShredEverythingEnabled = confirmAction === "remove-everything" && confirmText.trim().toUpperCase() === "SHRED";
 
+  const orgDropdown = (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          className={[styles.orgCreateButton, styles.orgDropdownTrigger].join(" ")}
+          aria-haspopup="menu"
+          aria-label="Switch organization"
+          title="Switch org"
+          disabled={orgsLoading}
+        >
+          <span className={styles.orgDropdownValue}>{activeOrgName ?? (orgs.length ? "Select…" : "No orgs")}</span>
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content className={styles.orgMenu} sideOffset={8} align="start" collisionPadding={12}>
+          <DropdownMenu.Label className={styles.orgMenuLabel}>Org</DropdownMenu.Label>
+          <DropdownMenu.Separator className={styles.orgMenuSeparator} />
+
+          {orgs.length ? (
+            <DropdownMenu.RadioGroup value={activeOrgId ?? ""} onValueChange={(v) => setActiveOrgId(v)}>
+              {orgs.map((org) => (
+                <DropdownMenu.RadioItem key={org.orgId} value={org.orgId} className={styles.orgMenuRadioItem}>
+                  <span className={styles.orgMenuRadioLabel}>{org.name || org.orgId}</span>
+                  <DropdownMenu.ItemIndicator className={styles.orgMenuRadioIndicator}>✓</DropdownMenu.ItemIndicator>
+                </DropdownMenu.RadioItem>
+              ))}
+            </DropdownMenu.RadioGroup>
+          ) : (
+            <div className={styles.orgMenuHint}>No orgs yet.</div>
+          )}
+
+          {isAdmin ? (
+            <>
+              <DropdownMenu.Separator className={styles.orgMenuSeparator} />
+              <DropdownMenu.Item asChild>
+                <button type="button" className={styles.orgMenuItem} onClick={handleCreateOrg}>
+                  Create org…
+                </button>
+              </DropdownMenu.Item>
+              {activeOrgId ? (
+                <>
+                  <DropdownMenu.Separator className={styles.orgMenuSeparator} />
+                  <DropdownMenu.Item asChild>
+                    <button
+                      type="button"
+                      className={[styles.orgMenuItem, styles.orgMenuItemDanger].join(" ")}
+                      onClick={handleDeleteOrg}
+                    >
+                      <FaTrash className={styles.orgMenuItemIcon} aria-hidden="true" />
+                      Delete org…
+                    </button>
+                  </DropdownMenu.Item>
+                </>
+              ) : null}
+            </>
+          ) : null}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+
   const pageHeader = (
     <PageHeader
-      title={title}
+      title={
+        <span className={styles.pageTitleRow}>
+          <span className={styles.pageTitleText}>{title}</span>
+          {orgDropdown}
+        </span>
+      }
       subtitle={description}
       actions={
         <div className={styles.actionsRow} aria-label="HQ header actions">
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <button
-                type="button"
-                className={[styles.orgCreateButton, styles.orgDropdownTrigger].join(" ")}
-                aria-haspopup="menu"
-                aria-label="Switch organization"
-                title="Switch org"
-                disabled={orgsLoading}
-              >
-                <span className={styles.orgDropdownValue}>
-                  {activeOrgName ?? (orgs.length ? "Select…" : "No orgs")}
-                </span>
-              </button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content className={styles.orgMenu} sideOffset={8} align="end" collisionPadding={12}>
-                <DropdownMenu.Label className={styles.orgMenuLabel}>Org</DropdownMenu.Label>
-                <DropdownMenu.Separator className={styles.orgMenuSeparator} />
-
-                {orgs.length ? (
-                  <DropdownMenu.RadioGroup value={activeOrgId ?? ""} onValueChange={(v) => setActiveOrgId(v)}>
-                    {orgs.map((org) => (
-                      <DropdownMenu.RadioItem key={org.orgId} value={org.orgId} className={styles.orgMenuRadioItem}>
-                        <span className={styles.orgMenuRadioLabel}>{org.name || org.orgId}</span>
-                        <DropdownMenu.ItemIndicator className={styles.orgMenuRadioIndicator}>✓</DropdownMenu.ItemIndicator>
-                      </DropdownMenu.RadioItem>
-                    ))}
-                  </DropdownMenu.RadioGroup>
-                ) : (
-                  <div className={styles.orgMenuHint}>No orgs yet.</div>
-                )}
-
-                {isAdmin ? (
-                  <>
-                    <DropdownMenu.Separator className={styles.orgMenuSeparator} />
-                    <DropdownMenu.Item asChild>
-                      <button type="button" className={styles.orgMenuItem} onClick={handleCreateOrg}>
-                        Create org…
-                      </button>
-                    </DropdownMenu.Item>
-                    {activeOrgId ? (
-                      <>
-                        <DropdownMenu.Separator className={styles.orgMenuSeparator} />
-                        <DropdownMenu.Item asChild>
-                          <button
-                            type="button"
-                            className={[styles.orgMenuItem, styles.orgMenuItemDanger].join(" ")}
-                            onClick={handleDeleteOrg}
-                          >
-                            <FaTrash className={styles.orgMenuItemIcon} aria-hidden="true" />
-                            Delete org…
-                          </button>
-                        </DropdownMenu.Item>
-                      </>
-                    ) : null}
-                  </>
-                ) : null}
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
-
           {actions ? <div className={styles.actionSlot}>{actions}</div> : null}
 
           {canOrgAdmin && activeOrgId ? (

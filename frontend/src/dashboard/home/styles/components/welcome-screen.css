@@ -48,6 +48,111 @@
   flex-direction: column;
 }
 
+.welcome-desktop-command-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.projects-command-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg2, #111111);
+  border: 2px solid rgba(255, 255, 255, 0.10);
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.projects-command-center {
+  flex: 0 0 auto;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.projects-command-panels {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.projects-command-projects,
+.projects-command-triage {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.projects-command-panel-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.projects-command-panel-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.projects-command-panel-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.projects-command-count {
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.88);
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.10);
+}
+
+.projects-command-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.projects-command-panel-body--triage {
+  padding: 12px 14px 14px;
+}
+
+.projects-command-divider {
+  flex: 0 0 auto;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.projects-command-divider:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.projects-command-triage-fill {
+  height: 100%;
+}
+
 .welcome-desktop-projects-scroll > .week-widget {
   flex: 1 1 auto;
   min-height: 0;

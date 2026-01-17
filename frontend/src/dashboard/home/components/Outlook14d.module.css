@@ -1,0 +1,164 @@
+.outlook {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 10px 10px 8px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rangeButton {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rangeButton:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.rangeButtonActive {
+  border-color: rgba(250, 51, 86, 0.45);
+  box-shadow: 0 0 0 2px rgba(250, 51, 86, 0.12);
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.navBtn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+  line-height: 1;
+}
+.navBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.days {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.daysScroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.day {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 8px 4px 6px;
+  cursor: pointer;
+  position: relative;
+  min-height: 54px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+.day:last-child {
+  border-right: 0;
+}
+.day:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.daySelected {
+  background: rgba(255, 255, 255, 0.06);
+}
+.dayInRange {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.dayTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.dow {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.3px;
+}
+
+.dom {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.lines {
+  display: grid;
+  gap: 3px;
+}
+
+.line {
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  transform-origin: left center;
+}
+
+.lineTasks {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.lineEvents {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.lineException {
+  background: rgba(250, 51, 86, 0.70);
+}
+
+.counts {
+  margin-top: 6px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.55);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+.day:hover .counts {
+  opacity: 1;
+}
+
+@media (max-width: 900px) {
+  .days {
+    min-width: 720px;
+  }
+}

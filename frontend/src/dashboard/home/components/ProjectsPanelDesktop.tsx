@@ -34,9 +34,17 @@ const DEFAULT_DESKTOP_ROWS = 6;
 
 export type ProjectsPanelDesktopProps = {
   onOpenProject?: (projectId: string) => void;
+  hideHeader?: boolean;
+  externalProjectFilter?: (project: ProjectWithMeta) => boolean;
+  variant?: "card" | "embedded";
 };
 
-const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProject }) => {
+const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
+  onOpenProject,
+  hideHeader = false,
+  externalProjectFilter,
+  variant = "card",
+}) => {
   const reduceMotion = useReducedMotion();
   const {
     projects = [],
@@ -319,6 +327,11 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProje
     return [...orderedPinned, ...extras, ...rest];
   }, [filteredProjectsToDisplay, pinnedOrder]);
 
+  const externalFilteredProjects = useMemo(() => {
+    if (!externalProjectFilter) return orderedProjectsToDisplay;
+    return orderedProjectsToDisplay.filter((project) => externalProjectFilter(project));
+  }, [externalProjectFilter, orderedProjectsToDisplay]);
+
   const handleNavigateToAllProjects = useCallback(() => {
     setShowPendingOnly(false);
     setScope("all");
@@ -350,84 +363,86 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProje
   return (
     <section
       aria-label="Projects overview"
-      className={`${desktopStyles.card} week-widget week-widget--desktop`}
+      className={`${variant === "embedded" ? desktopStyles.embedded : desktopStyles.card} week-widget week-widget--desktop`}
     >
-      <header className={desktopStyles.header}>
-        <div className={desktopStyles.headerTop}>
-          <div className={mobileStyles.titleWrap}>
-            <h3 className={mobileStyles.title}>Projects</h3>
-            <ProjectsIconsStrip
-              projects={projects as ProjectLike[]}
-              imgError={imgError}
-              onImageError={handleImageError}
-              onOpenProject={handleOpen}
-            />
+      {!hideHeader ? (
+        <header className={desktopStyles.header}>
+          <div className={desktopStyles.headerTop}>
+            <div className={mobileStyles.titleWrap}>
+              <h3 className={mobileStyles.title}>Projects</h3>
+              <ProjectsIconsStrip
+                projects={projects as ProjectLike[]}
+                imgError={imgError}
+                onImageError={handleImageError}
+                onOpenProject={handleOpen}
+              />
+            </div>
           </div>
-        </div>
 
-        <ProjectsFilterMenu
-          filtersOpen={filtersOpen}
-          filtersRef={filtersRef}
-          filtersId={filtersId}
-          scope={scope}
-          onScopeChange={setScope}
-          query={query}
-          onQueryChange={setQuery}
-          toggleFilters={toggleFilters}
-          statusOptions={statusOptions}
-          statusTriggerLabel={statusTriggerLabel}
-          statusDropdown={statusDropdown}
-          showStatusDropdown={showStatusDropdown}
-          sortOptions={sortOptions}
-          sortTriggerLabel={sortTriggerLabel}
-          sortDropdown={sortDropdown}
-        />
+          <ProjectsFilterMenu
+            filtersOpen={filtersOpen}
+            filtersRef={filtersRef}
+            filtersId={filtersId}
+            scope={scope}
+            onScopeChange={setScope}
+            query={query}
+            onQueryChange={setQuery}
+            toggleFilters={toggleFilters}
+            statusOptions={statusOptions}
+            statusTriggerLabel={statusTriggerLabel}
+            statusDropdown={statusDropdown}
+            showStatusDropdown={showStatusDropdown}
+            sortOptions={sortOptions}
+            sortTriggerLabel={sortTriggerLabel}
+            sortDropdown={sortDropdown}
+          />
 
-        <div className={mobileStyles.kpis}>
-          <motion.button
-            type="button"
-            className={mobileStyles.chip}
-            whileHover={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
-            whileFocus={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
-            transition={reduceMotion ? undefined : SPRING_FAST}
-            onClick={handleNavigateToAllProjects}
-          >
-            {kpis.totalProjects} Projects
-          </motion.button>
-          <span className={mobileStyles.dot} />
-          <motion.button
-            type="button"
-            className={`${mobileStyles.chip} ${
-              showPendingOnly ? mobileStyles.chipActive : ""
-            }`}
-            aria-pressed={showPendingOnly}
-            whileHover={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
-            whileFocus={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
-            transition={reduceMotion ? undefined : SPRING_FAST}
-            onClick={handleTogglePendingFilter}
-          >
-            {kpis.pendingProjects} Pending
-          </motion.button>
-          <span className={mobileStyles.dot} />
-          <motion.button
-            type="button"
-            className={`${mobileStyles.chip} ${mobileStyles.chipNext}`}
-            whileHover={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
-            whileFocus={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
-            transition={reduceMotion ? undefined : SPRING_FAST}
-            onClick={handleOpenNextProject}
-            disabled={!nextDueProject}
-          >
-            {kpis.nextProject
-              ? `Next: ${kpis.nextProject.title} ${kpis.nextProject.date}`
-              : "No upcoming projects"}
-          </motion.button>
-        </div>
-      </header>
+          <div className={mobileStyles.kpis}>
+            <motion.button
+              type="button"
+              className={mobileStyles.chip}
+              whileHover={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
+              whileFocus={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
+              transition={reduceMotion ? undefined : SPRING_FAST}
+              onClick={handleNavigateToAllProjects}
+            >
+              {kpis.totalProjects} Projects
+            </motion.button>
+            <span className={mobileStyles.dot} />
+            <motion.button
+              type="button"
+              className={`${mobileStyles.chip} ${
+                showPendingOnly ? mobileStyles.chipActive : ""
+              }`}
+              aria-pressed={showPendingOnly}
+              whileHover={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
+              whileFocus={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
+              transition={reduceMotion ? undefined : SPRING_FAST}
+              onClick={handleTogglePendingFilter}
+            >
+              {kpis.pendingProjects} Pending
+            </motion.button>
+            <span className={mobileStyles.dot} />
+            <motion.button
+              type="button"
+              className={`${mobileStyles.chip} ${mobileStyles.chipNext}`}
+              whileHover={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
+              whileFocus={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
+              transition={reduceMotion ? undefined : SPRING_FAST}
+              onClick={handleOpenNextProject}
+              disabled={!nextDueProject}
+            >
+              {kpis.nextProject
+                ? `Next: ${kpis.nextProject.title} ${kpis.nextProject.date}`
+                : "No upcoming projects"}
+            </motion.button>
+          </div>
+        </header>
+      ) : null}
 
       <div className={desktopStyles.content}>
         <ProjectsTable
-          projects={orderedProjectsToDisplay}
+          projects={externalFilteredProjects}
           isLoading={isLoading}
           projectsError={projectsError}
           onOpenProject={handleOpen}
@@ -444,6 +459,12 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProje
           onRowDragEnd={handleRowDragEnd}
           onTableDragOver={handleTableDragOver}
           onTableDrop={handleTableDrop}
+          allUsers={allUsers}
+          onUpdateProjectTeam={(projectId, userIds) =>
+            updateProjectFields(projectId, {
+              team: userIds.map((userId) => ({ userId })),
+            })
+          }
         />
       </div>
 
@@ -453,9 +474,6 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({ onOpenProje
 };
 
 export default ProjectsPanelDesktop;
-
-
-
 
 
 

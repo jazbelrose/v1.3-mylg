@@ -49,6 +49,22 @@
   z-index: 1;
 }
 
+.embedded {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.95);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  gap: 12px;
+  flex: 1 1 auto;
+}
+
 /* Header (transparent, faint divider only) */
 .header {
   display: flex;

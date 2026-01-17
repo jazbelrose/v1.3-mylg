@@ -62,6 +62,8 @@ describe("ProjectsTable", () => {
         onImageError={vi.fn()}
         imgError={{}}
         usersById={usersById}
+        allUsers={Array.from(usersById.values())}
+        onUpdateProjectTeam={vi.fn()}
       />
     );
 
@@ -79,6 +81,8 @@ describe("ProjectsTable", () => {
         onImageError={vi.fn()}
         imgError={{}}
         usersById={usersById}
+        allUsers={Array.from(usersById.values())}
+        onUpdateProjectTeam={vi.fn()}
       />
     );
 
@@ -101,12 +105,14 @@ describe("ProjectsTable", () => {
         onImageError={vi.fn()}
         imgError={{}}
         usersById={usersById}
+        allUsers={Array.from(usersById.values())}
+        onUpdateProjectTeam={vi.fn()}
       />
     );
 
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.getByText("Launch Plan")).toBeInTheDocument();
-    expect(screen.getByText("Pat Manager")).toBeInTheDocument();
+    expect(screen.getByLabelText("Pat Manager")).toBeInTheDocument();
 
     const row = screen.getByRole("row", { name: /open project launch plan/i });
     fireEvent.click(row);
