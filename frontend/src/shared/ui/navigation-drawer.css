@@ -411,6 +411,11 @@
   margin-bottom: 24px;
 }
 
+.dashboard-nav-panel--overlay .nav-list--cluster-main .nav-item {
+  width: calc(100% - 24px);
+  margin-right: auto;
+}
+
 .dashboard-nav-panel--overlay .nav-list--cluster-search {
   margin-bottom: 16px;
 }
