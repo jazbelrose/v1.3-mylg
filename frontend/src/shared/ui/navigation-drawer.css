@@ -417,13 +417,23 @@
 }
 
 .dashboard-nav-panel--overlay .nav-list--cluster-search {
-  margin-bottom: 16px;
+  margin-bottom: 0;
+}
+
+.dashboard-nav-panel--overlay .dashboard-nav-panel__footer-stack .nav-list--cluster-search {
+  padding: 0 9px;
 }
 
 .dashboard-nav-panel__account-divider {
   height: 0;
   border-top: 1px solid var(--line, rgba(255, 255, 255, 0.06));
-  margin: 0 9px 16px;
+  margin: 0 9px;
+}
+
+.dashboard-nav-panel__footer-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .nav-list--primary-action {

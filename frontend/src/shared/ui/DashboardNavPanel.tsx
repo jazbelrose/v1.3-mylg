@@ -278,12 +278,6 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
             </ul>
 
             <div className="dashboard-nav-panel__flex-spacer" />
-
-            <ul className="nav-list nav-list--cluster nav-list--cluster-search">
-              {renderNavItem(overlaySearchNavItem, isCollapsed)}
-            </ul>
-
-            <div className="dashboard-nav-panel__account-divider" role="separator" aria-hidden="true" />
           </>
         ) : (
           <ul className="nav-list nav-list--primary">
@@ -293,47 +287,114 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
           </ul>
         )}
         <div className="dashboard-nav-panel__footer">
-          {settingsNavItem ? (
-            <button
-              type="button"
-              className={accountButtonClass}
-              onClick={accountOnClick}
-              aria-label={accountAriaLabel}
-              title={accountTitle}
-              {...(accountIsActive ? { "aria-current": "page" as const } : {})}
-            >
-              <span className="dashboard-nav-panel__account-avatar">
-                {accountAvatarSrc ? (
-                  <img src={accountAvatarSrc} alt="" />
-                ) : (
-                  <span className="dashboard-nav-panel__account-avatar-placeholder">
-                    {userInitial ? (
-                      <span aria-hidden>{userInitial}</span>
+          {isOverlay ? (
+            <div className="dashboard-nav-panel__footer-stack">
+              <ul className="nav-list nav-list--cluster nav-list--cluster-search">
+                {renderNavItem(overlaySearchNavItem, isCollapsed)}
+              </ul>
+
+              <div
+                className="dashboard-nav-panel__account-divider"
+                role="separator"
+                aria-hidden="true"
+              />
+
+              {settingsNavItem ? (
+                <button
+                  type="button"
+                  className={accountButtonClass}
+                  onClick={accountOnClick}
+                  aria-label={accountAriaLabel}
+                  title={accountTitle}
+                  {...(accountIsActive ? { "aria-current": "page" as const } : {})}
+                >
+                  <span className="dashboard-nav-panel__account-avatar">
+                    {accountAvatarSrc ? (
+                      <img src={accountAvatarSrc} alt="" />
                     ) : (
-                      <UserIcon size={20} />
+                      <span className="dashboard-nav-panel__account-avatar-placeholder">
+                        {userInitial ? (
+                          <span aria-hidden>{userInitial}</span>
+                        ) : (
+                          <UserIcon size={20} />
+                        )}
+                      </span>
                     )}
+                    {isUserOnline ? (
+                      <span
+                        className="dashboard-nav-panel__account-status"
+                        aria-label="Online"
+                      />
+                    ) : null}
                   </span>
-                )}
-                {isUserOnline ? (
-                  <span
-                    className="dashboard-nav-panel__account-status"
-                    aria-label="Online"
-                  />
-                ) : null}
-              </span>
-              {!isCollapsed ? (
-                <span className="dashboard-nav-panel__account-meta">
-                  <span className="dashboard-nav-panel__account-name">{userFullName}</span>
-                  {occupation ? (
-                    <span className="dashboard-nav-panel__account-occupation">{occupation}</span>
+                  {!isCollapsed ? (
+                    <span className="dashboard-nav-panel__account-meta">
+                      <span className="dashboard-nav-panel__account-name">
+                        {userFullName}
+                      </span>
+                      {occupation ? (
+                        <span className="dashboard-nav-panel__account-occupation">
+                          {occupation}
+                        </span>
+                      ) : null}
+                    </span>
                   ) : null}
-                </span>
+                </button>
               ) : null}
-            </button>
-          ) : null}
-          <ul className="nav-list nav-list--secondary">
-            {bottomItems.map((item) => renderNavItem(item, isCollapsed))}
-          </ul>
+
+              <ul className="nav-list nav-list--secondary">
+                {bottomItems.map((item) => renderNavItem(item, isCollapsed))}
+              </ul>
+            </div>
+          ) : (
+            <>
+              {settingsNavItem ? (
+                <button
+                  type="button"
+                  className={accountButtonClass}
+                  onClick={accountOnClick}
+                  aria-label={accountAriaLabel}
+                  title={accountTitle}
+                  {...(accountIsActive ? { "aria-current": "page" as const } : {})}
+                >
+                  <span className="dashboard-nav-panel__account-avatar">
+                    {accountAvatarSrc ? (
+                      <img src={accountAvatarSrc} alt="" />
+                    ) : (
+                      <span className="dashboard-nav-panel__account-avatar-placeholder">
+                        {userInitial ? (
+                          <span aria-hidden>{userInitial}</span>
+                        ) : (
+                          <UserIcon size={20} />
+                        )}
+                      </span>
+                    )}
+                    {isUserOnline ? (
+                      <span
+                        className="dashboard-nav-panel__account-status"
+                        aria-label="Online"
+                      />
+                    ) : null}
+                  </span>
+                  {!isCollapsed ? (
+                    <span className="dashboard-nav-panel__account-meta">
+                      <span className="dashboard-nav-panel__account-name">
+                        {userFullName}
+                      </span>
+                      {occupation ? (
+                        <span className="dashboard-nav-panel__account-occupation">
+                          {occupation}
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : null}
+                </button>
+              ) : null}
+              <ul className="nav-list nav-list--secondary">
+                {bottomItems.map((item) => renderNavItem(item, isCollapsed))}
+              </ul>
+            </>
+          )}
           {onToggleCollapse ? (
             <div className="dashboard-nav-panel__collapse-toggle-row">
               <button
