@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 
 import { useLocation, useNavigate } from "react-router-dom";
 import { useData } from "@/app/contexts/useData";
 import { UserLite } from "@/app/contexts/DataProvider";
-import { useOrg } from "@/app/contexts/useOrg";
 import { slugify } from "@/shared/utils/slug";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { prefetchBudgetData } from "@/dashboard/project/features/budget/context/useBudget";
@@ -15,12 +14,13 @@ import Organization from "@/dashboard/home/components/organization";
 import SpinnerScreen from "@/shared/ui/SpinnerScreen";
 import PendingApprovalScreen from "@/shared/ui/PendingApprovalScreen";
 import AllProjectsWeekWidget from "@/dashboard/home/components/AllProjectsWeekWidget";
-import GlobalSearch from "@/dashboard/home/components/GlobalSearch";
-import QuickCreateTaskModal from "@/dashboard/home/components/QuickCreateTaskModal";
+import { ProjectsIconsStrip } from "@/dashboard/home/components/ProjectsIconsStrip";
 import Outlook14d, { type OutlookDay, type OutlookRange } from "@/dashboard/home/components/Outlook14d";
 import TriageStream from "@/dashboard/home/components/TriageStream";
+import { ProjectsFilterMenu } from "@/dashboard/home/components/ProjectsFilterMenu";
+import { useProjectFilters } from "@/dashboard/home/components/hooks/useProjectFilters";
 import { useTasksOverview } from "@/dashboard/home/hooks/useTasksOverview";
-import { parseProjectStatusToNumber } from "@/dashboard/home/hooks/useProjectKpis";
+import { parseProjectStatusToNumber, type ProjectLike } from "@/dashboard/home/hooks/useProjectKpis";
 import NavigationDrawer from "@/shared/ui/NavigationDrawer";
 import DashboardNavPanel from "@/shared/ui/DashboardNavPanel";
 import AppHeaderCard from "@/shared/ui/AppHeaderCard";
@@ -29,6 +29,8 @@ import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
 import { updateTask } from "@/shared/utils/api";
 import commandCenterStyles from "@/dashboard/home/components/ProjectsCommandCenter.module.css";
 import { notify, notifyAction } from "@/shared/ui/ToastNotifications";
+import mobileStyles from "@/dashboard/home/components/projects-panel.module.css";
+import { readPinnedOrder } from "@/dashboard/home/utils/pinnedOrder";
 
 import "./dashboard-styles.css";
 
@@ -54,6 +56,13 @@ type ProjectWithDetails = {
 type DashboardView = "all" | "my" | "team" | "pinned";
 type DashboardKpi = "overdue" | "due14d" | "atRisk" | "unread" | "unassigned" | "noLocation";
 type DashboardDateWindow = { start: Date | null; end: Date | null };
+
+function formatShortDate(iso?: string): string | undefined {
+  if (!iso) return undefined;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return undefined;
+  return d.toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" });
+}
 
 function startOfDay(value: Date): Date {
   return new Date(value.getFullYear(), value.getMonth(), value.getDate());
@@ -168,21 +177,9 @@ const WelcomeScreen: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [taskModalOpen, setTaskModalOpen] = useState(false);
 
   // 👉 Tooltip data for a tapped day (projects running that day + same-day events)
 
-
-  const { orgs, activeOrgId, setActiveOrgId } = useOrg();
-  const [orgMenuOpen, setOrgMenuOpen] = useState(false);
-
-  const activeOrg = useMemo(() => {
-    if (!orgs.length) return null;
-    if (!activeOrgId) return orgs[0] ?? null;
-    return orgs.find((o) => o.orgId === activeOrgId) ?? orgs[0] ?? null;
-  }, [activeOrgId, orgs]);
-  const activeOrgName = activeOrg?.name || activeOrg?.orgId || "Organization";
-  const activeOrgInitial = String(activeOrgName || "O").trim().slice(0, 1).toUpperCase();
 
   const tasksOverview = useTasksOverview();
   const tasksReady = !tasksOverview.loading && !tasksOverview.error;
@@ -193,6 +190,23 @@ const WelcomeScreen: React.FC = () => {
   const [activeKpi, setActiveKpi] = useState<DashboardKpi | null>(null);
   const [dateWindow, setDateWindow] = useState<DashboardDateWindow>({ start: null, end: null });
   const [outlookStart, setOutlookStart] = useState<Date>(() => startOfDay(new Date()));
+  const [showPendingProjectsOnly, setShowPendingProjectsOnly] = useState(false);
+
+  const [iconImgError, setIconImgError] = useState<Record<string, boolean>>({});
+  const handleIconImageError = useCallback((projectId: string) => {
+    setIconImgError((prev) => {
+      if (prev[projectId]) return prev;
+      return { ...prev, [projectId]: true };
+    });
+  }, []);
+
+  const pinnedOrderForStrip = useMemo(() => {
+    const fromProfile = (userData as unknown as { pinnedProjectOrder?: unknown } | null)?.pinnedProjectOrder;
+    if (Array.isArray(fromProfile)) {
+      return fromProfile.filter((id): id is string => typeof id === "string");
+    }
+    return readPinnedOrder();
+  }, [userData]);
 
   const panelsRef = useRef<HTMLDivElement | null>(null);
   const PANEL_SPLIT_STORAGE_KEY = "projects-dashboard-panel-split";
@@ -296,6 +310,37 @@ const WelcomeScreen: React.FC = () => {
     },
     [extractTeamIds, myUserId],
   );
+
+  const isPercentageStatus = useCallback((value: string): boolean => {
+    const cleaned = value.replace("%", "").trim();
+    const num = Number(cleaned);
+    return cleaned !== "" && !Number.isNaN(num) && num >= 0 && num <= 100;
+  }, []);
+
+  const queryMatcher = useCallback((project: { title?: string; description?: string }, normalizedQuery: string): boolean => {
+    const title = (project.title || "").toLowerCase();
+    const description = (project.description || "").toLowerCase();
+    return title.includes(normalizedQuery) || description.includes(normalizedQuery);
+  }, []);
+
+  const statusFilterPredicate = useCallback((status: string) => !isPercentageStatus(status), [isPercentageStatus]);
+
+  const projectsForHeaderFilters = useMemo(() => {
+    const list = projects as ProjectWithDetails[];
+    if (dashboardView === "pinned") return list.filter((p) => Boolean((p as { pinned?: unknown }).pinned));
+    if (dashboardView === "my") return list.filter((p) => isMyProject(p));
+    if (dashboardView === "team") return list.filter((p) => isTeamProject(p));
+    return list;
+  }, [dashboardView, isMyProject, isTeamProject, projects]);
+
+  const projectFilters = useProjectFilters({
+    projects: projectsForHeaderFilters as unknown as ProjectLike[],
+    recentsLimit: Math.max(12, projectsForHeaderFilters.length || 12),
+    defaultScope: "all",
+    defaultSortOption: "titleAsc",
+    queryMatcher: queryMatcher as unknown as (project: any, normalizedQuery: string) => boolean,
+    statusFilterPredicate,
+  });
 
   const taskKpiData = useMemo(() => {
     const today = startOfDay(new Date());
@@ -449,6 +494,9 @@ const WelcomeScreen: React.FC = () => {
     (project: { projectId: string; finishline?: string; pinned?: boolean; unreadCount?: number } & ProjectWithDetails) => {
       const hasWindow = Boolean(dateWindow.start && dateWindow.end);
 
+      if (showPendingProjectsOnly && parseProjectStatusToNumber((project as unknown as { status?: unknown }).status) >= 100) {
+        return false;
+      }
       if (dashboardView === "pinned" && !project.pinned) return false;
       if (dashboardView === "my" && !isMyProject(project)) return false;
       if (dashboardView === "team" && !isTeamProject(project)) return false;
@@ -484,6 +532,7 @@ const WelcomeScreen: React.FC = () => {
       extractTeamIds,
       isMyProject,
       isTeamProject,
+      showPendingProjectsOnly,
       selectedWindowProjectIds,
       taskKpiData.projectSets,
       tasksReady,
@@ -639,145 +688,134 @@ const WelcomeScreen: React.FC = () => {
     if (isDesktop) {
       const projectsFlex = Math.round(panelSplit * 1000) / 10;
       const triageFlex = Math.round((1 - panelSplit) * 1000) / 10;
-      const filteredProjectsCount = (projects as ProjectWithDetails[]).filter((p) =>
-        projectExternalFilter(p as unknown as ProjectWithDetails),
-      ).length;
+      const projectsList = projects as Array<ProjectWithDetails & { status?: unknown; finishline?: string; title?: string }>;
+      const totalProjectsCount = projectsList.length;
+      const pendingProjectsCount = projectsList.filter((p) => parseProjectStatusToNumber(p.status) < 100).length;
+      const nextDueProject = projectsList
+        .filter((p) => {
+          if (!p.finishline) return false;
+          const dt = new Date(p.finishline);
+          if (Number.isNaN(dt.getTime())) return false;
+          return dt.getTime() > Date.now();
+        })
+        .sort((a, b) => new Date(a.finishline as string).getTime() - new Date(b.finishline as string).getTime())[0];
+      const nextDueLabel = nextDueProject
+        ? `Next: ${(nextDueProject.title || "Untitled").trim()} ${formatShortDate(nextDueProject.finishline) || ""}`.trim()
+        : "No upcoming";
+      const scopeLabel =
+        dashboardView === "all"
+          ? "All projects"
+          : dashboardView === "my"
+            ? "My projects"
+            : dashboardView === "team"
+              ? "Team projects"
+              : "Pinned";
 
       return (
         <div className="welcome-desktop-layout">
           <section id="projects" className="welcome-section-anchor welcome-desktop-command-shell">
-            <div className="projects-command-shell">
+              <div className="projects-command-shell">
               <div className="projects-command-center">
                 <div className={commandCenterStyles.commandCenter}>
-              <div className={commandCenterStyles.headerRow}>
-                <div className={commandCenterStyles.leftGroup}>
-                  <div className={commandCenterStyles.title}>Projects</div>
-
-                  <div className={commandCenterStyles.orgChipWrap}>
-                    <button
-                      id="projects-org-chip"
-                      type="button"
-                      className={commandCenterStyles.orgChip}
-                      aria-haspopup="menu"
-                      aria-expanded={orgMenuOpen}
-                      aria-controls="projects-org-menu"
-                      onClick={() => setOrgMenuOpen((prev) => !prev)}
-                    >
-                      <span className={commandCenterStyles.orgDot} aria-hidden>
-                        {activeOrgInitial}
-                      </span>
-                      <span className={commandCenterStyles.orgName}>{activeOrgName}</span>
-                    </button>
-
-                    {orgMenuOpen && orgs.length ? (
-                      <div id="projects-org-menu" className={commandCenterStyles.orgMenu} role="menu">
-                        {orgs.map((org) => (
-                          <button
-                            key={org.orgId}
-                            type="button"
-                            role="menuitem"
-                            className={[
-                              commandCenterStyles.orgMenuItem,
-                              org.orgId === activeOrgId ? commandCenterStyles.orgMenuItemActive : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")}
-                            onClick={() => {
-                              setActiveOrgId(org.orgId);
-                              setOrgMenuOpen(false);
-                            }}
-                          >
-                            {org.name || org.orgId}
-                          </button>
-                        ))}
+                  <div className={commandCenterStyles.headerRow}>
+                    <div className={commandCenterStyles.leftGroup}>
+                      <div className={mobileStyles.titleWrap}>
+                        <h3 className={commandCenterStyles.pageTitle}>Projects</h3>
+                        <ProjectsIconsStrip
+                          projects={projects as unknown as ProjectLike[]}
+                          pinnedOrder={pinnedOrderForStrip}
+                          imgError={iconImgError}
+                          onImageError={handleIconImageError}
+                          onOpenProject={(projectId) => {
+                            void handleNavigateToProject({ projectId });
+                          }}
+                        />
                       </div>
-                    ) : null}
-                  </div>
 
-                  <div className={commandCenterStyles.viewSelector} role="group" aria-label="View selector">
-                    {[
-                      ["all", "All"],
-                      ["my", "My"],
-                      ["team", "Team"],
-                      ["pinned", "Pinned"],
-                    ].map(([value, label]) => (
+                      <ProjectsFilterMenu
+                        filtersOpen={projectFilters.filtersOpen}
+                        filtersRef={projectFilters.filtersRef}
+                        filtersId={projectFilters.filtersId}
+                        scope={projectFilters.scope}
+                        onScopeChange={projectFilters.setScope}
+                        query={projectFilters.query}
+                        onQueryChange={projectFilters.setQuery}
+                        toggleFilters={projectFilters.toggleFilters}
+                        statusOptions={projectFilters.statusOptions}
+                        statusTriggerLabel={projectFilters.statusTriggerLabel}
+                        statusDropdown={projectFilters.statusDropdown}
+                        showStatusDropdown={projectFilters.showStatusDropdown}
+                        sortOptions={projectFilters.sortOptions}
+                        sortTriggerLabel={projectFilters.sortTriggerLabel}
+                        sortDropdown={projectFilters.sortDropdown}
+                        triggerLabel={scopeLabel}
+                        showScopeSelector={false}
+                        popoverAlign="start"
+                        headerContent={
+                          <div className={mobileStyles.scopeBtns} role="group" aria-label="View">
+                            {[
+                              ["all", "All"],
+                              ["my", "My"],
+                              ["team", "Team"],
+                              ["pinned", "Pinned"],
+                            ].map(([value, label]) => (
+                              <button
+                                key={value}
+                                type="button"
+                                className={`${mobileStyles.scopeBtn} ${
+                                  dashboardView === (value as DashboardView) ? mobileStyles.scopeBtnActive : ""
+                                }`}
+                                aria-pressed={dashboardView === (value as DashboardView)}
+                                onClick={() => setDashboardView(value as DashboardView)}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        }
+                      />
+                    </div>
+
+                    <div className={mobileStyles.kpis} aria-label="Project summary">
                       <button
-                        key={value}
                         type="button"
-                        className={[
-                          commandCenterStyles.viewBtn,
-                          dashboardView === (value as DashboardView) ? commandCenterStyles.viewBtnActive : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                        aria-pressed={dashboardView === (value as DashboardView)}
-                        onClick={() => setDashboardView(value as DashboardView)}
+                        className={mobileStyles.chip}
+                        onClick={() => {
+                          setDashboardView("all");
+                          setActiveKpi(null);
+                          setDateWindow({ start: null, end: null });
+                          setShowPendingProjectsOnly(false);
+                        }}
+                        title="Clear filters"
                       >
-                        {label}
+                        {totalProjectsCount} Projects
                       </button>
-                    ))}
+                      <span className={mobileStyles.dot} aria-hidden />
+                      <button
+                        type="button"
+                        className={`${mobileStyles.chip} ${showPendingProjectsOnly ? mobileStyles.chipActive : ""}`}
+                        aria-pressed={showPendingProjectsOnly}
+                        onClick={() => setShowPendingProjectsOnly((prev) => !prev)}
+                        title="Toggle pending projects"
+                      >
+                        {pendingProjectsCount} Pending
+                      </button>
+                      <span className={mobileStyles.dot} aria-hidden />
+                      <button
+                        type="button"
+                        className={`${mobileStyles.chip} ${mobileStyles.chipNext}`}
+                        onClick={() => {
+                          if (nextDueProject?.projectId) {
+                            void handleNavigateToProject({ projectId: nextDueProject.projectId });
+                          }
+                        }}
+                        disabled={!nextDueProject?.projectId}
+                        title={nextDueProject ? "Open next project" : "No upcoming projects"}
+                      >
+                        {nextDueLabel}
+                      </button>
+                    </div>
                   </div>
-                </div>
-
-                <div className={commandCenterStyles.rightGroup}>
-                  <div style={{ minWidth: 260, flex: "1 1 320px" }}>
-                    <GlobalSearch />
-                  </div>
-
-                  <div className={commandCenterStyles.actions}>
-                    <button type="button" className={commandCenterStyles.actionBtn} onClick={() => navigate("/dashboard/new")}>
-                      New project
-                    </button>
-                    <button type="button" className={commandCenterStyles.actionBtn} onClick={() => setTaskModalOpen(true)}>
-                      New task
-                    </button>
-                    <button
-                      type="button"
-                      className={commandCenterStyles.actionBtn}
-                      onClick={() => navigate("/dashboard/projects/allprojects")}
-                    >
-                      Filters
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className={commandCenterStyles.kpisRow} aria-label="KPI filters">
-                {[
-                  ["overdue", "Overdue", taskKpiData.counts.overdue],
-                  ["due14d", "Due 14d", taskKpiData.counts.due14d],
-                  ["atRisk", "At risk", taskKpiData.counts.atRisk],
-                  ["unread", "Unread", taskKpiData.counts.unread],
-                  ["unassigned", "Unassigned", taskKpiData.counts.unassigned],
-                  ["noLocation", "No location", taskKpiData.counts.noLocation],
-                ].map(([kpiKey, label, count]) => (
-                  <button
-                    key={kpiKey}
-                    type="button"
-                    className={[
-                      commandCenterStyles.kpiChip,
-                      activeKpi === (kpiKey as DashboardKpi) ? commandCenterStyles.kpiChipActive : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    aria-pressed={activeKpi === (kpiKey as DashboardKpi)}
-                    onClick={() =>
-                      setActiveKpi((prev) => (prev === (kpiKey as DashboardKpi) ? null : (kpiKey as DashboardKpi)))
-                    }
-                    disabled={
-                      !tasksReady && (kpiKey === "overdue" || kpiKey === "due14d" || kpiKey === "unassigned" || kpiKey === "noLocation")
-                    }
-                    title={
-                      !tasksReady && (kpiKey === "overdue" || kpiKey === "due14d" || kpiKey === "unassigned" || kpiKey === "noLocation")
-                        ? "Loading tasks."
-                        : undefined
-                    }
-                  >
-                    <span className={commandCenterStyles.kpiLabel}>{label}</span>
-                    <span className={commandCenterStyles.kpiValue}>{count}</span>
-                  </button>
-                ))}
-              </div>
 
               <Outlook14d
                 days={outlookDays}
@@ -832,28 +870,12 @@ const WelcomeScreen: React.FC = () => {
 
               <div className="projects-command-panels" ref={panelsRef}>
                 <div className="projects-command-projects" style={{ flex: `${projectsFlex} 1 0` }}>
-                  <div className="projects-command-panel-header">
-                    <div className="projects-command-panel-title">Projects</div>
-                    <div className="projects-command-panel-meta">
-                      <span className="projects-command-count">{filteredProjectsCount}</span>
-                      <button
-                        type="button"
-                        className={commandCenterStyles.actionBtn}
-                        onClick={() => {
-                          setDashboardView("all");
-                          setActiveKpi(null);
-                          setDateWindow({ start: null, end: null });
-                        }}
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </div>
                   <div className="projects-command-panel-body">
                     <ProjectsPanelDesktop
                       onOpenProject={(projectId) => handleNavigateToProject({ projectId })}
                       hideHeader
                       externalProjectFilter={projectExternalFilter}
+                      projectsOverride={projectFilters.filteredProjects as unknown as ProjectLike[]}
                       variant="embedded"
                     />
                   </div>
@@ -1118,15 +1140,6 @@ const WelcomeScreen: React.FC = () => {
           </div>
         </div>
       </div>
-      <QuickCreateTaskModal
-        open={taskModalOpen}
-        onClose={() => setTaskModalOpen(false)}
-        projects={(tasksOverview.projectOptions || []).map((p) => ({ id: p.id, name: p.name, color: p.color }))}
-        onCreated={() => {
-          setTaskModalOpen(false);
-          void tasksOverview.refreshTasks();
-        }}
-      />
     </main>
   );
 

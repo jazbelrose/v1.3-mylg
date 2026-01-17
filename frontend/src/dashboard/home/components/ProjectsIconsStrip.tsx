@@ -9,6 +9,7 @@ import mobileStyles from "@/dashboard/home/components/projects-panel.module.css"
 
 type ProjectsIconsStripProps = {
   projects: ProjectLike[];
+  pinnedOrder?: string[];
   imgError: Record<string, boolean>;
   onImageError: (projectId: string) => void;
   onOpenProject: (projectId: string) => void;
@@ -18,12 +19,27 @@ const MAX_ICONS = 7;
 
 export const ProjectsIconsStrip: FC<ProjectsIconsStripProps> = ({
   projects,
+  pinnedOrder,
   imgError,
   onImageError,
   onOpenProject,
 }) => {
-  const shown = projects.slice(0, MAX_ICONS);
-  const more = Math.max(0, projects.length - shown.length);
+  const pinned = projects.filter((p) => Boolean((p as unknown as { pinned?: unknown })?.pinned));
+  const unpinned = projects.filter((p) => !(p as unknown as { pinned?: unknown })?.pinned);
+
+  const ordered = (() => {
+    if (!pinned.length) return projects;
+    if (!pinnedOrder?.length) return [...pinned, ...unpinned];
+
+    const byId = new Map(pinned.map((p) => [p.projectId, p] as const));
+    const orderedPinned = pinnedOrder.map((id) => byId.get(id)).filter(Boolean) as ProjectLike[];
+    const seen = new Set(orderedPinned.map((p) => p.projectId));
+    const remainderPinned = pinned.filter((p) => !seen.has(p.projectId));
+    return [...orderedPinned, ...remainderPinned, ...unpinned];
+  })();
+
+  const shown = ordered.slice(0, MAX_ICONS);
+  const more = Math.max(0, ordered.length - shown.length);
 
   return (
     <div className={mobileStyles.iconsStrip} aria-label="Quick projects">

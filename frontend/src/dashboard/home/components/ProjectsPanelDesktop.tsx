@@ -36,6 +36,7 @@ export type ProjectsPanelDesktopProps = {
   onOpenProject?: (projectId: string) => void;
   hideHeader?: boolean;
   externalProjectFilter?: (project: ProjectWithMeta) => boolean;
+  projectsOverride?: ProjectLike[];
   variant?: "card" | "embedded";
 };
 
@@ -43,6 +44,7 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
   onOpenProject,
   hideHeader = false,
   externalProjectFilter,
+  projectsOverride,
   variant = "card",
 }) => {
   const reduceMotion = useReducedMotion();
@@ -284,6 +286,8 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
     defaultScope: "all",
   });
 
+  const baseFilteredProjects = projectsOverride ?? filteredProjects;
+
   const kpis = useProjectKpis(projects as ProjectLike[]);
 
   const nextDueProject = useMemo(() => {
@@ -302,12 +306,12 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
   }, [projects]);
 
   const filteredProjectsToDisplay = useMemo(() => {
-    if (!showPendingOnly) return filteredProjects;
+    if (!showPendingOnly) return baseFilteredProjects;
 
-    return (filteredProjects as ProjectWithMeta[]).filter((project) =>
+    return (baseFilteredProjects as ProjectWithMeta[]).filter((project) =>
       parseProjectStatusToNumber(project.status) < 100
     );
-  }, [filteredProjects, showPendingOnly]);
+  }, [baseFilteredProjects, showPendingOnly]);
 
   const orderedProjectsToDisplay = useMemo(() => {
     const pinnedSet = new Set(pinnedOrder);
@@ -372,6 +376,7 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
               <h3 className={mobileStyles.title}>Projects</h3>
               <ProjectsIconsStrip
                 projects={projects as ProjectLike[]}
+                pinnedOrder={pinnedOrder}
                 imgError={imgError}
                 onImageError={handleImageError}
                 onOpenProject={handleOpen}
@@ -474,8 +479,6 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
 };
 
 export default ProjectsPanelDesktop;
-
-
 
 
 

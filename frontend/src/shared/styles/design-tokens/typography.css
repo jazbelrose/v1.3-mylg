@@ -43,6 +43,12 @@
   
   /* Letter Spacing */
   --letter-spacing-tight: -0.03em;
+
+  /* Page Title System Tokens */
+  --pageTitle: 19px;
+  --pageTitleMobile: 18px;
+  --pageSubtitle: 12.5px;
+  --pageTitleLH: 1.15;
 }
 
 

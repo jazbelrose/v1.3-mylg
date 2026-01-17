@@ -25,6 +25,16 @@
   color: rgba(255, 255, 255, 0.96);
 }
 
+.pageTitle {
+  margin: 0;
+  font-family: var(--font-family-helvetica-special, "Helvetica Special", sans-serif);
+  font-size: var(--pageTitle, 19px);
+  font-weight: var(--font-weight-semibold, 600);
+  letter-spacing: -0.01em;
+  line-height: var(--pageTitleLH, 1.15);
+  color: rgba(255, 255, 255, 0.96);
+}
+
 .orgChipWrap {
   position: relative;
 }
@@ -181,6 +191,13 @@
 .kpiChip:hover {
   background: rgba(255, 255, 255, 0.06);
 }
+.kpiChip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.kpiChip:disabled:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
 .kpiChipActive {
   border-color: rgba(250, 51, 86, 0.45);
   box-shadow: 0 0 0 2px rgba(250, 51, 86, 0.10);
@@ -202,6 +219,9 @@
 }
 
 @media (max-width: 900px) {
+  .pageTitle {
+    font-size: var(--pageTitleMobile, 18px);
+  }
   .headerRow {
     align-items: flex-start;
     flex-direction: column;
@@ -211,4 +231,3 @@
     justify-content: space-between;
   }
 }
-

@@ -509,6 +509,12 @@
   gap: 8px;
 }
 
+.scopeBtns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .input,
 .select {
   width: 100%;

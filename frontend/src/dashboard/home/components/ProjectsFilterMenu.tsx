@@ -26,6 +26,7 @@ type ProjectsFilterMenuProps = {
   triggerLabel?: string;
   showScopeSelector?: boolean;
   popoverAlign?: "start" | "end";
+  headerContent?: React.ReactNode;
 };
 
 export const ProjectsFilterMenu: FC<ProjectsFilterMenuProps> = ({
@@ -47,6 +48,7 @@ export const ProjectsFilterMenu: FC<ProjectsFilterMenuProps> = ({
   triggerLabel,
   showScopeSelector = true,
   popoverAlign = "end",
+  headerContent,
 }) => {
   const handleQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
     onQueryChange(event.target.value);
@@ -73,6 +75,7 @@ export const ProjectsFilterMenu: FC<ProjectsFilterMenuProps> = ({
       {filtersOpen && (
         <div className={popoverClassName} role="menu" id={filtersId}>
           <div className={mobileStyles.filterSection}>
+            {headerContent ? <div>{headerContent}</div> : null}
             {showScopeSelector && (
               <div className={mobileStyles.scopeBtns} role="group" aria-label="Scope">
                 <button
