@@ -10,6 +10,7 @@ export type BrandRowProps = {
   href?: string;
   ariaLabel?: string;
   wordmark?: string;
+  showWordmark?: boolean;
   markSize?: number;
   onClose?: () => void;
   rightSlot?: React.ReactNode;
@@ -21,6 +22,7 @@ const BrandRow: React.FC<BrandRowProps> = ({
   href = "/",
   ariaLabel = "Go to marketing home",
   wordmark = "memry",
+  showWordmark = false,
   markSize,
   onClose,
   rightSlot,
@@ -60,9 +62,11 @@ const BrandRow: React.FC<BrandRowProps> = ({
         <img
           className="dashboard-nav-panel__brand-logo"
           src={memryLogoUrl}
-          alt={wordmark}
+          alt=""
+          aria-hidden
           draggable={false}
         />
+        {showWordmark ? <span className="dashboard-nav-panel__brand-text">{wordmark}</span> : null}
       </Link>
 
       {rightContent ? (
