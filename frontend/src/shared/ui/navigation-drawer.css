@@ -905,7 +905,7 @@ button.nav-item,
   .dashboard-nav-panel__brand-row--sticky {
     margin: 0;
     padding: 12px 8px;
-    background: color-mix(in oklab, var(--bg2, #111213) 70%, transparent);
+    
   }
 
   .dashboard-nav-panel {
