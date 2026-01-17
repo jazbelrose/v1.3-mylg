@@ -311,35 +311,7 @@ export default function AllEventsAndTasksPanel({ className, onOpenProject }: All
 
   return (
     <div className={className}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, opacity: 0.9 }}>
-          <span style={{ fontWeight: 700 }}>Project</span>
-          <select
-            value={selectedProjectId}
-            onChange={(e) => setSelectedProjectId(e.target.value)}
-            style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              color: "rgba(255,255,255,0.92)",
-              borderRadius: 10,
-              padding: "6px 10px",
-              fontSize: 12,
-              minWidth: 220,
-            }}
-            aria-label="Project filter"
-          >
-            <option value="__ALL__">All projects</option>
-            {projectOptions.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div style={{ fontSize: 12, opacity: 0.75 }}>
-          {orgData.isLoading ? "Loading…" : orgData.error ? orgData.error : null}
-        </div>
-      </div>
+      
 
       <CommandPanel
         title="All Events & Tasks"
