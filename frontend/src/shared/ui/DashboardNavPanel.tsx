@@ -1,10 +1,9 @@
 import React from "react";
 import { ChevronLeft, ChevronRight, Search, User as UserIcon, X } from "lucide-react";
-import MemryLogo from '@/assets/svg/memry logo final sm.svg?react';
-import { Link } from "react-router-dom";
 import GlobalSearch from "@/dashboard/home/components/GlobalSearch";
 import Modal from "@/shared/ui/ModalWithStack";
 import NavBadge from "./NavBadge";
+import BrandRow from "./BrandRow";
 import useDashboardNavigation, {
   type DashboardNavItem,
   type UseDashboardNavigationArgs,
@@ -148,6 +147,16 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
   const isPersistent = variant === "persistent";
   const [isSearchModalOpen, setIsSearchModalOpen] = React.useState(false);
 
+  const handleOverlaySearchNavigate = React.useCallback(() => {
+    onClose?.();
+
+    window.requestAnimationFrame(() => {
+      const input = document.querySelector<HTMLInputElement>(".global-search-input");
+      input?.focus();
+      input?.select();
+    });
+  }, [onClose]);
+
   const handleOpenSearch = React.useCallback(() => {
     setIsSearchModalOpen(true);
   }, []);
@@ -210,6 +219,17 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
     return [firstItem, searchNavItem, ...rest];
   }, [handleOpenSearch, isPersistent, isSearchModalOpen, navItems]);
 
+  const overlaySearchNavItem: DashboardNavItem = React.useMemo(
+    () => ({
+      key: "search",
+      icon: <Search size={24} />,
+      label: "Search",
+      onClick: handleOverlaySearchNavigate,
+      shortLabel: "Search",
+    }),
+    [handleOverlaySearchNavigate]
+  );
+
   const containerClass = [
     "dashboard-nav-panel",
     `dashboard-nav-panel--${variant}`,
@@ -219,11 +239,7 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
     .filter(Boolean)
     .join(" ");
 
-  const topSection = isOverlay ? (
-    <div className="navigation-drawer-search">
-      <GlobalSearch onNavigate={onClose} />
-    </div>
-  ) : onClose ? (
+  const topSection = !isOverlay && onClose ? (
     <div className="navigation-drawer-header">
       <button
         type="button"
@@ -236,29 +252,42 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
     </div>
   ) : null;
 
+  const [primaryActionItem, ...navigationItems] = navItems;
+
   return (
     <div className={containerClass}>
       {topSection}
 
       <div className="navigation-drawer-content">
-        {isPersistent ? (
-          <div className="dashboard-nav-panel__brand-row">
-            <Link
-              to="/"
-              className="dashboard-nav-panel__brand-button"
-              aria-label="Go to marketing home"
-            >
-              <MemryLogo className="dashboard-nav-panel__brand-mark" />
-              <span className="dashboard-nav-panel__brand-text">memry</span>
-            </Link>
-          </div>
-        ) : null}
+        <BrandRow
+          sticky={isOverlay}
+          markSize={isOverlay ? 28 : undefined}
+          onClose={isOverlay ? onClose : undefined}
+        />
 
-        <ul className="nav-list nav-list--primary">
-          {(isPersistent ? primaryNavItems : navItems).map((item) =>
-            renderNavItem(item, isCollapsed)
-          )}
-        </ul>
+        {isOverlay ? (
+          <>
+            {primaryActionItem ? (
+              <ul className="nav-list nav-list--primary-action">
+                {renderNavItem(primaryActionItem, isCollapsed)}
+              </ul>
+            ) : null}
+
+            <ul className="nav-list nav-list--primary">
+              {navigationItems.map((item) => renderNavItem(item, isCollapsed))}
+            </ul>
+
+            <ul className="nav-list nav-list--utility">
+              {renderNavItem(overlaySearchNavItem, isCollapsed)}
+            </ul>
+          </>
+        ) : (
+          <ul className="nav-list nav-list--primary">
+            {(isPersistent ? primaryNavItems : navItems).map((item) =>
+              renderNavItem(item, isCollapsed)
+            )}
+          </ul>
+        )}
         <div className="dashboard-nav-panel__footer">
           {settingsNavItem ? (
             <button

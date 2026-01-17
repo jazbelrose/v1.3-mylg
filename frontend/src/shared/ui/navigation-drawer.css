@@ -117,7 +117,31 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 08px 0;
+  padding: 0 8px;
+}
+
+.dashboard-nav-panel__brand-right {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 44px;
+}
+
+.dashboard-nav-panel__brand-row--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+
+  min-height: 48px;
+  padding: 12px 16px;
+  margin: -16px -16px 0;
+  border-bottom: 1px solid var(--line, rgba(255, 255, 255, 0.06));
+  background: color-mix(in oklab, var(--bg2, #111213) 88%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  --brand-mark-size: 28px;
+  --brand-mark-radius: 12px;
 }
 
 .dashboard-nav-panel__brand-button {
@@ -148,8 +172,8 @@
   --shape-radius: 18px;
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: var(--brand-mark-size, 40px);
+  height: var(--brand-mark-size, 40px);
   font-weight: 700;
   font-size: 18px;
   letter-spacing: 0.02em;
@@ -157,8 +181,13 @@
   color: var(--text, #eaecee);
  
   border: 1px solid var(--line, rgba(255, 255, 255, 0.06));
-  border-radius: 14px;
+  border-radius: var(--brand-mark-radius, 14px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.close-button--brandrow {
+  width: 36px;
+  height: 36px;
 }
 
 .dashboard-nav-panel__brand-text {
@@ -191,6 +220,8 @@
 .dashboard-nav-panel--collapsed {
   padding: 12px 8px;
   padding-right: 9px;
+  --brand-mark-size: 44px;
+  --brand-mark-radius: 14px;
 }
 
 .dashboard-nav-panel--collapsed .navigation-drawer-content {
@@ -200,6 +231,7 @@
 .dashboard-nav-panel--collapsed .dashboard-nav-panel__brand-row {
   justify-content: center;
   gap: 12px;
+  padding: 0;
 }
 
 .dashboard-nav-panel--collapsed .dashboard-nav-panel__brand-button {
@@ -340,7 +372,7 @@
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.04),
     0 18px 48px rgba(0, 0, 0, 0.45);
-  overflow: hidden;
+  overflow-x: hidden;
   isolation: isolate;
   padding: 16px;
 
@@ -349,6 +381,16 @@
   
   border-radius: 32px 32px 32px 32px;
      border: 2px solid rgba(255, 255, 255, 0.10);
+}
+
+.nav-list--primary-action {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line, rgba(255, 255, 255, 0.06));
+}
+
+.nav-list--utility {
+  padding-top: 8px;
+  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.06));
 }
 
 /* keep content area's grain, but lighten so layers don't stack too hard */
@@ -816,6 +858,12 @@ button.nav-item,
     background: none;
     padding:0;
     margin:0px 8px
+  }
+
+  .dashboard-nav-panel__brand-row--sticky {
+    margin: 0;
+    padding: 12px 8px;
+    background: color-mix(in oklab, var(--bg2, #111213) 70%, transparent);
   }
 
   .dashboard-nav-panel {
