@@ -1544,6 +1544,17 @@ export function CommandPanel({
                 Calendar
               </button>
             )}
+            {onCreateTask && (
+              <button
+                type="button"
+                className={styles.createTaskButton}
+                onClick={onCreateTask}
+                title="Create task"
+              >
+                <Plus size={14} />
+                <span>Create task</span>
+              </button>
+            )}
           </div>
         </div>
         

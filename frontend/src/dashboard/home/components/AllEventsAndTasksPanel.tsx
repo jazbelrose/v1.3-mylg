@@ -289,6 +289,11 @@ export default function AllEventsAndTasksPanel({ className, onOpenProject }: All
     setDrawerTask(null);
   }, []);
 
+  const handleCreateTask = useCallback(() => {
+    setDrawerTask(null);
+    setDrawerOpen(true);
+  }, []);
+
   const handleDrawerCreated = useCallback(() => {
     handleCloseDrawer();
     void refresh();
@@ -344,6 +349,7 @@ export default function AllEventsAndTasksPanel({ className, onOpenProject }: All
         teamMembers={teamMembers}
         currentUserId={userId}
         currentUserEmail={user?.email}
+        onCreateTask={handleCreateTask}
         onQuickEditTask={handleQuickEditTask}
         onToggleTask={handleToggleTask}
         showProjectIcon
@@ -364,6 +370,10 @@ export default function AllEventsAndTasksPanel({ className, onOpenProject }: All
         open={drawerOpen}
         task={drawerTask}
         projects={drawerProjects}
+        activeProjectId={selectedProjectId !== "__ALL__" ? selectedProjectId : null}
+        activeProjectName={
+          selectedProjectId !== "__ALL__" ? (getProjectInfo(selectedProjectId)?.name ?? undefined) : undefined
+        }
         teamMembers={teamMembers}
         onClose={handleCloseDrawer}
         onCreated={handleDrawerCreated}

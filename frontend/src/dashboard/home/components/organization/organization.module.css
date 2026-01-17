@@ -61,7 +61,7 @@
   min-height: 0;
   overflow: auto;
   gap: 14px;
-  padding: 18px clamp(18px, 3vw, 28px) 22px;
+  padding: 18px clamp(20px, 4vw, 40px) 28px;
 }
 
 .topBar {
