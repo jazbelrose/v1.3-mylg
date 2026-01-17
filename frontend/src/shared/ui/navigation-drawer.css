@@ -143,12 +143,12 @@
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 
-  --brand-logo-height: 30px;
+  --brand-logo-height: 24px;
 }
 
 .dashboard-nav-panel__brand-logo {
   display: block;
-  height: var(--brand-logo-height, 30px);
+  height: var(--brand-logo-height, 24px);
   width: auto;
 }
 
@@ -412,7 +412,7 @@
 }
 
 .dashboard-nav-panel--overlay .nav-list--cluster-search {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .dashboard-nav-panel__account-divider {
@@ -491,7 +491,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 0 0 10px;
+  padding: 0 0 16px;
 }
 
 .dashboard-nav-panel--overlay .dashboard-nav-panel__footer {
@@ -670,6 +670,12 @@
   text-align: left;
   outline: none;
   position: relative;
+  width: 100%;
+}
+
+.dashboard-nav-panel--overlay .nav-list--cluster-search .nav-item {
+  --nav-item-background: rgba(255, 255, 255, 0.03);
+  --nav-item-outline-color: rgba(255, 255, 255, 0.06);
 }
 
 .nav-item:hover,

@@ -261,7 +261,7 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
       <div className="navigation-drawer-content">
         <BrandRow
           sticky={isOverlay}
-          markSize={isOverlay ? 30 : undefined}
+          markSize={isOverlay ? 24 : undefined}
           onClose={isOverlay ? onClose : undefined}
         />
 
