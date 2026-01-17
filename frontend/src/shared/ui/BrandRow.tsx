@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { X } from "lucide-react";
 
-import MemryLogo from "@/assets/svg/memry logo final sm.svg?react";
+import memryLogoUrl from "@/assets/svg/memry logo.svg";
 
 export type BrandRowProps = {
   className?: string;
@@ -35,7 +35,10 @@ const BrandRow: React.FC<BrandRowProps> = ({
 
   const inlineStyle =
     typeof markSize === "number"
-      ? ({ "--brand-mark-size": `${markSize}px` } as React.CSSProperties)
+      ? ({
+          "--brand-logo-height": `${markSize}px`,
+          "--brand-mark-size": `${markSize}px`,
+        } as React.CSSProperties)
       : undefined;
 
   const rightContent =
@@ -54,8 +57,12 @@ const BrandRow: React.FC<BrandRowProps> = ({
   return (
     <div className={rowClassName} style={inlineStyle}>
       <Link to={href} className="dashboard-nav-panel__brand-button" aria-label={ariaLabel}>
-        <MemryLogo className="dashboard-nav-panel__brand-mark" />
-        <span className="dashboard-nav-panel__brand-text">{wordmark}</span>
+        <img
+          className="dashboard-nav-panel__brand-logo"
+          src={memryLogoUrl}
+          alt={wordmark}
+          draggable={false}
+        />
       </Link>
 
       {rightContent ? (

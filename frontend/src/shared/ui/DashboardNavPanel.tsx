@@ -204,7 +204,7 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
 
     const searchNavItem: DashboardNavItem = {
       key: "search",
-      icon: <Search size={24} />,
+      icon: <Search size={20} />,
       label: "Search",
       onClick: handleOpenSearch,
       isActive: isSearchModalOpen,
@@ -222,7 +222,7 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
   const overlaySearchNavItem: DashboardNavItem = React.useMemo(
     () => ({
       key: "search",
-      icon: <Search size={24} />,
+      icon: <Search size={20} />,
       label: "Search",
       onClick: handleOverlaySearchNavigate,
       shortLabel: "Search",
@@ -261,25 +261,29 @@ const DashboardNavPanel: React.FC<DashboardNavPanelProps> = ({
       <div className="navigation-drawer-content">
         <BrandRow
           sticky={isOverlay}
-          markSize={isOverlay ? 28 : undefined}
+          markSize={isOverlay ? 30 : undefined}
           onClose={isOverlay ? onClose : undefined}
         />
 
         {isOverlay ? (
           <>
             {primaryActionItem ? (
-              <ul className="nav-list nav-list--primary-action">
+              <ul className="nav-list nav-list--cluster nav-list--cluster-action">
                 {renderNavItem(primaryActionItem, isCollapsed)}
               </ul>
             ) : null}
 
-            <ul className="nav-list nav-list--primary">
+            <ul className="nav-list nav-list--cluster nav-list--cluster-main">
               {navigationItems.map((item) => renderNavItem(item, isCollapsed))}
             </ul>
 
-            <ul className="nav-list nav-list--utility">
+            <div className="dashboard-nav-panel__flex-spacer" />
+
+            <ul className="nav-list nav-list--cluster nav-list--cluster-search">
               {renderNavItem(overlaySearchNavItem, isCollapsed)}
             </ul>
+
+            <div className="dashboard-nav-panel__account-divider" role="separator" aria-hidden="true" />
           </>
         ) : (
           <ul className="nav-list nav-list--primary">

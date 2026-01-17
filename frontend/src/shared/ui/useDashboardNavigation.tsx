@@ -134,7 +134,7 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
     () => [
       {
         key: "create",
-        icon: <Plus size={24} color="white" />, // icon colors handled in CSS
+        icon: <Plus size={20} color="white" />, // icon colors handled in CSS
         label: "Start something",
         onClick: handleCreateProject,
         isAction: true,
@@ -149,7 +149,7 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
       },
       {
         key: "home",
-        icon: <Layers size={24} color="white" />,
+        icon: <Layers size={20} color="white" />,
         label: "Projects",
         onClick: () => handleNavigation(PROJECTS_OVERVIEW_VIEW),
         isActive:
@@ -162,7 +162,7 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
       },
       {
         key: "notifications",
-        icon: <Bell size={24} color="white" />,
+        icon: <Bell size={20} color="white" />,
         label: "Notifications",
         onClick: () => {
           openNotificationsDrawer();
@@ -174,7 +174,7 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
       },
       {
         key: "messages",
-        icon: <MessageSquare size={24} color="white" />,
+        icon: <MessageSquare size={20} color="white" />,
         label: "Messages",
         onClick: () => handleNavigation("messages"),
         badgeCount: unreadMessages,
@@ -183,7 +183,7 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
       },
       {
         key: "collaborators",
-        icon: <Users size={24} color="white" />,
+        icon: <Users size={20} color="white" />,
         label: "Organization",
         onClick: () => handleNavigation("collaborators"),
         isActive: isDashboardPath && activeDashboardView === "collaborators",
@@ -208,7 +208,7 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
   const settingsNavItem: DashboardNavItem = useMemo(
     () => ({
       key: "settings",
-      icon: <Settings size={24} color="white" />,
+      icon: <Settings size={20} color="white" />,
       label: "Settings",
       onClick: () => handleNavigation("settings"),
       isActive: isDashboardPath && activeDashboardView === "settings",
@@ -220,7 +220,7 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
     () => [
       {
         key: "sign-out",
-        icon: <LogOut size={24} color="white" />,
+        icon: <LogOut size={20} color="white" />,
         label: "Sign Out",
         onClick: handleSignOut,
       },

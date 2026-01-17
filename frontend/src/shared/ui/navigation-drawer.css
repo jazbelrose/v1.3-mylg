@@ -117,7 +117,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 8px;
+  min-height: 56px;
+  padding: 0 16px;
 }
 
 .dashboard-nav-panel__brand-right {
@@ -132,16 +133,23 @@
   top: 0;
   z-index: 10;
 
-  min-height: 48px;
+  min-height: 56px;
   padding: 12px 16px;
   margin: -16px -16px 0;
-  border-bottom: 1px solid var(--line, rgba(255, 255, 255, 0.06));
-  background: color-mix(in oklab, var(--bg2, #111213) 88%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 
-  --brand-mark-size: 28px;
-  --brand-mark-radius: 12px;
+  /* Mobile spec: no background, no divider under brand row */
+  border-bottom: none;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+
+  --brand-logo-height: 30px;
+}
+
+.dashboard-nav-panel__brand-logo {
+  display: block;
+  height: var(--brand-logo-height, 30px);
+  width: auto;
 }
 
 .dashboard-nav-panel__brand-button {
@@ -363,7 +371,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 0;
   overflow-y: auto;
 
   position: relative;
@@ -383,14 +391,44 @@
      border: 2px solid rgba(255, 255, 255, 0.10);
 }
 
+.dashboard-nav-panel--persistent .navigation-drawer-content {
+  gap: 24px;
+}
+
+.dashboard-nav-panel--overlay .dashboard-nav-panel__brand-row {
+  margin-bottom: 16px;
+}
+
+.dashboard-nav-panel__flex-spacer {
+  flex: 1;
+}
+
+.dashboard-nav-panel--overlay .nav-list--cluster-action {
+  margin-bottom: 16px;
+}
+
+.dashboard-nav-panel--overlay .nav-list--cluster-main {
+  margin-bottom: 24px;
+}
+
+.dashboard-nav-panel--overlay .nav-list--cluster-search {
+  margin-bottom: 24px;
+}
+
+.dashboard-nav-panel__account-divider {
+  height: 0;
+  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.06));
+  margin: 0 9px 16px;
+}
+
 .nav-list--primary-action {
   padding-bottom: 16px;
-  border-bottom: 1px solid var(--line, rgba(255, 255, 255, 0.06));
+  border-bottom: none;
 }
 
 .nav-list--utility {
   padding-top: 8px;
-  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.06));
+  border-top: none;
 }
 
 /* keep content area's grain, but lighten so layers don't stack too hard */
@@ -452,8 +490,12 @@
   margin-top: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   padding: 0 0 10px;
+}
+
+.dashboard-nav-panel--overlay .dashboard-nav-panel__footer {
+  margin-top: 0;
 }
 
 .dashboard-nav-panel__account-button {
