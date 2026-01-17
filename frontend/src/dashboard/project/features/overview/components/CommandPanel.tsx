@@ -112,6 +112,12 @@ export type TimelineItem = TimelineEvent | TimelineTask;
 export interface CommandPanelProps {
   events: TimelineEvent[];
   tasks: TimelineTask[];
+  title?: string;
+  defaultTimeFilter?: TimeFilter;
+  defaultAssigneeFilter?: AssigneeFilter;
+  showProjectIcon?: boolean;
+  getProjectInfo?: (projectId: string) => { name: string; thumb?: string } | null;
+  onOpenProject?: (projectId: string) => void;
   teamMembers?: Array<{ userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }>;
   currentUserId?: string;
   currentUserEmail?: string;
@@ -448,6 +454,9 @@ function DayDivider({ label }: DayDividerProps) {
 interface TimelineRowProps {
   item: TimelineItem;
   teamLookup?: Map<string, { userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }>;
+  showProjectIcon?: boolean;
+  getProjectInfo?: (projectId: string) => { name: string; thumb?: string } | null;
+  onOpenProject?: (projectId: string) => void;
   isHovered: boolean;
   isSelected: boolean;
   popoverOpen: boolean;
@@ -460,6 +469,15 @@ interface TimelineRowProps {
   onEditAction: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onEllipsisClick: (e: React.MouseEvent) => void;
+}
+
+function getItemProjectId(item: TimelineItem): string | undefined {
+  const source = item.source;
+  if (!source || typeof source !== 'object') return undefined;
+  const projectId = (source as { projectId?: unknown }).projectId;
+  if (typeof projectId !== 'string') return undefined;
+  const trimmed = projectId.trim();
+  return trimmed ? trimmed : undefined;
 }
 
 function AvatarCoinStack({
@@ -507,6 +525,9 @@ function AvatarCoinStack({
 function TimelineRow({
   item,
   teamLookup,
+  showProjectIcon,
+  getProjectInfo,
+  onOpenProject,
   isHovered,
   isSelected,
   popoverOpen,
@@ -581,11 +602,26 @@ function TimelineRow({
 
   const canToggleDoneFromIcon = isTask && !isContainerRow;
   const ellipsisRef = useRef<HTMLButtonElement>(null);
+
+  const projectId = useMemo(() => (showProjectIcon ? getItemProjectId(item) : undefined), [item, showProjectIcon]);
+  const projectInfo = useMemo(() => {
+    if (!showProjectIcon || !projectId || !getProjectInfo) return null;
+    return getProjectInfo(projectId);
+  }, [getProjectInfo, projectId, showProjectIcon]);
   
   return (
     <>
       <div
-        className={`${styles.timelineRow} ${isHovered ? styles.timelineRowHovered : ''} ${isSelected ? styles.timelineRowSelected : ''} ${isDone ? styles.timelineRowDone : ''} ${isChildRow ? styles.timelineRowChild : ''}`}
+        className={[
+          styles.timelineRow,
+          showProjectIcon ? styles.timelineRowWithProject : "",
+          isHovered ? styles.timelineRowHovered : "",
+          isSelected ? styles.timelineRowSelected : "",
+          isDone ? styles.timelineRowDone : "",
+          isChildRow ? styles.timelineRowChild : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
         onClick={(e) => {
@@ -602,6 +638,32 @@ function TimelineRow({
         tabIndex={-1}
         data-item-id={item.id}
         >
+          {showProjectIcon ? (
+            <div className={styles.colProject}>
+              {projectId && projectInfo ? (
+                <button
+                  type="button"
+                  className={styles.projectIconButton}
+                  aria-label={`Open project ${projectInfo.name}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onOpenProject?.(projectId);
+                  }}
+                >
+                  <ProjectAvatar
+                    className={styles.projectIconAvatar}
+                    thumb={projectInfo.thumb}
+                    name={projectInfo.name}
+                    radius={7}
+                  />
+                </button>
+              ) : (
+                <span className={styles.projectIconPlaceholder} aria-hidden />
+              )}
+            </div>
+          ) : null}
+
           {/* Type icon */}
           <div className={styles.colIcon}>
             {leadingIcon ? (
@@ -879,6 +941,12 @@ function ContextMenu({
 export function CommandPanel({
   events,
   tasks,
+  title,
+  defaultTimeFilter,
+  defaultAssigneeFilter,
+  showProjectIcon,
+  getProjectInfo,
+  onOpenProject,
   teamMembers,
   currentUserId,
   currentUserEmail,
@@ -904,9 +972,9 @@ export function CommandPanel({
     return map;
   }, [teamMembers]);
 
-  // Filters - default to All/All
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
-  const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>('all');
+  // Filters - default to All/All unless overridden by caller.
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>(defaultTimeFilter ?? 'all');
+  const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>(defaultAssigneeFilter ?? 'all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   
@@ -1192,11 +1260,11 @@ export function CommandPanel({
           if (getDateKey(itemDateOnly) !== getDateKey(today)) return false;
         } else if (timeFilter === 'next7') {
           const endDate = new Date(today);
-          endDate.setDate(endDate.getDate() + 7);
+          endDate.setDate(endDate.getDate() + 6);
           if (itemDateOnly < today || itemDateOnly > endDate) return false;
         } else if (timeFilter === 'next30') {
           const endDate = new Date(today);
-          endDate.setDate(endDate.getDate() + 30);
+          endDate.setDate(endDate.getDate() + 29);
           if (itemDateOnly < today || itemDateOnly > endDate) return false;
         }
       }
@@ -1457,7 +1525,7 @@ export function CommandPanel({
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerTop}>
-          <h3 className={styles.title}>Events & Tasks</h3>
+          <h3 className={styles.title}>{title ?? "Events & Tasks"}</h3>
           <div className={styles.headerActions}>
             <button
               type="button"
@@ -1600,6 +1668,9 @@ export function CommandPanel({
                       key={item.id}
                       item={item}
                       teamLookup={teamLookup}
+                      showProjectIcon={showProjectIcon}
+                      getProjectInfo={getProjectInfo}
+                      onOpenProject={onOpenProject}
                       isHovered={hoveredId === item.id}
                       isSelected={selectedId === item.id}
                       popoverOpen={activePopoverId === item.id}

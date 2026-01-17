@@ -4,8 +4,17 @@ import { vi } from "vitest";
 
 // Mock child components to keep mount minimal
 vi.mock("@/dashboard/project/components", () => ({
-  ProjectPageLayout: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="project-layout">{children}</div>
+  ProjectPageLayout: ({
+    children,
+    header,
+  }: {
+    children: React.ReactNode;
+    header?: React.ReactNode;
+  }) => (
+    <div data-testid="project-layout">
+      {header}
+      {children}
+    </div>
   ),
   ProjectHeader: () => <div data-testid="project-header" />,
   QuickLinksComponent: React.forwardRef((_props: unknown, ref) => <div ref={ref} />),
@@ -42,6 +51,7 @@ vi.mock("@/dashboard/project/components/Shared/projectHeaderState/useTeamMembers
 
 vi.mock("@/shared/utils/api", () => ({
   fetchTasks: () => Promise.resolve([]),
+  fetchEvents: () => Promise.resolve([]),
   createEvent: () => Promise.resolve({}),
   updateEvent: () => Promise.resolve({}),
   deleteEvent: () => Promise.resolve({}),

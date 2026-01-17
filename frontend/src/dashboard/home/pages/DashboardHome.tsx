@@ -15,7 +15,7 @@ import SpinnerScreen from "@/shared/ui/SpinnerScreen";
 import PendingApprovalScreen from "@/shared/ui/PendingApprovalScreen";
 import AllProjectsWeekWidget from "@/dashboard/home/components/AllProjectsWeekWidget";
 import Outlook14d, { type OutlookDay, type OutlookRange } from "@/dashboard/home/components/Outlook14d";
-import TriageStream from "@/dashboard/home/components/TriageStream";
+import AllEventsAndTasksPanel from "@/dashboard/home/components/AllEventsAndTasksPanel";
 import { ProjectsFilterMenu } from "@/dashboard/home/components/ProjectsFilterMenu";
 import { useProjectFilters } from "@/dashboard/home/components/hooks/useProjectFilters";
 import { useTasksOverview } from "@/dashboard/home/hooks/useTasksOverview";
@@ -25,9 +25,7 @@ import DashboardNavPanel from "@/shared/ui/DashboardNavPanel";
 import AppHeaderCard from "@/shared/ui/AppHeaderCard";
 import ProjectsPanelDesktop from "@/dashboard/home/components/ProjectsPanelDesktop";
 import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
-import { updateTask } from "@/shared/utils/api";
 import commandCenterStyles from "@/dashboard/home/components/ProjectsCommandCenter.module.css";
-import { notify, notifyAction } from "@/shared/ui/ToastNotifications";
 import mobileStyles from "@/dashboard/home/components/projects-panel.module.css";
 
 import "./dashboard-styles.css";
@@ -871,160 +869,9 @@ const WelcomeScreen: React.FC = () => {
 
                 <div className="projects-command-triage" style={{ flex: `${triageFlex} 1 0` }}>
                   <div className="projects-command-panel-body projects-command-panel-body--triage">
-                    <TriageStream
+                    <AllEventsAndTasksPanel
                       className="projects-command-triage-fill"
-                      variant="embedded"
-                      tasks={filteredOpenTasks}
-                      undatedTasks={filteredUndatedTasks}
-                      headerFilters={
-                        <>
-                          <button
-                            type="button"
-                            className={[
-                              commandCenterStyles.kpiChip,
-                              activeKpi === "overdue" ? commandCenterStyles.kpiChipActive : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")}
-                            aria-pressed={activeKpi === "overdue"}
-                            onClick={() => {
-                              setActiveKpi("overdue");
-                              setDateWindow({ start: null, end: null });
-                            }}
-                          >
-                            <span className={commandCenterStyles.kpiLabel}>Overdue</span>
-                            <span className={commandCenterStyles.kpiValue}>{taskKpiData.counts.overdue}</span>
-                          </button>
-                          <button
-                            type="button"
-                            className={[
-                              commandCenterStyles.kpiChip,
-                              activeKpi === "unassigned" ? commandCenterStyles.kpiChipActive : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")}
-                            aria-pressed={activeKpi === "unassigned"}
-                            onClick={() => {
-                              setActiveKpi("unassigned");
-                              setDateWindow({ start: null, end: null });
-                            }}
-                          >
-                            <span className={commandCenterStyles.kpiLabel}>Needs owner</span>
-                            <span className={commandCenterStyles.kpiValue}>{taskKpiData.queues.needsOwner}</span>
-                          </button>
-                          <button
-                            type="button"
-                            className={[
-                              commandCenterStyles.kpiChip,
-                              activeKpi === "noLocation" ? commandCenterStyles.kpiChipActive : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")}
-                            aria-pressed={activeKpi === "noLocation"}
-                            onClick={() => {
-                              setActiveKpi("noLocation");
-                              setDateWindow({ start: null, end: null });
-                            }}
-                          >
-                            <span className={commandCenterStyles.kpiLabel}>Needs location</span>
-                            <span className={commandCenterStyles.kpiValue}>{taskKpiData.queues.needsLocation}</span>
-                          </button>
-                          <button
-                            type="button"
-                            className={commandCenterStyles.kpiChip}
-                            onClick={() => {
-                              setDashboardView("all");
-                              setActiveKpi(null);
-                              setDateWindow({ start: null, end: null });
-                            }}
-                          >
-                            <span className={commandCenterStyles.kpiLabel}>Clear</span>
-                          </button>
-                        </>
-                      }
                       onOpenProject={(projectId) => handleNavigateToProject({ projectId })}
-                      onMarkDone={async (task) => {
-                        const id = task.taskId ?? task.id;
-                        try {
-                          await tasksOverview.markTaskDone(id);
-                          notify("success", "Task marked done");
-                        } catch (err) {
-                          console.error("Failed to mark task done", err);
-                          notify("error", "Failed to mark task done");
-                        }
-                      }}
-                      onReschedule={async (task, nextDue) => {
-                        const taskId =
-                          task.taskId ??
-                          (task.rawTask as { taskId?: string; id?: string }).taskId ??
-                          (task.rawTask as { id?: string }).id ??
-                          task.id;
-                        if (!taskId) return;
-                        const prev = task.dueDate ? new Date(task.dueDate.getTime()) : null;
-
-                        tasksOverview.updateTaskStatus(task.id, task.status, { dueDate: nextDue ?? null });
-
-                        const toIso = (d: Date | null) => (d ? new Date(d.getTime()).toISOString() : null);
-                        const payload = nextDue
-                          ? { dueDate: toIso(nextDue), dueAt: toIso(nextDue) }
-                          : { dueDate: null, dueAt: null };
-
-                        try {
-                          await updateTask({
-                            projectId: task.projectId,
-                            taskId,
-                            title: task.title,
-                            ...(payload as unknown as Record<string, unknown>),
-                          });
-                          void tasksOverview.refreshTasks();
-                          notifyAction("info", "Rescheduled task", "Undo", () => {
-                            void (async () => {
-                              tasksOverview.updateTaskStatus(task.id, task.status, { dueDate: prev });
-                              try {
-                                await updateTask({
-                                  projectId: task.projectId,
-                                  taskId,
-                                  title: task.title,
-                                  ...(prev
-                                    ? ({ dueDate: toIso(prev), dueAt: toIso(prev) } as unknown as Record<string, unknown>)
-                                    : ({ dueDate: null, dueAt: null } as unknown as Record<string, unknown>)),
-                                });
-                                void tasksOverview.refreshTasks();
-                              } catch (err) {
-                                console.error("Undo reschedule failed", err);
-                                notify("error", "Undo failed");
-                              }
-                            })();
-                          });
-                        } catch (err) {
-                          console.error("Failed to reschedule task", err);
-                          tasksOverview.updateTaskStatus(task.id, task.status, { dueDate: prev });
-                          notify("error", "Failed to reschedule");
-                        }
-                      }}
-                      emptyQueues={[
-                        {
-                          id: "needs-owner",
-                          label: "Needs owner",
-                          count: taskKpiData.queues.needsOwner,
-                          onClick: () => setActiveKpi("unassigned"),
-                        },
-                        {
-                          id: "needs-date",
-                          label: "Needs date",
-                          count: taskKpiData.queues.needsDate,
-                          onClick: () => {
-                            setActiveKpi(null);
-                            setDateWindow({ start: null, end: null });
-                          },
-                        },
-                        {
-                          id: "needs-location",
-                          label: "Needs location",
-                          count: taskKpiData.queues.needsLocation,
-                          onClick: () => setActiveKpi("noLocation"),
-                        },
-                      ]}
                     />
                   </div>
                 </div>
@@ -1047,11 +894,7 @@ const WelcomeScreen: React.FC = () => {
             </div>
           </div>
           <div className="mobile-tasks-section dashboard-footer">
-            <TriageStream
-              tasks={filteredOpenTasks}
-              undatedTasks={filteredUndatedTasks}
-              onOpenProject={(projectId) => handleNavigateToProject({ projectId })}
-            />
+            <AllEventsAndTasksPanel onOpenProject={(projectId) => handleNavigateToProject({ projectId })} />
           </div>
         </div>
       </div>
@@ -1156,10 +999,6 @@ const WelcomeScreen: React.FC = () => {
 };
 
 export default WelcomeScreen;
-
-
-
-
 
 
 

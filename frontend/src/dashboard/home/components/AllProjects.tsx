@@ -16,7 +16,7 @@ import { ProjectsFilterMenu } from './ProjectsFilterMenu';
 import GlobalSearch from './GlobalSearch';
 import QuickCreateTaskModal from './QuickCreateTaskModal';
 import Outlook14d, { type OutlookRange, type OutlookDay } from './Outlook14d';
-import TriageStream from './TriageStream';
+import AllEventsAndTasksPanel from "./AllEventsAndTasksPanel";
 import AssignedPopover, { type AssignedPopoverAnchor } from './AssignedPopover';
 import { useProjectFilters } from './hooks/useProjectFilters';
 import {
@@ -1442,6 +1442,7 @@ const AllProjects: React.FC = () => {
       <div className="projects-scrollable">
         {content}
 
+        {/*
         <TriageStream
           tasks={filteredOpenTasks}
           undatedTasks={filteredUndatedTasks}
@@ -1597,6 +1598,9 @@ const AllProjects: React.FC = () => {
             },
           ]}
         />
+        */}
+
+        <AllEventsAndTasksPanel onOpenProject={(projectId) => handleOpenProject(projectId)} />
       </div>
 
       <QuickCreateTaskModal
