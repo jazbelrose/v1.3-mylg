@@ -1525,36 +1525,70 @@ export function CommandPanel({
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerTop}>
-          <h3 className={styles.title}>{title ?? "Events & Tasks"}</h3>
-          <div className={styles.headerActions}>
-            <button
-              type="button"
-              className={styles.searchToggle}
-              onClick={() => setShowSearch(!showSearch)}
-              title="Search (⌘K)"
-            >
-              <Search size={14} />
-            </button>
-            {onViewCalendar && (
+          <div className={styles.titleRow}>
+            <h3 className={styles.title}>{title ?? "Events & Tasks"}</h3>
+            <div className={styles.countsInline} aria-label="Item counts">
+              <span className={styles.countBadge}>{taskCount} {taskCount === 1 ? 'task' : 'tasks'}</span>
+              <span className={styles.countBadge}>{eventCount} {eventCount === 1 ? 'event' : 'events'}</span>
+            </div>
+          </div>
+          <div className={styles.headerRight}>
+            <div className={styles.filterRow}>
+              <div className={styles.filterGroup}>
+                {(Object.keys(TIME_FILTER_LABELS) as TimeFilter[]).map(filter => (
+                  <FilterChip
+                    key={filter}
+                    label={TIME_FILTER_LABELS[filter]}
+                    active={timeFilter === filter}
+                    onClick={() => setTimeFilter(filter)}
+                  />
+                ))}
+              </div>
+              <div className={styles.filterDivider} />
+              <select
+                className={styles.taskScopeSelect}
+                value={assigneeFilter}
+                onChange={(e) => setAssigneeFilter(e.target.value as AssigneeFilter)}
+                aria-label="Task scope"
+              >
+                <option value="all">All</option>
+                <option value="me" disabled={isUserLoading || !currentUserId}>
+                  {isUserLoading ? 'Loading…' : 'Me'}
+                </option>
+                <option value="team">Team</option>
+              </select>
+            </div>
+
+            <div className={styles.headerActions}>
               <button
                 type="button"
-                className={styles.calendarLink}
-                onClick={onViewCalendar}
+                className={styles.searchToggle}
+                onClick={() => setShowSearch(!showSearch)}
+                title="Search (⌘K)"
               >
-                Calendar
+                <Search size={14} />
               </button>
-            )}
-            {onCreateTask && (
-              <button
-                type="button"
-                className={styles.createTaskButton}
-                onClick={onCreateTask}
-                title="Create task"
-              >
-                <Plus size={14} />
-                <span>Create task</span>
-              </button>
-            )}
+              {onViewCalendar && (
+                <button
+                  type="button"
+                  className={styles.calendarLink}
+                  onClick={onViewCalendar}
+                >
+                  Calendar
+                </button>
+              )}
+              {onCreateTask && (
+                <button
+                  type="button"
+                  className={styles.createTaskButton}
+                  onClick={onCreateTask}
+                  title="Create task"
+                >
+                  <Plus size={14} />
+                  <span>Create task</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
         
@@ -1582,57 +1616,6 @@ export function CommandPanel({
           </div>
         )}
         
-        {/* Filter chips */}
-        <div className={styles.filterRow}>
-          <div className={styles.filterGroup}>
-            {(Object.keys(TIME_FILTER_LABELS) as TimeFilter[]).map(filter => (
-              <FilterChip
-                key={filter}
-                label={TIME_FILTER_LABELS[filter]}
-                active={timeFilter === filter}
-                onClick={() => setTimeFilter(filter)}
-              />
-            ))}
-          </div>
-          <div className={styles.filterDivider} />
-          <div className={styles.filterGroup}>
-            {(Object.keys(ASSIGNEE_FILTER_LABELS) as AssigneeFilter[]).map(filter => {
-              const isMeFilter = filter === 'me';
-              const isLoading = isMeFilter && isUserLoading;
-              const isDisabled = isMeFilter && (isUserLoading || !currentUserId);
-              
-              let chipLabel = ASSIGNEE_FILTER_LABELS[filter];
-              let chipTitle: string | undefined;
-              
-              if (isMeFilter) {
-                if (isLoading) {
-                  chipLabel = 'Loading…';
-                  chipTitle = 'Loading user…';
-                } else if (!currentUserId) {
-                  chipTitle = 'Sign in to filter by your tasks';
-                }
-              }
-              
-              return (
-                <FilterChip
-                  key={filter}
-                  label={chipLabel}
-                  active={assigneeFilter === filter}
-                  disabled={isDisabled}
-                  title={chipTitle}
-                  onClick={() => !isDisabled && setAssigneeFilter(filter)}
-                />
-              );
-            })}
-          </div>
-        </div>
-        
-        {/* Counts */}
-        <div className={styles.counts}>
-          <span>{taskCount} {taskCount === 1 ? 'task' : 'tasks'}</span>
-          <span className={styles.countDot}>·</span>
-          <span>{eventCount} {eventCount === 1 ? 'event' : 'events'}</span>
-        </div>
       </div>
       
       {/* Content */}

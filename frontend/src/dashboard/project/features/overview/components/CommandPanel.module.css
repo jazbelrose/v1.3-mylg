@@ -41,12 +41,47 @@
   gap: 12px;
 }
 
+.headerRight {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
 .title {
   margin: 0;
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--text-primary, #fff);
   letter-spacing: -0.01em;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.countsInline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.countBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted, rgba(255, 255, 255, 0.75));
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .headerActions {
@@ -171,7 +206,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .filterGroup {
@@ -185,6 +221,22 @@
   height: 16px;
   background: rgba(255, 255, 255, 0.1);
   margin: 0 4px;
+}
+
+.taskScopeSelect {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+
+.taskScopeSelect:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .filterChip {
@@ -226,18 +278,7 @@
   pointer-events: none;
 }
 
-/* Counts */
-.counts {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.7rem;
-  color: var(--text-muted, rgba(255, 255, 255, 0.45));
-}
-
-.countDot {
-  opacity: 0.5;
-}
+/* (Counts row moved next to title; styles kept there) */
 
 /* ============================================================================
    CONTENT
