@@ -3,6 +3,7 @@ import { ChevronDown } from "lucide-react";
 
 import { useOrg } from "@/app/contexts/useOrg";
 import { useData } from "@/app/contexts/useData";
+import HeaderShell from "@/shared/ui/HeaderShell";
 import AccountNav, { type AccountPanelKey } from "./AccountNav";
 import AccountProfilePanel, { type ProfileSaveState } from "./panels/AccountProfilePanel";
 import AccountPaymentsPanel from "./panels/AccountPaymentsPanel";
@@ -73,13 +74,12 @@ export default function AccountPage() {
   return (
     <div className={[styles.shell, "noise-surface"].join(" ")}>
       <div className={styles.page}>
-        <header className={styles.header}>
-          <div className={styles.headerTop}>
-            <div className={styles.headerCopy}>
-              <h1 className={styles.title}>Account</h1>
-              <p className={styles.subtitle}>Profile and preferences</p>
-            </div>
-
+        <HeaderShell
+          sticky
+          className={styles.header}
+          title="Account"
+          subtitle="Profile and preferences"
+          actions={
             <div className={styles.headerRight}>
               {headerMeta.role ? (
                 <span className={styles.rolePill} title={String(headerMeta.role)}>
@@ -127,11 +127,10 @@ export default function AccountPage() {
                 </span>
               </div>
             </div>
-          </div>
-
-          <div className={styles.headerTabs}>
-            <AccountNav value={panel} onChange={setPanel} />
-            {panel === "profile" ? (
+          }
+          nav={<AccountNav value={panel} onChange={setPanel} />}
+          controls={
+            panel === "profile" ? (
               <div className={styles.headerActions} aria-label="Profile actions">
                 <button
                   type="button"
@@ -150,9 +149,9 @@ export default function AccountPage() {
                   {headerMeta.saveState === "saving" ? "Saving…" : "Save changes"}
                 </button>
               </div>
-            ) : null}
-          </div>
-        </header>
+            ) : null
+          }
+        />
 
         <div className={styles.body}>
           <section className={styles.content} aria-label="Account content">

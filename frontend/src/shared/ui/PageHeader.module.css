@@ -12,7 +12,7 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--pageheader-sticky-bg, rgba(10, 10, 12, 0.72));
+  
   backdrop-filter: var(--pageheader-sticky-backdrop, blur(14px));
 }
 

@@ -134,19 +134,7 @@
   }
 }
 
-.projects-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  
-  width: 100%;
-}
 
-.projects-title {
-  font-size: var(--font-size-3xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--text-color);
-}
 
 
 

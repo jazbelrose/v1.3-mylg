@@ -6,7 +6,7 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  border-radius: 28px;
+  border-radius: var(--radius-surface, 32px);
   border: 2px solid rgba(255, 255, 255, 0.10);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
   background:
@@ -42,56 +42,12 @@
   gap: 16px;
 }
 
+
 .header {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 12px;
-  padding: 14px 14px;
-  
-  
-  backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
-
-  position: sticky;
-  top: 0;
-  z-index: 20;
-}
-
-.headerTop {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.headerTabs {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.headerCopy {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.title {
-  margin: 0;
-  font-size: clamp(1.65rem, 1.35rem + 0.9vw, 2rem);
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
-}
-
-.subtitle {
-  margin: 0;
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.72);
+  --pageheader-sticky-bg: rgba(10, 10, 12, 0.68);
+  --pageheader-sticky-backdrop: blur(14px);
+  padding-left: 14px;
+  padding-right: 14px;
 }
 
 .headerRight {

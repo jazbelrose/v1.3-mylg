@@ -16,7 +16,6 @@ import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 
 import desktopStyles from "./ProjectsPanelDesktop.module.css";
 import mobileStyles from "@/dashboard/home/components/projects-panel.module.css";
-import { ProjectsIconsStrip } from "./ProjectsIconsStrip";
 import ProjectsTable from "./ProjectsTable";
 import { ProjectsFilterMenu } from "./ProjectsFilterMenu";
 import { useProjectFilters } from "./hooks/useProjectFilters";
@@ -374,46 +373,10 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
           <div className={desktopStyles.headerTop}>
             <div className={mobileStyles.titleWrap}>
               <h3 className={mobileStyles.title}>Projects</h3>
-              <ProjectsIconsStrip
-                projects={projects as ProjectLike[]}
-                pinnedOrder={pinnedOrder}
-                imgError={imgError}
-                onImageError={handleImageError}
-                onOpenProject={handleOpen}
-              />
             </div>
           </div>
 
-          <ProjectsFilterMenu
-            filtersOpen={filtersOpen}
-            filtersRef={filtersRef}
-            filtersId={filtersId}
-            scope={scope}
-            onScopeChange={setScope}
-            query={query}
-            onQueryChange={setQuery}
-            toggleFilters={toggleFilters}
-            statusOptions={statusOptions}
-            statusTriggerLabel={statusTriggerLabel}
-            statusDropdown={statusDropdown}
-            showStatusDropdown={showStatusDropdown}
-            sortOptions={sortOptions}
-            sortTriggerLabel={sortTriggerLabel}
-            sortDropdown={sortDropdown}
-          />
-
           <div className={mobileStyles.kpis}>
-            <motion.button
-              type="button"
-              className={mobileStyles.chip}
-              whileHover={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
-              whileFocus={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
-              transition={reduceMotion ? undefined : SPRING_FAST}
-              onClick={handleNavigateToAllProjects}
-            >
-              {kpis.totalProjects} Projects
-            </motion.button>
-            <span className={mobileStyles.dot} />
             <motion.button
               type="button"
               className={`${mobileStyles.chip} ${
@@ -441,6 +404,41 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
                 ? `Next: ${kpis.nextProject.title} ${kpis.nextProject.date}`
                 : "No upcoming projects"}
             </motion.button>
+
+            <span className={mobileStyles.kpiSpacer} aria-hidden />
+
+            <div className={mobileStyles.kpiRightGroup} aria-label="Projects scope">
+              <motion.button
+                type="button"
+                className={mobileStyles.chip}
+                whileHover={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
+                whileFocus={reduceMotion ? undefined : { scale: MICRO_WOBBLE_SCALE }}
+                transition={reduceMotion ? undefined : SPRING_FAST}
+                onClick={handleNavigateToAllProjects}
+              >
+                {kpis.totalProjects} Projects
+              </motion.button>
+              <ProjectsFilterMenu
+                filtersOpen={filtersOpen}
+                filtersRef={filtersRef}
+                filtersId={filtersId}
+                scope={scope}
+                onScopeChange={setScope}
+                query={query}
+                onQueryChange={setQuery}
+                toggleFilters={toggleFilters}
+                statusOptions={statusOptions}
+                statusTriggerLabel={statusTriggerLabel}
+                statusDropdown={statusDropdown}
+                showStatusDropdown={showStatusDropdown}
+                sortOptions={sortOptions}
+                sortTriggerLabel={sortTriggerLabel}
+                sortDropdown={sortDropdown}
+                popoverAlign="end"
+                wrapperClassName={mobileStyles.kpiScopeWrap}
+                triggerClassName={mobileStyles.kpiScopeTrigger}
+              />
+            </div>
           </div>
         </header>
       ) : null}

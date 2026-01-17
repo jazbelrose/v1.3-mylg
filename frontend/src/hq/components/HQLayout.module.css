@@ -11,11 +11,12 @@
     radial-gradient(900px 260px at 12% 8%, rgba(250, 51, 86, 0.10), rgba(0, 0, 0, 0) 62%),
     radial-gradient(700px 260px at 88% 12%, rgba(45, 212, 191, 0.08), rgba(0, 0, 0, 0) 62%),
     var(--bg2, #111213);
-  border-radius: 32px 32px 0 0;
+  border-radius: var(--radius-surface, 32px);
   border: 2px solid rgba(255, 255, 255, 0.10);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
   font-family: var(--font-family-helvetica-special, "Helvetica Special", sans-serif);
   margin: 16px 0;
+  overflow: hidden;
 }
 
 .headerContainer {
@@ -736,7 +737,7 @@
 
 @media (min-width: 1024px) {
   .wrapper {
-    border-radius: 40px;
+    border-radius: var(--radius-surface, 32px);
   }
 
   .menuButton {
@@ -756,7 +757,7 @@
   .wrapper {
     width: 100%;
     margin: 0;
-    border-radius: 0;
+    border-radius: var(--radius-surface, 32px);
     padding: 18px 12px 28px;
     box-shadow: none;
   }

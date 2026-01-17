@@ -27,6 +27,8 @@ type ProjectsFilterMenuProps = {
   showScopeSelector?: boolean;
   popoverAlign?: "start" | "end";
   headerContent?: React.ReactNode;
+  wrapperClassName?: string;
+  triggerClassName?: string;
 };
 
 export const ProjectsFilterMenu: FC<ProjectsFilterMenuProps> = ({
@@ -49,6 +51,8 @@ export const ProjectsFilterMenu: FC<ProjectsFilterMenuProps> = ({
   showScopeSelector = true,
   popoverAlign = "end",
   headerContent,
+  wrapperClassName,
+  triggerClassName,
 }) => {
   const handleQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
     onQueryChange(event.target.value);
@@ -61,10 +65,13 @@ export const ProjectsFilterMenu: FC<ProjectsFilterMenuProps> = ({
       : mobileStyles.filterPop;
 
   return (
-    <div className={mobileStyles.recentsWrap} ref={filtersRef}>
+    <div
+      className={[mobileStyles.recentsWrap, wrapperClassName].filter(Boolean).join(" ")}
+      ref={filtersRef}
+    >
       <button
         type="button"
-        className={mobileStyles.recents}
+        className={[mobileStyles.recents, triggerClassName].filter(Boolean).join(" ")}
         aria-expanded={filtersOpen}
         aria-haspopup="menu"
         aria-controls={filtersId}

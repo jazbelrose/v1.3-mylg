@@ -4,16 +4,38 @@
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 16px; /* compact */
+  padding: 18px 16px 16px; /* match HQ header rhythm */
   margin-bottom: 8px; /* compact override */
   box-sizing: border-box;
   position: sticky;
   top: 0;
   z-index: 10;
-  background: linear-gradient(30deg, #181818, #0c0c0c);
+  background:
+    radial-gradient(900px 260px at 12% 8%, rgba(250, 51, 86, 0.10), rgba(0, 0, 0, 0) 62%),
+    radial-gradient(700px 260px at 88% 12%, rgba(45, 212, 191, 0.08), rgba(0, 0, 0, 0) 62%),
+    rgba(17, 18, 19, 0.86);
+  backdrop-filter: blur(14px);
   color: white;
-  border-radius: 0;
+  border-radius: var(--radius-surface, 32px);
   box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.25); /* lighter */
+  overflow: hidden;
+}
+
+.projects-header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='128' height='128'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='1' stitchTiles='stitch'/></filter><rect width='128' height='128' filter='url(%23n)' opacity='.05'/></svg>");
+  background-size: 240px 240px;
+  mix-blend-mode: soft-light;
+  opacity: 0.08;
+}
+
+@media (max-width: 920px) {
+  .projects-header {
+    padding: 14px 14px 14px;
+  }
 }
 
 .projects-title {

@@ -14,7 +14,6 @@ import Organization from "@/dashboard/home/components/organization";
 import SpinnerScreen from "@/shared/ui/SpinnerScreen";
 import PendingApprovalScreen from "@/shared/ui/PendingApprovalScreen";
 import AllProjectsWeekWidget from "@/dashboard/home/components/AllProjectsWeekWidget";
-import { ProjectsIconsStrip } from "@/dashboard/home/components/ProjectsIconsStrip";
 import Outlook14d, { type OutlookDay, type OutlookRange } from "@/dashboard/home/components/Outlook14d";
 import TriageStream from "@/dashboard/home/components/TriageStream";
 import { ProjectsFilterMenu } from "@/dashboard/home/components/ProjectsFilterMenu";
@@ -30,7 +29,6 @@ import { updateTask } from "@/shared/utils/api";
 import commandCenterStyles from "@/dashboard/home/components/ProjectsCommandCenter.module.css";
 import { notify, notifyAction } from "@/shared/ui/ToastNotifications";
 import mobileStyles from "@/dashboard/home/components/projects-panel.module.css";
-import { readPinnedOrder } from "@/dashboard/home/utils/pinnedOrder";
 
 import "./dashboard-styles.css";
 
@@ -191,22 +189,6 @@ const WelcomeScreen: React.FC = () => {
   const [dateWindow, setDateWindow] = useState<DashboardDateWindow>({ start: null, end: null });
   const [outlookStart, setOutlookStart] = useState<Date>(() => startOfDay(new Date()));
   const [showPendingProjectsOnly, setShowPendingProjectsOnly] = useState(false);
-
-  const [iconImgError, setIconImgError] = useState<Record<string, boolean>>({});
-  const handleIconImageError = useCallback((projectId: string) => {
-    setIconImgError((prev) => {
-      if (prev[projectId]) return prev;
-      return { ...prev, [projectId]: true };
-    });
-  }, []);
-
-  const pinnedOrderForStrip = useMemo(() => {
-    const fromProfile = (userData as unknown as { pinnedProjectOrder?: unknown } | null)?.pinnedProjectOrder;
-    if (Array.isArray(fromProfile)) {
-      return fromProfile.filter((id): id is string => typeof id === "string");
-    }
-    return readPinnedOrder();
-  }, [userData]);
 
   const panelsRef = useRef<HTMLDivElement | null>(null);
   const PANEL_SPLIT_STORAGE_KEY = "projects-dashboard-panel-split";
@@ -721,76 +703,10 @@ const WelcomeScreen: React.FC = () => {
                     <div className={commandCenterStyles.leftGroup}>
                       <div className={mobileStyles.titleWrap}>
                         <h3 className={commandCenterStyles.pageTitle}>Projects</h3>
-                        <ProjectsIconsStrip
-                          projects={projects as unknown as ProjectLike[]}
-                          pinnedOrder={pinnedOrderForStrip}
-                          imgError={iconImgError}
-                          onImageError={handleIconImageError}
-                          onOpenProject={(projectId) => {
-                            void handleNavigateToProject({ projectId });
-                          }}
-                        />
                       </div>
-
-                      <ProjectsFilterMenu
-                        filtersOpen={projectFilters.filtersOpen}
-                        filtersRef={projectFilters.filtersRef}
-                        filtersId={projectFilters.filtersId}
-                        scope={projectFilters.scope}
-                        onScopeChange={projectFilters.setScope}
-                        query={projectFilters.query}
-                        onQueryChange={projectFilters.setQuery}
-                        toggleFilters={projectFilters.toggleFilters}
-                        statusOptions={projectFilters.statusOptions}
-                        statusTriggerLabel={projectFilters.statusTriggerLabel}
-                        statusDropdown={projectFilters.statusDropdown}
-                        showStatusDropdown={projectFilters.showStatusDropdown}
-                        sortOptions={projectFilters.sortOptions}
-                        sortTriggerLabel={projectFilters.sortTriggerLabel}
-                        sortDropdown={projectFilters.sortDropdown}
-                        triggerLabel={scopeLabel}
-                        showScopeSelector={false}
-                        popoverAlign="start"
-                        headerContent={
-                          <div className={mobileStyles.scopeBtns} role="group" aria-label="View">
-                            {[
-                              ["all", "All"],
-                              ["my", "My"],
-                              ["team", "Team"],
-                              ["pinned", "Pinned"],
-                            ].map(([value, label]) => (
-                              <button
-                                key={value}
-                                type="button"
-                                className={`${mobileStyles.scopeBtn} ${
-                                  dashboardView === (value as DashboardView) ? mobileStyles.scopeBtnActive : ""
-                                }`}
-                                aria-pressed={dashboardView === (value as DashboardView)}
-                                onClick={() => setDashboardView(value as DashboardView)}
-                              >
-                                {label}
-                              </button>
-                            ))}
-                          </div>
-                        }
-                      />
                     </div>
 
                     <div className={mobileStyles.kpis} aria-label="Project summary">
-                      <button
-                        type="button"
-                        className={mobileStyles.chip}
-                        onClick={() => {
-                          setDashboardView("all");
-                          setActiveKpi(null);
-                          setDateWindow({ start: null, end: null });
-                          setShowPendingProjectsOnly(false);
-                        }}
-                        title="Clear filters"
-                      >
-                        {totalProjectsCount} Projects
-                      </button>
-                      <span className={mobileStyles.dot} aria-hidden />
                       <button
                         type="button"
                         className={`${mobileStyles.chip} ${showPendingProjectsOnly ? mobileStyles.chipActive : ""}`}
@@ -814,6 +730,69 @@ const WelcomeScreen: React.FC = () => {
                       >
                         {nextDueLabel}
                       </button>
+
+                      <span className={mobileStyles.kpiSpacer} aria-hidden />
+
+                      <div className={mobileStyles.kpiRightGroup} aria-label="Projects scope">
+                        <button
+                          type="button"
+                          className={mobileStyles.chip}
+                          onClick={() => {
+                            setDashboardView("all");
+                            setActiveKpi(null);
+                            setDateWindow({ start: null, end: null });
+                            setShowPendingProjectsOnly(false);
+                          }}
+                          title="Clear filters"
+                        >
+                          {totalProjectsCount} Projects
+                        </button>
+
+                        <ProjectsFilterMenu
+                          filtersOpen={projectFilters.filtersOpen}
+                          filtersRef={projectFilters.filtersRef}
+                          filtersId={projectFilters.filtersId}
+                          scope={projectFilters.scope}
+                          onScopeChange={projectFilters.setScope}
+                          query={projectFilters.query}
+                          onQueryChange={projectFilters.setQuery}
+                          toggleFilters={projectFilters.toggleFilters}
+                          statusOptions={projectFilters.statusOptions}
+                          statusTriggerLabel={projectFilters.statusTriggerLabel}
+                          statusDropdown={projectFilters.statusDropdown}
+                          showStatusDropdown={projectFilters.showStatusDropdown}
+                          sortOptions={projectFilters.sortOptions}
+                          sortTriggerLabel={projectFilters.sortTriggerLabel}
+                          sortDropdown={projectFilters.sortDropdown}
+                          triggerLabel={scopeLabel}
+                          showScopeSelector={false}
+                          popoverAlign="end"
+                          wrapperClassName={mobileStyles.kpiScopeWrap}
+                          triggerClassName={mobileStyles.kpiScopeTrigger}
+                          headerContent={
+                            <div className={mobileStyles.scopeBtns} role="group" aria-label="View">
+                              {[
+                                ["all", "All"],
+                                ["my", "My"],
+                                ["team", "Team"],
+                                ["pinned", "Pinned"],
+                              ].map(([value, label]) => (
+                                <button
+                                  key={value}
+                                  type="button"
+                                  className={`${mobileStyles.scopeBtn} ${
+                                    dashboardView === (value as DashboardView) ? mobileStyles.scopeBtnActive : ""
+                                  }`}
+                                  aria-pressed={dashboardView === (value as DashboardView)}
+                                  onClick={() => setDashboardView(value as DashboardView)}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
 

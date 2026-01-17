@@ -17,7 +17,7 @@ import { FaExclamationTriangle, FaTrash } from "react-icons/fa";
 import { deleteHqImportRun, fetchHqSummary, resetHqData } from "@/hq/lib/hqApi";
 import "@/dashboard/home/pages/dashboard-styles.css";
 import Modal from "@/shared/ui/ModalWithStack";
-import PageHeader from "@/shared/ui/PageHeader";
+import HeaderShell from "@/shared/ui/HeaderShell";
 import styles from "./HQLayout.module.css";
 
 type HQLayoutProps = {
@@ -285,7 +285,7 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   );
 
   const pageHeader = (
-    <PageHeader
+    <HeaderShell
       title={
         <span className={styles.pageTitleRow}>
           <span className={styles.pageTitleText}>{title}</span>
