@@ -8,6 +8,7 @@ import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickL
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import { BudgetProvider } from "@/dashboard/project/features/budget/context/BudgetProvider";
 import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
+import { useFilesNavigation } from "@/dashboard/project/components/Shared/hooks/useFilesNavigation";
 import { useData } from "@/app/contexts/useData";
 import { useSocket } from "@/app/contexts/useSocket";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
@@ -194,6 +195,13 @@ const SingleProject: React.FC = () => {
   const [filesOpen, setFilesOpen] = useState<boolean>(false);
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const { ws } = useSocket();
+
+  // Use files navigation hook for V2 support
+  const { openFiles } = useFilesNavigation({
+    projectId,
+    projectTitle: activeProject?.title,
+    openLegacyModal: () => setFilesOpen(true),
+  });
 
   const projectNameFromPath = useMemo(() => {
     const segments = location.pathname.split("/").filter(Boolean);
@@ -446,7 +454,7 @@ const SingleProject: React.FC = () => {
           onProjectDeleted={handleProjectDeleted}
           showWelcomeScreen={showWelcome}
           onActiveProjectChange={handleActiveProjectChange}
-          onOpenFiles={() => setFilesOpen(true)}
+          onOpenFiles={openFiles}
           onOpenQuickLinks={() => quickLinksRef.current?.openModal()}
           title={resolvedActiveProject?.title}
         />

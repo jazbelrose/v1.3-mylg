@@ -26,6 +26,9 @@ const DashboardSlidesPage = React.lazy(() => import("@/dashboard/project/feature
 const DashboardSlidesPresentationPage = React.lazy(
   () => import("@/dashboard/project/features/slides/SlidesPresentationPage")
 );
+const DashboardFilesPage = React.lazy(
+  () => import("@/dashboard/project/features/files/FilesPage")
+);
 const DashboardTasksPage = React.lazy(() => import("../dashboard/home/pages/TasksPage"));
 
 const ScrollToTop: React.FC = () => {
@@ -181,6 +184,10 @@ const ActualRoutes: React.FC<ActualRoutesProps> = ({ location }) => {
           <Route
             path="projects/:projectId/:projectName?/slides/present"
             element={<DashboardSlidesPresentationPage />}
+          />
+          <Route
+            path="projects/:projectId/:projectName?/files"
+            element={<DashboardFilesPage />}
           />
           <Route path="tasks" element={<DashboardTasksPage />} />
           <Route path="new" element={<DashboardNewProject />} />

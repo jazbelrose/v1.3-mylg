@@ -9,6 +9,7 @@ import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
 import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
+import { useFilesNavigation } from "@/dashboard/project/components/Shared/hooks/useFilesNavigation";
 import SlidesSidebar from "./components/SlidesSidebar";
 import SlideEditor from "./components/SlideEditor";
 import SlidesEmptyToolbar from "./components/SlidesEmptyToolbar";
@@ -254,6 +255,14 @@ const SlidesPage: React.FC = () => {
   const [zoom, setZoom] = useState(0);
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const uiThumbsEnabled = isUiThumbsEnabled();
+
+  // Use files navigation hook for V2 support
+  const { openFiles } = useFilesNavigation({
+    projectId,
+    projectTitle: activeProject?.title,
+    openLegacyModal: () => setFilesOpen(true),
+  });
+
   const [toolbarPortalNode, setToolbarPortalNode] = useState<HTMLDivElement | null>(null);
   const pdfImportInputRef = useRef<HTMLInputElement | null>(null);
   const [pdfImportStatus, setPdfImportStatus] = useState<"idle" | "uploading" | "processing">("idle");
@@ -1874,7 +1883,7 @@ const SlidesPage: React.FC = () => {
           onProjectDeleted={handleProjectDeleted}
           showWelcomeScreen={handleBack}
           onActiveProjectChange={handleActiveProjectChange}
-          onOpenFiles={() => setFilesOpen(true)}
+          onOpenFiles={openFiles}
           onOpenQuickLinks={() => quickLinksRef.current?.openModal()}
         />
       }

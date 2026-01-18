@@ -6,6 +6,7 @@ import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
 import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
+import { useFilesNavigation } from "@/dashboard/project/components/Shared/hooks/useFilesNavigation";
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
 import { useData } from "@/app/contexts/useData";
@@ -39,6 +40,13 @@ const EditorPage: React.FC = () => {
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
   const [briefContent, setBriefContent] = useState<string>("");
+
+  // Use files navigation hook for V2 support
+  const { openFiles } = useFilesNavigation({
+    projectId,
+    projectTitle: activeProject?.title,
+    openLegacyModal: () => setFilesOpen(true),
+  });
 
   const handleBriefChange = useCallback((json: string) => {
     setBriefContent(json);
@@ -211,7 +219,7 @@ const EditorPage: React.FC = () => {
           onProjectDeleted={handleProjectDeleted}
           showWelcomeScreen={handleBack}
           onActiveProjectChange={handleActiveProjectChange}
-          onOpenFiles={() => setFilesOpen(true)}
+          onOpenFiles={openFiles}
           onOpenQuickLinks={() => quickLinksRef.current?.openModal()}
         />
       }

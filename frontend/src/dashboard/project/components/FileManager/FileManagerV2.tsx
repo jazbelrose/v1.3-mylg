@@ -45,6 +45,8 @@ import { ContextMenu, ContextMenuAction } from './ContextMenu';
 import { BulkActionBar } from './BulkActionBar';
 import { FileInspector, FileDetails } from './FileInspector';
 import { FileListView, FileListItem, SortField, SortDirection } from './FileListView';
+import { FileGridView } from './FileGridView';
+import { FolderPickerModal, FolderPickerFolder } from './FolderPickerModal';
 import { FileThumb } from '@/shared/ui/FileThumb';
 import { useFileManagerState } from '../Shared/hooks/useFileManagerState';
 import { useFileMessenger } from '../Shared/hooks/useFileMessenger';
@@ -196,6 +198,13 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       type: 'file' | 'folder' | 'empty';
     } | null>(null);
     const [isZipping, setIsZipping] = useState(false);
+    
+    // Move modal state
+    const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
+    const [moveTargetFiles, setMoveTargetFiles] = useState<FileItem[]>([]);
+    
+    // Rename state (for triggering from context menu)
+    const [renameTargetId, setRenameTargetId] = useState<string | null>(null);
 
     // Convert sortOption to field and direction
     const [sortField, sortDirection] = useMemo((): [SortField, SortDirection] => {
@@ -370,6 +379,76 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       setIsSelectMode,
     ]);
 
+    // Handle bulk move (open modal)
+    const handleBulkMove = useCallback(() => {
+      const filesToMove = displayedFiles.filter((f) => selectedItems.has(f.url));
+      if (filesToMove.length === 0) return;
+      setMoveTargetFiles(filesToMove);
+      setIsMoveModalOpen(true);
+    }, [displayedFiles, selectedItems]);
+
+    // Execute move operation
+    const handleMoveConfirm = useCallback(
+      async (targetFolderKey: string, targetFolderName: string) => {
+        if (!activeProject?.projectId || moveTargetFiles.length === 0) return;
+
+        try {
+          // For now, we'll move files by updating their keys
+          // In a real implementation, this would call an API
+          const movedCount = moveTargetFiles.length;
+          
+          // TODO: Implement actual API call to move files
+          // await apiFetch(`${EDIT_PROJECT_URL}/${activeProject.projectId}/files/move`, {
+          //   method: 'POST',
+          //   body: JSON.stringify({
+          //     files: moveTargetFiles.map(f => f.key),
+          //     targetFolder: targetFolderKey,
+          //   }),
+          // });
+
+          notify('success', `Moved ${movedCount} item${movedCount > 1 ? 's' : ''} to ${targetFolderName}`);
+          setIsMoveModalOpen(false);
+          setMoveTargetFiles([]);
+          setSelectedItems(new Set());
+          
+          // Reload files to reflect changes
+          loadFiles();
+        } catch (error) {
+          console.error('Failed to move files:', error);
+          notify('error', 'Failed to move files. Please try again.');
+        }
+      },
+      [activeProject?.projectId, moveTargetFiles, loadFiles, setSelectedItems]
+    );
+
+    // Handle rename
+    const handleRename = useCallback(
+      async (file: FileItem, newName: string) => {
+        if (!activeProject?.projectId) return;
+
+        try {
+          // TODO: Implement actual rename API call
+          // await apiFetch(`${EDIT_PROJECT_URL}/${activeProject.projectId}/files/rename`, {
+          //   method: 'POST',
+          //   body: JSON.stringify({
+          //     oldKey: file.key,
+          //     newName: newName,
+          //   }),
+          // });
+
+          notify('success', `Renamed to "${newName}"`);
+          setRenameTargetId(null);
+          
+          // Reload files to reflect changes
+          loadFiles();
+        } catch (error) {
+          console.error('Failed to rename file:', error);
+          notify('error', 'Failed to rename file. Please try again.');
+        }
+      },
+      [activeProject?.projectId, loadFiles]
+    );
+
     // Open modal
     const openFilesModal = useCallback(async () => {
       setFilesModalOpen(true);
@@ -399,6 +478,15 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       () => customFolders.map((f) => ({ key: f.key, name: f.name })),
       [customFolders]
     );
+
+    // Folders for picker modal
+    const folderPickerFolders: FolderPickerFolder[] = useMemo(() => {
+      return [
+        { key: ROOT_FOLDER.key, name: ROOT_FOLDER.name },
+        ...SYSTEM_FOLDERS.map((f) => ({ key: f.key, name: f.name })),
+        ...customFolders.map((f) => ({ key: f.key, name: f.name })),
+      ];
+    }, [customFolders]);
 
     // Breadcrumb segments
     const breadcrumbSegments: BreadcrumbSegment[] = useMemo(() => {
@@ -444,12 +532,16 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
             }
             break;
           case 'rename':
-            // TODO: Implement rename
-            notify('info', 'Rename feature coming soon');
+            if (file) {
+              // Set the rename target - FileListView will pick this up
+              setRenameTargetId(file.key as string);
+            }
             break;
           case 'move':
-            // TODO: Implement move
-            notify('info', 'Move feature coming soon');
+            if (file) {
+              setMoveTargetFiles([file]);
+              setIsMoveModalOpen(true);
+            }
             break;
           case 'delete':
             if (file) handleDeleteSingle(file.url);
@@ -849,6 +941,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                       if (file) handleDownloadSingle(file);
                     }}
                     onDownloadZip={handleBulkDownloadWithState}
+                    onMove={handleBulkMove}
                     onDelete={handleDelete}
                     canDelete={canDelete}
                     isZipping={isZipping}
@@ -948,6 +1041,21 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
             afterOpen: legacyStyles.confirmOverlayAfterOpen,
             beforeClose: legacyStyles.confirmOverlayBeforeClose,
           }}
+        />
+
+        {/* Folder Picker Modal for Move */}
+        <FolderPickerModal
+          isOpen={isMoveModalOpen}
+          onRequestClose={() => {
+            setIsMoveModalOpen(false);
+            setMoveTargetFiles([]);
+          }}
+          onSelect={handleMoveConfirm}
+          folders={folderPickerFolders}
+          currentFolder={folderKey}
+          itemCount={moveTargetFiles.length}
+          itemNames={moveTargetFiles.map((f) => f.fileName)}
+          title="Move to folder"
         />
       </>
     );

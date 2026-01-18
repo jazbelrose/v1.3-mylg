@@ -21,6 +21,8 @@ export { FileListView } from './FileListView';
 export type { FileListViewProps, FileListItem, SortField, SortDirection } from './FileListView';
 export { FileGridView } from './FileGridView';
 export type { FileGridViewProps, GridItem } from './FileGridView';
+export { FolderPickerModal } from './FolderPickerModal';
+export type { FolderPickerModalProps, FolderPickerFolder } from './FolderPickerModal';
 
 // Types and Utils
 export * from './FileManagerTypes';

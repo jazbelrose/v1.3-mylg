@@ -480,6 +480,10 @@
   background: rgba(250, 51, 86, 0.18);
 }
 
+.listRowEditing {
+  background: rgba(250, 51, 86, 0.08);
+}
+
 .listTd {
   padding: 10px 12px;
   color: rgba(255, 255, 255, 0.7);
@@ -507,6 +511,23 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.listRenameInput {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(250, 51, 86, 0.5);
+  border-radius: 4px;
+  color: white;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.listRenameInput:focus {
+  border-color: #FA3356;
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .listType {

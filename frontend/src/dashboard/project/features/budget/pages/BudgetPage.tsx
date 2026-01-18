@@ -16,6 +16,7 @@ import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPage
 import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
 import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
+import { useFilesNavigation } from "@/dashboard/project/components/Shared/hooks/useFilesNavigation";
 import BudgetHeader from "@/dashboard/project/features/budget/components/HeaderStats";
 import BudgetFileModal from "@/dashboard/project/features/budget/components/BudgetFileModal";
 import CreateLineItemModal from "@/dashboard/project/features/budget/components/CreateLineItemModal";
@@ -97,6 +98,14 @@ const BudgetPageContent = () => {
   const [filesOpen, setFilesOpen] = useState(false);
   const quickLinksRef = useRef(null);
   const tableRef = useRef(null);
+
+  // Use files navigation hook for V2 support
+  const { openFiles } = useFilesNavigation({
+    projectId,
+    projectTitle: activeProject?.title,
+    openLegacyModal: () => setFilesOpen(true),
+  });
+
   const [tableHeight, setTableHeight] = useState(0);
   const [saving] = useState(false);
   const [projectTasks, setProjectTasks] = useState<Task[]>([]);
@@ -1289,7 +1298,7 @@ const BudgetPageContent = () => {
             onProjectDeleted={handleProjectDeleted}
             showWelcomeScreen={handleBack}
             onActiveProjectChange={handleActiveProjectChange}
-            onOpenFiles={() => setFilesOpen(true)}
+            onOpenFiles={openFiles}
             onOpenQuickLinks={() => quickLinksRef.current?.openModal()}
           />
         }

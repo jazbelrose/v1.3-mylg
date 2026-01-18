@@ -8,6 +8,7 @@ import {
   FileManager as FileManagerComponent,
 } from "@/dashboard/project/components";
 import type { QuickLinksRef } from "@/dashboard/project/components";
+import { useFilesNavigation } from "@/dashboard/project/components/Shared/hooks/useFilesNavigation";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 import { useTeamMembers } from "@/dashboard/project/components/Shared/projectHeaderState/useTeamMembers";
@@ -62,6 +63,13 @@ const CalendarPage: React.FC = () => {
 
   const [filesOpen, setFilesOpen] = useState(false);
   const quickLinksRef = useRef<QuickLinksRef | null>(null);
+
+  // Use files navigation hook for V2 support
+  const { openFiles } = useFilesNavigation({
+    projectId,
+    projectTitle: activeProject?.title,
+    openLegacyModal: () => setFilesOpen(true),
+  });
 
   const teamMembers = useTeamMembers(activeProject ?? null);
   const [extraTeamMembers, setExtraTeamMembers] = useState<ProjectTeamMember[]>([]);
@@ -1050,7 +1058,7 @@ const CalendarPage: React.FC = () => {
           onProjectDeleted={handleProjectDeleted}
           showWelcomeScreen={handleBack}
           onActiveProjectChange={handleActiveProjectChange}
-          onOpenFiles={() => setFilesOpen(true)}
+          onOpenFiles={openFiles}
           onOpenQuickLinks={() => quickLinksRef.current?.openModal()}
         />
       }

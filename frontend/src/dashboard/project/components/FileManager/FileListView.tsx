@@ -6,9 +6,10 @@
  * - Row hover states
  * - Sortable columns
  * - Selection support
+ * - Inline rename (F2 or context menu)
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import {
   Download,
   MoreHorizontal,
@@ -58,6 +59,8 @@ export interface FileListViewProps {
   onContextMenu?: (e: React.MouseEvent, file: FileListItem) => void;
   /** Delete single file */
   onDelete?: (file: FileListItem) => void;
+  /** Rename file callback */
+  onRename?: (file: FileListItem, newName: string) => void;
   /** Current sort field */
   sortField?: SortField;
   /** Current sort direction */
@@ -66,6 +69,8 @@ export interface FileListViewProps {
   onSortChange?: (field: SortField) => void;
   /** Whether user can delete */
   canDelete?: boolean;
+  /** Whether user can rename */
+  canRename?: boolean;
   /** Empty state message */
   emptyMessage?: string;
 }
@@ -121,12 +126,53 @@ export function FileListView({
   onDownload,
   onContextMenu,
   onDelete,
+  onRename,
   sortField = 'name',
   sortDirection = 'asc',
   onSortChange,
   canDelete = false,
+  canRename = false,
   emptyMessage = 'No files in this folder',
 }: FileListViewProps) {
+  // Inline rename state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (editingId && editInputRef.current) {
+      editInputRef.current.focus();
+      // Select filename without extension
+      const lastDot = editValue.lastIndexOf('.');
+      if (lastDot > 0) {
+        editInputRef.current.setSelectionRange(0, lastDot);
+      } else {
+        editInputRef.current.select();
+      }
+    }
+  }, [editingId, editValue]);
+
+  const startRename = useCallback((item: FileListItem) => {
+    if (canRename && onRename) {
+      setEditingId(item.id);
+      setEditValue(item.fileName);
+    }
+  }, [canRename, onRename]);
+
+  const cancelRename = useCallback(() => {
+    setEditingId(null);
+    setEditValue('');
+  }, []);
+
+  const commitRename = useCallback((item: FileListItem) => {
+    const trimmedValue = editValue.trim();
+    if (trimmedValue && trimmedValue !== item.fileName && onRename) {
+      onRename(item, trimmedValue);
+    }
+    cancelRename();
+  }, [editValue, onRename, cancelRename]);
+
   const handleRowClick = useCallback(
     (file: FileListItem, index: number, e: React.MouseEvent) => {
       if (file.isFolder && onFolderClick) {
@@ -215,16 +261,23 @@ export function FileListView({
         <tbody>
           {allItems.map((item, index) => {
             const isSelected = selectedItems.has(item.url);
+            const isEditing = editingId === item.id;
             const ext = getExtension(item.fileName);
             const typeInfo = getFileTypeInfo(item.mimeType, ext);
 
             return (
               <tr
                 key={item.url || item.id}
-                className={`${styles.listRow} ${isSelected ? styles.listRowSelected : ''}`}
-                onClick={(e) => handleRowClick(item, index, e)}
-                onDoubleClick={(e) => handleRowDoubleClick(item, index, e)}
-                onContextMenu={(e) => handleContextMenu(e, item)}
+                className={`${styles.listRow} ${isSelected ? styles.listRowSelected : ''} ${isEditing ? styles.listRowEditing : ''}`}
+                onClick={(e) => !isEditing && handleRowClick(item, index, e)}
+                onDoubleClick={(e) => !isEditing && handleRowDoubleClick(item, index, e)}
+                onContextMenu={(e) => !isEditing && handleContextMenu(e, item)}
+                onKeyDown={(e) => {
+                  if (e.key === 'F2' && canRename && onRename && !isEditing) {
+                    e.preventDefault();
+                    startRename(item);
+                  }
+                }}
                 tabIndex={0}
                 aria-selected={isSelected}
               >
@@ -241,7 +294,29 @@ export function FileListView({
                         size="sm"
                       />
                     )}
-                    <span className={styles.listFileName}>{item.fileName}</span>
+                    {isEditing ? (
+                      <input
+                        ref={editInputRef}
+                        type="text"
+                        className={styles.listRenameInput}
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={() => commitRename(item)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            commitRename(item);
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            cancelRename();
+                          }
+                          e.stopPropagation();
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span className={styles.listFileName}>{item.fileName}</span>
+                    )}
                   </div>
                 </td>
                 <td className={styles.listTd}>

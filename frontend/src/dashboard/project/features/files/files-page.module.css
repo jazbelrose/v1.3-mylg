@@ -1,0 +1,31 @@
+.filesPageContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  background: var(--bg-primary, #0a0a0a);
+  overflow: hidden;
+}
+
+.filesPageMain {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  padding: 0;
+}
+
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  width: 100%;
+  color: var(--text-secondary, #888);
+  font-size: 1rem;
+}
+
+/* Ensure FileManagerV2 fills the available space */
+.filesPageMain > div {
+  flex: 1;
+  height: 100%;
+}
