@@ -189,63 +189,194 @@ const WelcomeScreen: React.FC = () => {
   const [showPendingProjectsOnly, setShowPendingProjectsOnly] = useState(false);
 
   const panelsRef = useRef<HTMLDivElement | null>(null);
-  const PANEL_SPLIT_STORAGE_KEY = "projects-dashboard-panel-split";
-  const [panelSplit, setPanelSplit] = useState<number>(() => {
-    if (typeof window === "undefined") return 0.6;
-    const raw = window.localStorage.getItem(PANEL_SPLIT_STORAGE_KEY);
-    const parsed = raw ? Number.parseFloat(raw) : Number.NaN;
-    if (!Number.isFinite(parsed)) return 0.6;
-    return Math.min(0.8, Math.max(0.3, parsed));
-  });
+  const PROJECTS_HEIGHT_PX_STORAGE_KEY = "dashboardProjects.split.projectsHeightPx";
+  const projectsMin = 260;
+  const tasksMin = 280;
+  const splitHandleHeight = 16;
 
-  const snapPanelSplit = useCallback((value: number) => {
-    const points = [0.7, 0.6, 0.5];
-    return points.reduce((best, point) => (Math.abs(point - value) < Math.abs(best - value) ? point : best), points[0]);
-  }, []);
+  const myUserId = userData?.userId ? String(userData.userId) : null;
 
-  const persistPanelSplit = useCallback((value: number) => {
-    setPanelSplit(value);
-    if (typeof window !== "undefined") {
+  const [splitContainerHeightPx, setSplitContainerHeightPx] = useState(0);
+  const [projectsPanelHeightPx, setProjectsPanelHeightPx] = useState<number | null>(null);
+  const projectsPanelHeightPxRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    projectsPanelHeightPxRef.current = projectsPanelHeightPx;
+  }, [projectsPanelHeightPx]);
+
+  const readStoredProjectsHeightPx = useCallback(
+    (userId: string | null) => {
+      if (typeof window === "undefined") return null;
+      const raw = window.localStorage.getItem(PROJECTS_HEIGHT_PX_STORAGE_KEY);
+      if (!raw) return null;
+
+      const parseAny = (value: string): unknown => {
+        try {
+          return JSON.parse(value);
+        } catch {
+          const n = Number.parseFloat(value);
+          return Number.isFinite(n) ? n : null;
+        }
+      };
+
+      const parsed = parseAny(raw);
+      if (typeof parsed === "number" && Number.isFinite(parsed)) return parsed;
+      if (parsed && typeof parsed === "object" && userId) {
+        const byUser = parsed as Record<string, unknown>;
+        const v = byUser[userId];
+        if (typeof v === "number" && Number.isFinite(v)) return v;
+      }
+
+      return null;
+    },
+    [PROJECTS_HEIGHT_PX_STORAGE_KEY],
+  );
+
+  useEffect(() => {
+    const stored = readStoredProjectsHeightPx(myUserId);
+    setProjectsPanelHeightPx(stored);
+  }, [myUserId, readStoredProjectsHeightPx]);
+
+  const clampProjectsHeight = useCallback(
+    (value: number, containerHeight: number) => {
+      const maxProjects = Math.max(projectsMin, containerHeight - tasksMin - splitHandleHeight);
+      return Math.min(maxProjects, Math.max(projectsMin, Math.round(value)));
+    },
+    [projectsMin, tasksMin, splitHandleHeight],
+  );
+
+  const getDefaultProjectsHeight = useCallback(
+    (containerHeight: number) => {
+      const raw = Math.round(containerHeight * 0.52);
+      return clampProjectsHeight(raw, containerHeight);
+    },
+    [clampProjectsHeight],
+  );
+
+  const effectiveProjectsHeightPx = useMemo(() => {
+    if (projectsPanelHeightPx != null) return projectsPanelHeightPx;
+    if (!splitContainerHeightPx) return null;
+    return getDefaultProjectsHeight(splitContainerHeightPx);
+  }, [getDefaultProjectsHeight, projectsPanelHeightPx, splitContainerHeightPx]);
+
+  const persistProjectsHeightPx = useCallback(
+    (value: number) => {
+      if (typeof window === "undefined") return;
+
       try {
-        window.localStorage.setItem(PANEL_SPLIT_STORAGE_KEY, String(value));
+        if (!myUserId) {
+          window.localStorage.setItem(PROJECTS_HEIGHT_PX_STORAGE_KEY, String(value));
+          return;
+        }
+
+        const raw = window.localStorage.getItem(PROJECTS_HEIGHT_PX_STORAGE_KEY);
+        let next: Record<string, number> = {};
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw) as unknown;
+            if (parsed && typeof parsed === "object") {
+              Object.entries(parsed as Record<string, unknown>).forEach(([k, v]) => {
+                if (typeof v === "number" && Number.isFinite(v)) next[k] = v;
+              });
+            } else if (typeof parsed === "number" && Number.isFinite(parsed)) {
+              // Compatibility: previously stored as a plain number
+              next = { [myUserId]: parsed };
+            }
+          } catch {
+            const parsedNumber = Number.parseFloat(raw);
+            if (Number.isFinite(parsedNumber)) next = { [myUserId]: parsedNumber };
+          }
+        }
+
+        next[myUserId] = value;
+        window.localStorage.setItem(PROJECTS_HEIGHT_PX_STORAGE_KEY, JSON.stringify(next));
       } catch {
         // ignore storage failures
       }
-    }
+    },
+    [myUserId],
+  );
+
+  useEffect(() => {
+    const el = panelsRef.current;
+    if (!el) return;
+    if (typeof ResizeObserver === "undefined") return;
+
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      const nextHeight = Math.round(entry?.contentRect?.height ?? 0);
+      setSplitContainerHeightPx(nextHeight);
+    });
+
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
-  const handlePanelDividerPointerDown = useCallback(
+  useEffect(() => {
+    if (!splitContainerHeightPx) return;
+    setProjectsPanelHeightPx((prev) => {
+      const next =
+        prev == null
+          ? getDefaultProjectsHeight(splitContainerHeightPx)
+          : clampProjectsHeight(prev, splitContainerHeightPx);
+      return prev === next ? prev : next;
+    });
+  }, [splitContainerHeightPx, clampProjectsHeight, getDefaultProjectsHeight]);
+
+  const draggingSplitRef = useRef<{ startY: number; startHeight: number } | null>(null);
+
+  const handleSplitHandlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (!panelsRef.current) return;
       if (event.button !== 0) return;
+      if (!splitContainerHeightPx) return;
 
-      const el = panelsRef.current;
-      const rect = el.getBoundingClientRect();
-      const startY = event.clientY;
-      const startSplit = panelSplit;
-      let current = startSplit;
+      const effectiveStartHeight =
+        projectsPanelHeightPx == null
+          ? getDefaultProjectsHeight(splitContainerHeightPx)
+          : clampProjectsHeight(projectsPanelHeightPx, splitContainerHeightPx);
 
-      const clamp = (v: number) => Math.min(0.8, Math.max(0.3, v));
+      draggingSplitRef.current = { startY: event.clientY, startHeight: effectiveStartHeight };
+      (event.currentTarget as HTMLDivElement).setPointerCapture(event.pointerId);
 
       const onMove = (e: PointerEvent) => {
-        const dy = e.clientY - startY;
-        current = clamp(startSplit + dy / Math.max(1, rect.height));
-        setPanelSplit(current);
+        const state = draggingSplitRef.current;
+        if (!state) return;
+        const dy = e.clientY - state.startY;
+        const next = clampProjectsHeight(state.startHeight + dy, splitContainerHeightPx);
+        setProjectsPanelHeightPx(next);
       };
 
       const onUp = () => {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
-        persistPanelSplit(snapPanelSplit(current));
+        const latest = projectsPanelHeightPxRef.current;
+        const finalHeight = latest == null
+          ? getDefaultProjectsHeight(splitContainerHeightPx)
+          : clampProjectsHeight(latest, splitContainerHeightPx);
+        persistProjectsHeightPx(finalHeight);
+        draggingSplitRef.current = null;
       };
 
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp, { once: true });
-      (event.currentTarget as HTMLDivElement).setPointerCapture(event.pointerId);
       event.preventDefault();
     },
-    [panelSplit, persistPanelSplit, snapPanelSplit],
+    [
+      clampProjectsHeight,
+      getDefaultProjectsHeight,
+      persistProjectsHeightPx,
+      projectsPanelHeightPx,
+      splitContainerHeightPx,
+    ],
   );
+
+  const handleSplitHandleDoubleClick = useCallback(() => {
+    if (!splitContainerHeightPx) return;
+    const next = getDefaultProjectsHeight(splitContainerHeightPx);
+    setProjectsPanelHeightPx(next);
+    persistProjectsHeightPx(next);
+  }, [getDefaultProjectsHeight, persistProjectsHeightPx, splitContainerHeightPx]);
 
   const projectsById = useMemo(() => {
     const map = new Map<string, ProjectWithDetails>();
@@ -255,7 +386,6 @@ const WelcomeScreen: React.FC = () => {
     return map;
   }, [projects]);
 
-  const myUserId = userData?.userId ? String(userData.userId) : null;
 
   const extractTeamIds = useCallback((project: ProjectWithDetails): string[] => {
     const raw = (project as unknown as { team?: unknown }).team;
@@ -666,9 +796,13 @@ const WelcomeScreen: React.FC = () => {
 
   const renderWelcomeView = () => {
     if (isDesktop) {
-      const projectsFlex = Math.round(panelSplit * 1000) / 10;
-      const triageFlex = Math.round((1 - panelSplit) * 1000) / 10;
-      const projectsList = projects as Array<ProjectWithDetails & { status?: unknown; finishline?: string; title?: string }>;
+      const maxProjectsHeightPx = Math.max(
+        projectsMin,
+        splitContainerHeightPx - tasksMin - splitHandleHeight,
+      );
+      const projectsList = projects as Array<
+        ProjectWithDetails & { status?: unknown; finishline?: string; title?: string }
+      >;
       const totalProjectsCount = projectsList.length;
       const pendingProjectsCount = projectsList.filter((p) => parseProjectStatusToNumber(p.status) < 100).length;
       const nextDueProject = projectsList
@@ -846,7 +980,7 @@ const WelcomeScreen: React.FC = () => {
           </div>
 
               <div className="projects-command-panels" ref={panelsRef}>
-                <div className="projects-command-projects" style={{ flex: `${projectsFlex} 1 0` }}>
+                <div className="projects-command-projects" style={{ height: effectiveProjectsHeightPx ?? undefined }}>
                   <div className="projects-command-panel-body">
                     <ProjectsPanelDesktop
                       onOpenProject={(projectId) => handleNavigateToProject({ projectId })}
@@ -859,15 +993,24 @@ const WelcomeScreen: React.FC = () => {
                 </div>
 
                 <div
-                  className="projects-command-divider"
+                  className="projects-command-splitHandle"
                   role="separator"
                   aria-orientation="horizontal"
-                  onPointerDown={handlePanelDividerPointerDown}
-                  onDoubleClick={() => persistPanelSplit(0.6)}
+                  aria-label="Resize projects and tasks panels"
+                  aria-valuemin={projectsMin}
+                  aria-valuemax={maxProjectsHeightPx}
+                  aria-valuenow={effectiveProjectsHeightPx ?? undefined}
+                  tabIndex={0}
+                  onPointerDown={handleSplitHandlePointerDown}
+                  onDoubleClick={handleSplitHandleDoubleClick}
                   title="Drag to resize panels"
-                />
+                  style={{ height: splitHandleHeight }}
+                >
+                  <div className="projects-command-splitHandleLine" aria-hidden />
+                  <div className="projects-command-splitHandleGrip" aria-hidden />
+                </div>
 
-                <div className="projects-command-triage" style={{ flex: `${triageFlex} 1 0` }}>
+                <div className="projects-command-triage" style={{ flex: "1 1 auto" }}>
                   <div className="projects-command-panel-body projects-command-panel-body--triage">
                     <AllEventsAndTasksPanel
                       className="projects-command-triage-fill"

@@ -1341,7 +1341,7 @@ export function CommandPanel({
       
       if (itemDate) {
         const itemDateOnly = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate());
-        
+
         if (timeFilter === 'today') {
           if (getDateKey(itemDateOnly) !== getDateKey(today)) return false;
         } else if (timeFilter === 'next7') {

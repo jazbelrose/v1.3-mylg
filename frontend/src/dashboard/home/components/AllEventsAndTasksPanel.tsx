@@ -87,6 +87,12 @@ export default function AllEventsAndTasksPanel({ className, onOpenProject }: All
   const { projects = [], allUsers = [] } = useData() as { projects: ProjectLike[]; allUsers: TeamMemberInfo[] };
   const { userId, user } = useUser();
 
+  const todayDateKey = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString().slice(0, 10);
+  }, []);
+
   const [selectedProjectId, setSelectedProjectId] = useState<string>("__ALL__");
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>("__ALL__");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -278,12 +284,24 @@ export default function AllEventsAndTasksPanel({ className, onOpenProject }: All
   }, [orgData.tasks, selectedProjectId, selectedAssigneeId]);
 
   const visibleEvents = useMemo(() => {
-    if (selectedProjectId === "__ALL__") return orgData.events;
-    return orgData.events.filter((e) => {
-      const source = e.source as Record<string, unknown> | undefined;
-      return source?.projectId === selectedProjectId;
+    let filtered = orgData.events;
+
+    // Never show past events in this org-wide feed.
+    filtered = filtered.filter((e) => {
+      const date = safeString(e.date);
+      if (!date) return false;
+      return date >= todayDateKey;
     });
-  }, [orgData.events, selectedProjectId]);
+
+    if (selectedProjectId !== "__ALL__") {
+      filtered = filtered.filter((e) => {
+        const source = e.source as Record<string, unknown> | undefined;
+        return source?.projectId === selectedProjectId;
+      });
+    }
+
+    return filtered;
+  }, [orgData.events, selectedProjectId, todayDateKey]);
 
   const getProjectInfo = useCallback(
     (projectId: string) => {
@@ -376,7 +394,7 @@ export default function AllEventsAndTasksPanel({ className, onOpenProject }: All
     <div className={className}>
       <CommandPanel
         title="All Events & Tasks"
-        defaultTimeFilter="next7"
+        defaultTimeFilter="all"
         defaultAssigneeFilter="all"
         events={visibleEvents}
         tasks={visibleTasks}

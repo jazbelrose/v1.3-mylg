@@ -43,7 +43,7 @@
 .welcome-desktop-projects-scroll {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -83,10 +83,15 @@
 
 .projects-command-projects,
 .projects-command-triage {
+  flex: 0 0 auto;
   min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.projects-command-triage {
+  flex: 1 1 auto;
 }
 
 .projects-command-panel-header {
@@ -137,22 +142,51 @@
   padding: 0;
 }
 
-.projects-command-divider {
+/* Resizable split handle (thin rule + grip, generous hit target) */
+.projects-command-splitHandle {
+  position: relative;
   flex: 0 0 auto;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.03);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  height: 16px;
   cursor: row-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   touch-action: none;
+  user-select: none;
 }
 
-.projects-command-divider:hover {
-  background: rgba(255, 255, 255, 0.06);
+.projects-command-splitHandleLine {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.projects-command-splitHandleGrip {
+  width: 30px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.projects-command-splitHandle:hover .projects-command-splitHandleLine {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.projects-command-splitHandle:hover .projects-command-splitHandleGrip {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.projects-command-splitHandle:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.35);
+  outline-offset: -2px;
 }
 
 .projects-command-triage-fill {
   height: 100%;
+  min-height: 0;
 }
 
 .welcome-desktop-projects-scroll > .week-widget {
