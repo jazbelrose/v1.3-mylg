@@ -239,6 +239,12 @@
   cursor: not-allowed;
 }
 
+.dropdownSearchSticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
 .filterChip {
   display: inline-flex;
   align-items: center;

@@ -978,8 +978,12 @@ export function CommandPanel({
 }: CommandPanelProps) {
   const projectFilterRef = useRef<HTMLDivElement>(null);
   const assigneeFilterRef = useRef<HTMLDivElement>(null);
+  const projectSearchInputRef = useRef<HTMLInputElement>(null);
+  const assigneeSearchInputRef = useRef<HTMLInputElement>(null);
   const [projectFilterOpen, setProjectFilterOpen] = useState(false);
   const [assigneeFilterOpen, setAssigneeFilterOpen] = useState(false);
+  const [projectFilterQuery, setProjectFilterQuery] = useState('');
+  const [assigneeFilterQuery, setAssigneeFilterQuery] = useState('');
   const projectFilterListId = useMemo(
     () => `command-panel-project-filter-${Math.random().toString(36).slice(2)}`,
     [],
@@ -988,6 +992,20 @@ export function CommandPanel({
     () => `command-panel-assignee-filter-${Math.random().toString(36).slice(2)}`,
     [],
   );
+
+  useEffect(() => {
+    if (!projectFilterOpen) return;
+    setProjectFilterQuery('');
+    const raf = requestAnimationFrame(() => projectSearchInputRef.current?.focus());
+    return () => cancelAnimationFrame(raf);
+  }, [projectFilterOpen]);
+
+  useEffect(() => {
+    if (!assigneeFilterOpen) return;
+    setAssigneeFilterQuery('');
+    const raf = requestAnimationFrame(() => assigneeSearchInputRef.current?.focus());
+    return () => cancelAnimationFrame(raf);
+  }, [assigneeFilterOpen]);
 
   useEffect(() => {
     if (!projectFilterOpen && !assigneeFilterOpen) return;
@@ -1014,6 +1032,20 @@ export function CommandPanel({
     if (!assigneeUserFilter) return null;
     return assigneeUserFilter.options.find((o) => o.value === assigneeUserFilter.selectedValue)?.label ?? 'Assignee';
   }, [assigneeUserFilter]);
+
+  const filteredProjectOptions = useMemo(() => {
+    if (!projectFilter) return [];
+    const q = projectFilterQuery.trim().toLowerCase();
+    if (!q) return projectFilter.options;
+    return projectFilter.options.filter((o) => o.label.toLowerCase().includes(q));
+  }, [projectFilter, projectFilterQuery]);
+
+  const filteredAssigneeOptions = useMemo(() => {
+    if (!assigneeUserFilter) return [];
+    const q = assigneeFilterQuery.trim().toLowerCase();
+    if (!q) return assigneeUserFilter.options;
+    return assigneeUserFilter.options.filter((o) => o.label.toLowerCase().includes(q));
+  }, [assigneeUserFilter, assigneeFilterQuery]);
 
   const teamLookup = useMemo(() => {
     const map = new Map<string, { userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }>();
@@ -1631,27 +1663,57 @@ export function CommandPanel({
                       <ChevronDown size={14} aria-hidden className={desktopFilterStyles.triggerChevron} />
                     </button>
                     {projectFilterOpen && (
-                      <ul className={desktopFilterStyles.statusOptions} role="listbox" id={projectFilterListId}>
-                        {projectFilter.options.map((option, index) => {
-                          const isSelected = option.value === projectFilter.selectedValue;
-                          return (
-                            <li key={`${option.value}-${index}`} role="option" aria-selected={isSelected}>
-                              <button
-                                type="button"
-                                className={`${desktopFilterStyles.statusOptionButton} ${
-                                  isSelected ? desktopFilterStyles.statusOptionSelected : ''
-                                }`}
-                                onClick={() => {
-                                  projectFilter.onSelect(option.value);
-                                  setProjectFilterOpen(false);
-                                }}
-                              >
-                                {option.label}
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                      <div
+                        className={desktopFilterStyles.statusOptions}
+                        role="listbox"
+                        id={projectFilterListId}
+                        style={{ maxHeight: 340, overflowY: 'auto' }}
+                      >
+                        <div className={styles.dropdownSearchSticky}>
+                          <div className={desktopFilterStyles.filterField}>
+                            <Search size={16} aria-hidden className={desktopFilterStyles.filterFieldIcon} />
+                            <input
+                              ref={projectSearchInputRef}
+                              className={desktopFilterStyles.filterInput}
+                              placeholder="Search projects..."
+                              value={projectFilterQuery}
+                              onChange={(e) => setProjectFilterQuery(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') setProjectFilterOpen(false);
+                              }}
+                              aria-label="Search projects"
+                            />
+                          </div>
+                        </div>
+
+                        {filteredProjectOptions.length ? (
+                          filteredProjectOptions.map((option, index) => {
+                            const isSelected = option.value === projectFilter.selectedValue;
+                            return (
+                              <div key={`${option.value}-${index}`} role="option" aria-selected={isSelected}>
+                                <button
+                                  type="button"
+                                  className={`${desktopFilterStyles.statusOptionButton} ${
+                                    isSelected ? desktopFilterStyles.statusOptionSelected : ''
+                                  }`}
+                                  onClick={() => {
+                                    projectFilter.onSelect(option.value);
+                                    setProjectFilterOpen(false);
+                                  }}
+                                >
+                                  {option.label}
+                                </button>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div role="option" aria-selected={false} aria-disabled>
+                            <button type="button" disabled className={desktopFilterStyles.statusOptionButton}>
+                              No matching projects
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 </>
@@ -1689,27 +1751,57 @@ export function CommandPanel({
                       <ChevronDown size={14} aria-hidden className={desktopFilterStyles.triggerChevron} />
                     </button>
                     {assigneeFilterOpen && (
-                      <ul className={desktopFilterStyles.statusOptions} role="listbox" id={assigneeFilterListId}>
-                        {assigneeUserFilter.options.map((option, index) => {
-                          const isSelected = option.value === assigneeUserFilter.selectedValue;
-                          return (
-                            <li key={`${option.value}-${index}`} role="option" aria-selected={isSelected}>
-                              <button
-                                type="button"
-                                className={`${desktopFilterStyles.statusOptionButton} ${
-                                  isSelected ? desktopFilterStyles.statusOptionSelected : ''
-                                }`}
-                                onClick={() => {
-                                  assigneeUserFilter.onSelect(option.value);
-                                  setAssigneeFilterOpen(false);
-                                }}
-                              >
-                                {option.label}
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                      <div
+                        className={desktopFilterStyles.statusOptions}
+                        role="listbox"
+                        id={assigneeFilterListId}
+                        style={{ maxHeight: 340, overflowY: 'auto' }}
+                      >
+                        <div className={styles.dropdownSearchSticky}>
+                          <div className={desktopFilterStyles.filterField}>
+                            <Search size={16} aria-hidden className={desktopFilterStyles.filterFieldIcon} />
+                            <input
+                              ref={assigneeSearchInputRef}
+                              className={desktopFilterStyles.filterInput}
+                              placeholder="Search assignees..."
+                              value={assigneeFilterQuery}
+                              onChange={(e) => setAssigneeFilterQuery(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') setAssigneeFilterOpen(false);
+                              }}
+                              aria-label="Search assignees"
+                            />
+                          </div>
+                        </div>
+
+                        {filteredAssigneeOptions.length ? (
+                          filteredAssigneeOptions.map((option, index) => {
+                            const isSelected = option.value === assigneeUserFilter.selectedValue;
+                            return (
+                              <div key={`${option.value}-${index}`} role="option" aria-selected={isSelected}>
+                                <button
+                                  type="button"
+                                  className={`${desktopFilterStyles.statusOptionButton} ${
+                                    isSelected ? desktopFilterStyles.statusOptionSelected : ''
+                                  }`}
+                                  onClick={() => {
+                                    assigneeUserFilter.onSelect(option.value);
+                                    setAssigneeFilterOpen(false);
+                                  }}
+                                >
+                                  {option.label}
+                                </button>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div role="option" aria-selected={false} aria-disabled>
+                            <button type="button" disabled className={desktopFilterStyles.statusOptionButton}>
+                              No matching assignees
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 </>
