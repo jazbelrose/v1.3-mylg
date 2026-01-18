@@ -49,6 +49,35 @@ function safeString(value: unknown): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+function normalizeId(value: unknown): string | undefined {
+  const s = safeString(value);
+  if (!s) return undefined;
+  const parts = s.split("__").map((p) => p.trim()).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : undefined;
+}
+
+function taskMatchesUser(task: TimelineTask, userId: string): boolean {
+  const normalizedUserId = normalizeId(userId);
+  if (!normalizedUserId) return false;
+
+  const direct = normalizeId(task.assigneeId);
+  if (direct && direct === normalizedUserId) return true;
+
+  const ids = task.assigneeIds ?? [];
+  for (const id of ids) {
+    const normalized = normalizeId(id);
+    if (normalized && normalized === normalizedUserId) return true;
+  }
+
+  const tokens = task.assigneeTokens ?? [];
+  for (const token of tokens) {
+    const normalized = normalizeId(token);
+    if (normalized && normalized === normalizedUserId) return true;
+  }
+
+  return false;
+}
+
 export type AllEventsAndTasksPanelProps = {
   className?: string;
   onOpenProject: (projectId: string) => void;
@@ -59,6 +88,7 @@ export default function AllEventsAndTasksPanel({ className, onOpenProject }: All
   const { userId, user } = useUser();
 
   const [selectedProjectId, setSelectedProjectId] = useState<string>("__ALL__");
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>("__ALL__");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerTask, setDrawerTask] = useState<QuickCreateTaskModalTask | null>(null);
 
@@ -92,6 +122,30 @@ export default function AllEventsAndTasksPanel({ className, onOpenProject }: All
   const teamMembers: TeamMemberInfo[] = useMemo(() => {
     return Array.isArray(allUsers) ? allUsers : [];
   }, [allUsers]);
+
+  const assigneeOptions = useMemo(() => {
+    return teamMembers
+      .filter((m) => safeString(m?.userId))
+      .map((m) => {
+        const first = safeString(m.firstName) ?? "";
+        const last = safeString(m.lastName) ?? "";
+        const name = `${first} ${last}`.trim();
+        return { id: m.userId, name: name || m.userId };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [teamMembers]);
+
+  useEffect(() => {
+    if (selectedProjectId === "__ALL__") return;
+    if (projectById.has(selectedProjectId)) return;
+    setSelectedProjectId("__ALL__");
+  }, [projectById, selectedProjectId]);
+
+  useEffect(() => {
+    if (selectedAssigneeId === "__ALL__") return;
+    if (assigneeOptions.some((o) => o.id === selectedAssigneeId)) return;
+    setSelectedAssigneeId("__ALL__");
+  }, [assigneeOptions, selectedAssigneeId]);
 
   const isMountedRef = useRef(true);
   useEffect(() => {
@@ -207,12 +261,21 @@ export default function AllEventsAndTasksPanel({ className, onOpenProject }: All
   }, [refresh]);
 
   const visibleTasks = useMemo(() => {
-    if (selectedProjectId === "__ALL__") return orgData.tasks;
-    return orgData.tasks.filter((t) => {
-      const source = t.source as Record<string, unknown> | undefined;
-      return source?.projectId === selectedProjectId;
-    });
-  }, [orgData.tasks, selectedProjectId]);
+    let filtered = orgData.tasks;
+
+    if (selectedProjectId !== "__ALL__") {
+      filtered = filtered.filter((t) => {
+        const source = t.source as Record<string, unknown> | undefined;
+        return source?.projectId === selectedProjectId;
+      });
+    }
+
+    if (selectedAssigneeId !== "__ALL__") {
+      filtered = filtered.filter((t) => taskMatchesUser(t, selectedAssigneeId));
+    }
+
+    return filtered;
+  }, [orgData.tasks, selectedProjectId, selectedAssigneeId]);
 
   const visibleEvents = useMemo(() => {
     if (selectedProjectId === "__ALL__") return orgData.events;
@@ -311,16 +374,34 @@ export default function AllEventsAndTasksPanel({ className, onOpenProject }: All
 
   return (
     <div className={className}>
-      
-
       <CommandPanel
         title="All Events & Tasks"
         defaultTimeFilter="next7"
+        defaultAssigneeFilter="all"
         events={visibleEvents}
         tasks={visibleTasks}
         teamMembers={teamMembers}
         currentUserId={userId}
         currentUserEmail={user?.email}
+        hideAssigneeFilter
+        projectFilter={
+          projectOptions.length
+            ? {
+                selectedValue: selectedProjectId,
+                options: [{ value: "__ALL__", label: "All projects" }, ...projectOptions.map((p) => ({ value: p.id, label: p.name }))],
+                onSelect: setSelectedProjectId,
+              }
+            : undefined
+        }
+        assigneeUserFilter={
+          assigneeOptions.length
+            ? {
+                selectedValue: selectedAssigneeId,
+                options: [{ value: "__ALL__", label: "All assignees" }, ...assigneeOptions.map((m) => ({ value: m.id, label: m.name }))],
+                onSelect: setSelectedAssigneeId,
+              }
+            : undefined
+        }
         onCreateTask={handleCreateTask}
         onQuickEditTask={handleQuickEditTask}
         onToggleTask={handleToggleTask}

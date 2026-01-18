@@ -42,6 +42,7 @@ import { CalendarEntryPopover } from '@/dashboard/project/features/calendar/comp
 import type { CalendarTask } from '@/dashboard/project/features/calendar/utils';
 import '@/dashboard/project/features/calendar/calendar-preview.css';
 import styles from './CommandPanel.module.css';
+import desktopFilterStyles from '@/dashboard/home/components/ProjectsPanelDesktop.module.css';
 
 // ============================================================================
 // TYPES
@@ -115,6 +116,17 @@ export interface CommandPanelProps {
   title?: string;
   defaultTimeFilter?: TimeFilter;
   defaultAssigneeFilter?: AssigneeFilter;
+  hideAssigneeFilter?: boolean;
+  projectFilter?: {
+    selectedValue: string;
+    options: Array<{ value: string; label: string }>;
+    onSelect: (value: string) => void;
+  };
+  assigneeUserFilter?: {
+    selectedValue: string;
+    options: Array<{ value: string; label: string }>;
+    onSelect: (value: string) => void;
+  };
   showProjectIcon?: boolean;
   getProjectInfo?: (projectId: string) => { name: string; thumb?: string } | null;
   onOpenProject?: (projectId: string) => void;
@@ -944,6 +956,9 @@ export function CommandPanel({
   title,
   defaultTimeFilter,
   defaultAssigneeFilter,
+  hideAssigneeFilter = false,
+  projectFilter,
+  assigneeUserFilter,
   showProjectIcon,
   getProjectInfo,
   onOpenProject,
@@ -961,6 +976,45 @@ export function CommandPanel({
   onCreateEvent,
   onViewCalendar,
 }: CommandPanelProps) {
+  const projectFilterRef = useRef<HTMLDivElement>(null);
+  const assigneeFilterRef = useRef<HTMLDivElement>(null);
+  const [projectFilterOpen, setProjectFilterOpen] = useState(false);
+  const [assigneeFilterOpen, setAssigneeFilterOpen] = useState(false);
+  const projectFilterListId = useMemo(
+    () => `command-panel-project-filter-${Math.random().toString(36).slice(2)}`,
+    [],
+  );
+  const assigneeFilterListId = useMemo(
+    () => `command-panel-assignee-filter-${Math.random().toString(36).slice(2)}`,
+    [],
+  );
+
+  useEffect(() => {
+    if (!projectFilterOpen && !assigneeFilterOpen) return;
+
+    const handleOutside = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (projectFilterRef.current?.contains(target)) return;
+      if (assigneeFilterRef.current?.contains(target)) return;
+      setProjectFilterOpen(false);
+      setAssigneeFilterOpen(false);
+    };
+
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [assigneeFilterOpen, projectFilterOpen]);
+
+  const selectedProjectLabel = useMemo(() => {
+    if (!projectFilter) return null;
+    return projectFilter.options.find((o) => o.value === projectFilter.selectedValue)?.label ?? 'Project';
+  }, [projectFilter]);
+
+  const selectedAssigneeLabel = useMemo(() => {
+    if (!assigneeUserFilter) return null;
+    return assigneeUserFilter.options.find((o) => o.value === assigneeUserFilter.selectedValue)?.label ?? 'Assignee';
+  }, [assigneeUserFilter]);
+
   const teamLookup = useMemo(() => {
     const map = new Map<string, { userId: string; firstName?: string; lastName?: string; thumbnail?: string | null }>();
     for (const member of teamMembers ?? []) {
@@ -1544,19 +1598,140 @@ export function CommandPanel({
                   />
                 ))}
               </div>
-              <div className={styles.filterDivider} />
-              <select
-                className={styles.taskScopeSelect}
-                value={assigneeFilter}
-                onChange={(e) => setAssigneeFilter(e.target.value as AssigneeFilter)}
-                aria-label="Task scope"
-              >
-                <option value="all">All</option>
-                <option value="me" disabled={isUserLoading || !currentUserId}>
-                  {isUserLoading ? 'Loading…' : 'Me'}
-                </option>
-                <option value="team">Team</option>
-              </select>
+
+              {projectFilter && (
+                <>
+                  <div className={styles.filterDivider} />
+                  <div
+                    className={desktopFilterStyles.statusDropdown}
+                    style={{ width: 'auto', minWidth: 180 }}
+                    ref={projectFilterRef}
+                  >
+                    <button
+                      type="button"
+                      className={desktopFilterStyles.statusTrigger}
+                      aria-haspopup="listbox"
+                      aria-expanded={projectFilterOpen}
+                      aria-controls={projectFilterListId}
+                      onClick={() => {
+                        setProjectFilterOpen((v) => !v);
+                        setAssigneeFilterOpen(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') setProjectFilterOpen(false);
+                      }}
+                      style={{
+                        padding: '6px 10px',
+                        fontSize: 12,
+                      }}
+                    >
+                      <span className={desktopFilterStyles.triggerLabel}>
+                        <span className={desktopFilterStyles.triggerLabelText}>{selectedProjectLabel}</span>
+                      </span>
+                      <ChevronDown size={14} aria-hidden className={desktopFilterStyles.triggerChevron} />
+                    </button>
+                    {projectFilterOpen && (
+                      <ul className={desktopFilterStyles.statusOptions} role="listbox" id={projectFilterListId}>
+                        {projectFilter.options.map((option, index) => {
+                          const isSelected = option.value === projectFilter.selectedValue;
+                          return (
+                            <li key={`${option.value}-${index}`} role="option" aria-selected={isSelected}>
+                              <button
+                                type="button"
+                                className={`${desktopFilterStyles.statusOptionButton} ${
+                                  isSelected ? desktopFilterStyles.statusOptionSelected : ''
+                                }`}
+                                onClick={() => {
+                                  projectFilter.onSelect(option.value);
+                                  setProjectFilterOpen(false);
+                                }}
+                              >
+                                {option.label}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {assigneeUserFilter && (
+                <>
+                  <div className={styles.filterDivider} />
+                  <div
+                    className={desktopFilterStyles.statusDropdown}
+                    style={{ width: 'auto', minWidth: 180 }}
+                    ref={assigneeFilterRef}
+                  >
+                    <button
+                      type="button"
+                      className={desktopFilterStyles.statusTrigger}
+                      aria-haspopup="listbox"
+                      aria-expanded={assigneeFilterOpen}
+                      aria-controls={assigneeFilterListId}
+                      onClick={() => {
+                        setAssigneeFilterOpen((v) => !v);
+                        setProjectFilterOpen(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') setAssigneeFilterOpen(false);
+                      }}
+                      style={{
+                        padding: '6px 10px',
+                        fontSize: 12,
+                      }}
+                    >
+                      <span className={desktopFilterStyles.triggerLabel}>
+                        <span className={desktopFilterStyles.triggerLabelText}>{selectedAssigneeLabel}</span>
+                      </span>
+                      <ChevronDown size={14} aria-hidden className={desktopFilterStyles.triggerChevron} />
+                    </button>
+                    {assigneeFilterOpen && (
+                      <ul className={desktopFilterStyles.statusOptions} role="listbox" id={assigneeFilterListId}>
+                        {assigneeUserFilter.options.map((option, index) => {
+                          const isSelected = option.value === assigneeUserFilter.selectedValue;
+                          return (
+                            <li key={`${option.value}-${index}`} role="option" aria-selected={isSelected}>
+                              <button
+                                type="button"
+                                className={`${desktopFilterStyles.statusOptionButton} ${
+                                  isSelected ? desktopFilterStyles.statusOptionSelected : ''
+                                }`}
+                                onClick={() => {
+                                  assigneeUserFilter.onSelect(option.value);
+                                  setAssigneeFilterOpen(false);
+                                }}
+                              >
+                                {option.label}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {!hideAssigneeFilter && (
+                <>
+                  <div className={styles.filterDivider} />
+                  <select
+                    className={styles.taskScopeSelect}
+                    value={assigneeFilter}
+                    onChange={(e) => setAssigneeFilter(e.target.value as AssigneeFilter)}
+                    aria-label="Task scope"
+                  >
+                    <option value="all">All</option>
+                    <option value="me" disabled={isUserLoading || !currentUserId}>
+                      {isUserLoading ? 'Loading…' : 'Me'}
+                    </option>
+                    <option value="team">Team</option>
+                  </select>
+                </>
+              )}
             </div>
 
             <div className={styles.headerActions}>
