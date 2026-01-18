@@ -42,6 +42,7 @@ import {
 import { arraysEqual, moveIdBeforeTarget } from '@/dashboard/home/utils/reorder';
 import { notifyAction, notify } from '@/shared/ui/ToastNotifications';
 import commandCenterStyles from './ProjectsCommandCenter.module.css';
+import { getColor } from '@/shared/utils/colorUtils';
 
 const DEFAULT_RECENTS_LIMIT = 12;
 const VIEW_MODE_STORAGE_KEY = 'all-projects-view-mode';
@@ -536,8 +537,45 @@ const AllProjects: React.FC = () => {
         set.add(task.projectId);
       }
     });
+
+    const startKey = dateKey(dateWindow.start);
+    const endKey = dateKey(dateWindow.end);
+    const minKey = startKey < endKey ? startKey : endKey;
+    const maxKey = startKey < endKey ? endKey : startKey;
+    const inKeyRange = (key: string) => key >= minKey && key <= maxKey;
+    const parseEventDayKey = (ev: unknown): string | null => {
+      const raw = ev as { date?: unknown; timestamp?: unknown };
+      if (typeof raw?.date === 'string') {
+        const s = raw.date.trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const d = new Date(s);
+        if (!Number.isNaN(d.getTime())) return dateKey(d);
+      }
+      if (raw?.timestamp != null) {
+        const d = new Date(String(raw.timestamp));
+        if (!Number.isNaN(d.getTime())) return dateKey(d);
+      }
+      return null;
+    };
+
+    for (const p of orderedDisplayedProjects) {
+      const list = Array.isArray(p.timelineEvents) ? p.timelineEvents : [];
+      for (const ev of list) {
+        const key = parseEventDayKey(ev);
+        if (!key || !inKeyRange(key)) continue;
+        set.add(p.projectId);
+        break;
+      }
+    }
+
     return set;
-  }, [dateWindow.end, dateWindow.start, openTasks]);
+  }, [dateWindow.end, dateWindow.start, openTasks, orderedDisplayedProjects]);
+
+  const selectedDayKey = useMemo(() => {
+    if (!dateWindow.start || !dateWindow.end) return null;
+    if (!sameDay(dateWindow.start, dateWindow.end)) return null;
+    return dateKey(dateWindow.start);
+  }, [dateWindow.end, dateWindow.start]);
 
   const filteredOpenTasks = useMemo(() => {
     const list = openTasks.slice();
@@ -599,25 +637,182 @@ const AllProjects: React.FC = () => {
 
   const outlookDays = useMemo(() => {
     const start = startOfDay(outlookStart);
-    const days: OutlookDay[] = Array.from({ length: 14 }, (_, idx) => {
-      const date = addDays(start, idx);
-      const key = dateKey(date);
-      const tasks = openTasks.filter((t) => t.dueDate && dateKey(t.dueDate) === key).length;
+    const daysInRange = Array.from({ length: 14 }, (_, idx) => addDays(start, idx));
+    const keys = daysInRange.map((d) => dateKey(d));
+    const keysSet = new Set(keys);
 
-      const events = (projects as Project[]).reduce((acc, p) => {
-        const list = Array.isArray(p.timelineEvents) ? p.timelineEvents : [];
-        const hit = list.filter((ev) => {
-          const d = ev?.date ? new Date(String(ev.date)) : ev?.timestamp ? new Date(String(ev.timestamp)) : null;
-          return Boolean(d && !Number.isNaN(d.getTime()) && dateKey(d) === key);
-        }).length;
-        return acc + hit;
-      }, 0);
+    const MAX_PROJECTS = 5;
 
-      const exception = idx === 0 && taskKpiData.counts.overdue > 0;
-      return { date, tasks, events, exception };
+    const projectTitleById = new Map<string, string>();
+    const projectColorById = new Map<string, string>();
+
+    const outlookProjects = orderedDisplayedProjects.filter((project) => {
+      if (dashboardView === 'pinned' && !project.pinned) return false;
+      if (dashboardView === 'my' && !isMyProject(project)) return false;
+      if (dashboardView === 'team' && !isTeamProject(project)) return false;
+
+      if (activeKpi) {
+        if (activeKpi === 'overdue' && tasksReady && !taskKpiData.projectSets.overdue.has(project.projectId)) return false;
+        if (activeKpi === 'due14d' && tasksReady && !taskKpiData.projectSets.due14d.has(project.projectId)) return false;
+        if (activeKpi === 'atRisk' && !taskKpiData.projectSets.atRisk.has(project.projectId)) return false;
+        if (activeKpi === 'unread' && !taskKpiData.projectSets.unread.has(project.projectId)) return false;
+        if (activeKpi === 'noLocation' && tasksReady && !taskKpiData.projectSets.noLocation.has(project.projectId)) return false;
+        if (activeKpi === 'unassigned') {
+          const teamIds = getDisplayedTeamIds(project);
+          const hasTeam = teamIds.length > 0;
+          const hasUnassignedTasks = tasksReady ? taskKpiData.projectSets.unassigned.has(project.projectId) : true;
+          if (hasTeam && !hasUnassignedTasks) return false;
+        }
+      }
+
+      return true;
     });
+
+    for (const p of outlookProjects) {
+      projectTitleById.set(p.projectId, p.title || (p as unknown as { name?: string }).name || p.projectId);
+      projectColorById.set(p.projectId, (p as unknown as { color?: string }).color || getColor(p.projectId));
+    }
+
+    type BucketCounts = { tasksCount: number; eventsCount: number };
+    const buckets = new Map<string, Map<string, BucketCounts>>();
+    const taskCounts = new Map<string, number>();
+    const eventCounts = new Map<string, number>();
+
+    const getBucket = (key: string, projectId: string): BucketCounts | null => {
+      const pMap = buckets.get(key);
+      if (!pMap) return null;
+      const existing = pMap.get(projectId);
+      if (existing) return existing;
+      const next: BucketCounts = { tasksCount: 0, eventsCount: 0 };
+      pMap.set(projectId, next);
+      return next;
+    };
+
+    for (const key of keys) buckets.set(key, new Map());
+
+    const tasksForScope = openTasks.filter((task) => {
+      const project = projectsById.get(task.projectId);
+      if (!project) return false;
+      if (dashboardView === 'pinned') return Boolean(project.pinned);
+      if (dashboardView === 'my') return isMyProject(project);
+      if (dashboardView === 'team') return isTeamProject(project);
+
+      if (!activeKpi) return true;
+      if (activeKpi === 'overdue') return taskKpiData.projectSets.overdue.has(task.projectId);
+      if (activeKpi === 'due14d') return taskKpiData.projectSets.due14d.has(task.projectId);
+      if (activeKpi === 'atRisk') return taskKpiData.projectSets.atRisk.has(task.projectId);
+      if (activeKpi === 'unread') return taskKpiData.projectSets.unread.has(task.projectId);
+      if (activeKpi === 'unassigned') return !task.assigneeId;
+      if (activeKpi === 'noLocation') return !task.address && !task.location;
+      return true;
+    });
+
+    for (const task of tasksForScope) {
+      const due = task.dueDate;
+      if (!due) continue;
+      const key = dateKey(due);
+      if (!keysSet.has(key)) continue;
+      const bucket = getBucket(key, task.projectId);
+      if (!bucket) continue;
+      bucket.tasksCount += 1;
+      taskCounts.set(key, (taskCounts.get(key) || 0) + 1);
+    }
+
+    // Optional (v1): overdue open tasks count only on today.
+    const todayStart = startOfDay(new Date());
+    const todayKey = dateKey(todayStart);
+    let overdueCount = 0;
+    if (keysSet.has(todayKey)) {
+      for (const task of tasksForScope) {
+        const due = task.dueDate;
+        if (!due) continue;
+        if (due.getTime() >= todayStart.getTime()) continue;
+        overdueCount += 1;
+        const bucket = getBucket(todayKey, task.projectId);
+        if (bucket) bucket.tasksCount += 1;
+      }
+      if (overdueCount > 0) taskCounts.set(todayKey, (taskCounts.get(todayKey) || 0) + overdueCount);
+    }
+
+    for (const p of outlookProjects) {
+      const list = Array.isArray(p.timelineEvents) ? p.timelineEvents : [];
+      for (const ev of list) {
+        const rawDate = (ev as { date?: unknown })?.date;
+        const rawTs = (ev as { timestamp?: unknown })?.timestamp;
+        let key: string | null = null;
+
+        if (typeof rawDate === 'string') {
+          const s = rawDate.trim();
+          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+            key = s;
+          } else {
+            const d = new Date(s);
+            if (!Number.isNaN(d.getTime())) key = dateKey(d);
+          }
+        } else if (rawTs != null) {
+          const d = new Date(String(rawTs));
+          if (!Number.isNaN(d.getTime())) key = dateKey(d);
+        }
+
+        if (!key) continue;
+        if (!keysSet.has(key)) continue;
+        const bucket = getBucket(key, p.projectId);
+        if (!bucket) continue;
+        bucket.eventsCount += 1;
+        eventCounts.set(key, (eventCounts.get(key) || 0) + 1);
+      }
+    }
+
+    const days: OutlookDay[] = daysInRange.map((date) => {
+      const key = dateKey(date);
+      const pMap = buckets.get(key) || new Map<string, BucketCounts>();
+      const entries = Array.from(pMap.entries())
+        .map(([projectId, counts]) => {
+          const tasksCount = counts.tasksCount;
+          const eventsCount = counts.eventsCount;
+          const total = tasksCount + eventsCount;
+          return { projectId, tasksCount, eventsCount, total };
+        })
+        .filter((e) => e.total > 0)
+        .sort((a, b) => {
+          if (b.total !== a.total) return b.total - a.total;
+          if (b.tasksCount !== a.tasksCount) return b.tasksCount - a.tasksCount;
+          const aLabel = projectTitleById.get(a.projectId) || a.projectId;
+          const bLabel = projectTitleById.get(b.projectId) || b.projectId;
+          return aLabel.localeCompare(bLabel);
+        });
+
+      const overflowCount = Math.max(0, entries.length - MAX_PROJECTS);
+      const projects = entries.map((e) => ({
+        ...e,
+        color: projectColorById.get(e.projectId) || getColor(e.projectId),
+        label: projectTitleById.get(e.projectId) || e.projectId,
+      }));
+
+      const exception = key === todayKey && overdueCount > 0;
+      return {
+        date,
+        tasks: taskCounts.get(key) || 0,
+        events: eventCounts.get(key) || 0,
+        exception,
+        workload: { projects, overflowCount },
+      };
+    });
+
     return days;
-  }, [openTasks, outlookStart, projects, taskKpiData.counts.overdue]);
+  }, [
+    activeKpi,
+    dashboardView,
+    getDisplayedTeamIds,
+    isMyProject,
+    isTeamProject,
+    openTasks,
+    orderedDisplayedProjects,
+    outlookStart,
+    projectsById,
+    taskKpiData.projectSets,
+    tasksReady,
+  ]);
 
   const dashboardFilteredOrderedProjects = useMemo(() => {
     const hasWindow = Boolean(dateWindow.start && dateWindow.end);
@@ -1424,7 +1619,11 @@ const AllProjects: React.FC = () => {
                 setDateWindow({ start: ns, end: addDays(ns, 13) });
               }
             }}
-            onSelectDay={(day) => setDateWindow({ start: startOfDay(day), end: startOfDay(day) })}
+            onSelectDay={(day) => {
+              const d = startOfDay(day);
+              const isSelected = sameDay(dateWindow.start, d) && sameDay(dateWindow.end, d);
+              setDateWindow(isSelected ? { start: null, end: null } : { start: d, end: d });
+            }}
             onToggleSelectRange={() => {
               const rangeStart = startOfDay(outlookStart);
               const rangeEnd = addDays(rangeStart, 13);
@@ -1435,6 +1634,10 @@ const AllProjects: React.FC = () => {
                   sameDay(startOfDay(dateWindow.end), rangeEnd),
               );
               setDateWindow(isRangeSelected ? { start: null, end: null } : { start: rangeStart, end: rangeEnd });
+            }}
+            onToday={() => {
+              setOutlookStart(startOfDay(new Date()));
+              setDateWindow({ start: null, end: null });
             }}
           />
         </div>
@@ -1600,7 +1803,7 @@ const AllProjects: React.FC = () => {
         />
         */}
 
-        <AllEventsAndTasksPanel onOpenProject={(projectId) => handleOpenProject(projectId)} />
+        <AllEventsAndTasksPanel selectedDayKey={selectedDayKey} onOpenProject={(projectId) => handleOpenProject(projectId)} />
       </div>
 
       <QuickCreateTaskModal

@@ -63,6 +63,29 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
+.todayBtn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background 0.12s ease, opacity 0.12s ease;
+}
+.todayBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+}
+.todayBtnDisabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .days {
   display: grid;
   grid-template-columns: repeat(14, minmax(0, 1fr));
@@ -82,34 +105,38 @@
   border: 0;
   background: transparent;
   color: inherit;
-  padding: 8px 4px 6px;
+  padding: 10px 10px 8px;
   cursor: pointer;
   position: relative;
-  min-height: 54px;
+  min-height: 72px;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background 0.12s ease, box-shadow 0.12s ease;
 }
 .day:last-child {
   border-right: 0;
 }
 .day:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 .daySelected {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.18), 0 0 8px rgba(255, 255, 255, 0.04);
 }
 .dayInRange {
   background: rgba(255, 255, 255, 0.04);
 }
 
 .dayTop {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4px;
-  margin-bottom: 6px;
+  position: relative;
+  height: 26px;
+  margin-bottom: 4px;
 }
 
 .dow {
+  position: absolute;
+  top: 0;
+  left: 0;
   font-size: 10px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.55);
@@ -117,9 +144,63 @@
 }
 
 .dom {
+  position: absolute;
+  top: 0;
+  right: 0;
   font-size: 12px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.92);
+}
+
+.workload {
+  position: relative;
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  padding-left: 2px;
+  /* Fixed height: 5 bars × 6px + 4 gaps × 4px = 46px */
+  height: 46px;
+  justify-content: flex-start;
+}
+
+.bar {
+  height: 6px;
+  border-radius: 999px;
+  min-width: 4px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+.barException {
+  box-shadow:
+    0 0 0 1px rgba(250, 51, 86, 0.20) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.morePill {
+  align-self: flex-end;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.empty {
+  font-size: 12px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.18);
+  /* Match bars container fixed height */
+  height: 46px;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
 }
 
 .lines {
@@ -146,16 +227,7 @@
   background: rgba(250, 51, 86, 0.70);
 }
 
-.counts {
-  margin-top: 6px;
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.55);
-  opacity: 0;
-  transition: opacity 140ms ease;
-}
-.day:hover .counts {
-  opacity: 1;
-}
+
 
 @media (max-width: 900px) {
   .days {

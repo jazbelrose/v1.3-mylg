@@ -80,10 +80,17 @@ function taskMatchesUser(task: TimelineTask, userId: string): boolean {
 
 export type AllEventsAndTasksPanelProps = {
   className?: string;
+  selectedDayKey?: string | null;
   onOpenProject: (projectId: string) => void;
 };
 
-export default function AllEventsAndTasksPanel({ className, onOpenProject }: AllEventsAndTasksPanelProps) {
+function extractDayKey(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : null;
+}
+
+export default function AllEventsAndTasksPanel({ className, selectedDayKey, onOpenProject }: AllEventsAndTasksPanelProps) {
   const { projects = [], allUsers = [] } = useData() as { projects: ProjectLike[]; allUsers: TeamMemberInfo[] };
   const { userId, user } = useUser();
 
@@ -280,18 +287,26 @@ export default function AllEventsAndTasksPanel({ className, onOpenProject }: All
       filtered = filtered.filter((t) => taskMatchesUser(t, selectedAssigneeId));
     }
 
+    if (selectedDayKey) {
+      filtered = filtered.filter((t) => extractDayKey(t.dueDate) === selectedDayKey);
+    }
+
     return filtered;
-  }, [orgData.tasks, selectedProjectId, selectedAssigneeId]);
+  }, [orgData.tasks, selectedAssigneeId, selectedDayKey, selectedProjectId]);
 
   const visibleEvents = useMemo(() => {
     let filtered = orgData.events;
 
-    // Never show past events in this org-wide feed.
-    filtered = filtered.filter((e) => {
-      const date = safeString(e.date);
-      if (!date) return false;
-      return date >= todayDateKey;
-    });
+    if (selectedDayKey) {
+      filtered = filtered.filter((e) => safeString(e.date) === selectedDayKey);
+    } else {
+      // Never show past events in this org-wide feed.
+      filtered = filtered.filter((e) => {
+        const date = safeString(e.date);
+        if (!date) return false;
+        return date >= todayDateKey;
+      });
+    }
 
     if (selectedProjectId !== "__ALL__") {
       filtered = filtered.filter((e) => {
@@ -301,7 +316,7 @@ export default function AllEventsAndTasksPanel({ className, onOpenProject }: All
     }
 
     return filtered;
-  }, [orgData.events, selectedProjectId, todayDateKey]);
+  }, [orgData.events, selectedDayKey, selectedProjectId, todayDateKey]);
 
   const getProjectInfo = useCallback(
     (projectId: string) => {

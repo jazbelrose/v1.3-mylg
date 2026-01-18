@@ -1,11 +1,26 @@
 import React, { useMemo } from "react";
 import styles from "./Outlook14d.module.css";
 
+export type OutlookWorkloadProject = {
+  projectId: string;
+  tasksCount: number;
+  eventsCount: number;
+  total: number;
+  color: string;
+  label?: string;
+};
+
+export type OutlookWorkload = {
+  projects: OutlookWorkloadProject[];
+  overflowCount?: number;
+};
+
 export type OutlookDay = {
   date: Date;
   tasks: number;
   events: number;
   exception?: boolean;
+  workload?: OutlookWorkload;
 };
 
 export type OutlookRange = {
@@ -20,6 +35,7 @@ export type Outlook14dProps = {
   onNextRange: () => void;
   onSelectDay: (day: Date) => void;
   onToggleSelectRange: () => void;
+  onToday?: () => void;
 };
 
 function startOfDay(value: Date): Date {
@@ -49,6 +65,7 @@ export default function Outlook14d({
   onNextRange,
   onSelectDay,
   onToggleSelectRange,
+  onToday,
 }: Outlook14dProps) {
   const rangeLabel = useMemo(() => {
     const first = days[0]?.date;
@@ -58,9 +75,6 @@ export default function Outlook14d({
     return `${fmt.format(first)} — ${fmt.format(last)}`;
   }, [days]);
 
-  const maxTasks = useMemo(() => Math.max(1, ...days.map((d) => d.tasks)), [days]);
-  const maxEvents = useMemo(() => Math.max(1, ...days.map((d) => d.events)), [days]);
-
   const isRangeSelected = useMemo(() => {
     if (!selected.start || !selected.end) return false;
     const first = days[0]?.date;
@@ -68,6 +82,14 @@ export default function Outlook14d({
     if (!first || !last) return false;
     return isSameDay(selected.start, first) && isSameDay(selected.end, last);
   }, [days, selected.end, selected.start]);
+
+  const isOnToday = useMemo(() => {
+    const first = days[0]?.date;
+    if (!first) return true;
+    return isSameDay(first, startOfDay(new Date()));
+  }, [days]);
+
+  const dateLabelFmt = useMemo(() => new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" }), []);
 
   return (
     <section className={styles.outlook} aria-label="14-day outlook">
@@ -94,6 +116,21 @@ export default function Outlook14d({
           <button type="button" className={styles.navBtn} onClick={onNextRange} aria-label="Next 14 days">
             {">"}
           </button>
+          {onToday && (
+            <button
+              type="button"
+              className={[
+                styles.todayBtn,
+                isOnToday ? styles.todayBtnDisabled : "",
+              ].filter(Boolean).join(" ")}
+              onClick={onToday}
+              disabled={isOnToday}
+              aria-label="Jump to current 14 days"
+              title="Jump to current 14 days"
+            >
+              Today
+            </button>
+          )}
         </div>
       </div>
 
@@ -105,10 +142,24 @@ export default function Outlook14d({
             const inRange = isInRange(date, selected);
             const dow = date.toLocaleDateString(undefined, { weekday: "short" });
             const dom = String(date.getDate());
-            const title = `${date.toDateString()} • ${day.tasks} tasks • ${day.events} events`;
 
-            const taskScale = Math.max(0.08, Math.min(1, day.tasks / maxTasks));
-            const eventScale = Math.max(0.08, Math.min(1, day.events / maxEvents));
+            const projects = day.workload?.projects ?? [];
+            const MAX_PROJECTS = 5;
+            const overflowCount = day.workload?.overflowCount ?? Math.max(0, projects.length - MAX_PROJECTS);
+
+            const top = projects.slice(0, MAX_PROJECTS);
+            const maxProjectTotal = Math.max(1, ...top.map((p) => p.total));
+            const MIN_BAR = 0.12;
+
+            const titleLines: string[] = [];
+            titleLines.push(`${dateLabelFmt.format(date)}`);
+            titleLines.push(`${day.tasks} tasks • ${day.events} events`);
+            for (const p of top) {
+              const label = p.label ?? p.projectId;
+              titleLines.push(`${label} — ${p.tasksCount} tasks • ${p.eventsCount} events`);
+            }
+            if (overflowCount > 0) titleLines.push(`+${overflowCount} more`);
+            const title = titleLines.join("\n");
 
             return (
               <button
@@ -130,25 +181,25 @@ export default function Outlook14d({
                   <span className={styles.dow}>{dow}</span>
                   <span className={styles.dom}>{dom}</span>
                 </div>
-                <div className={styles.lines} aria-hidden>
-                  <div
-                    className={[
-                      styles.line,
-                      styles.lineTasks,
-                      day.exception ? styles.lineException : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    style={{ transform: `scaleX(${taskScale})` }}
-                  />
-                  <div
-                    className={[styles.line, styles.lineEvents].join(" ")}
-                    style={{ transform: `scaleX(${eventScale})` }}
-                  />
-                </div>
-                <div className={styles.counts} aria-hidden>
-                  • {day.tasks} • {day.events}
-                </div>
+                {top.length > 0 ? (
+                  <div className={styles.bars} aria-hidden>
+                    {top.map((p) => {
+                      const pct = Math.max(MIN_BAR, Math.min(1, p.total / maxProjectTotal)) * 100;
+                      return (
+                        <div
+                          key={p.projectId}
+                          className={[styles.bar, day.exception ? styles.barException : ""].filter(Boolean).join(" ")}
+                          style={{ width: `${pct}%`, background: p.color }}
+                        />
+                      );
+                    })}
+                    {overflowCount > 0 ? <span className={styles.morePill}>+{overflowCount}</span> : null}
+                  </div>
+                ) : (
+                  <div className={styles.empty} aria-hidden>
+                    —
+                  </div>
+                )}
               </button>
             );
           })}

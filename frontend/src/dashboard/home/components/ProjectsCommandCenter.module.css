@@ -22,6 +22,7 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
+  padding-left: 6px;
 }
 
 .title {
