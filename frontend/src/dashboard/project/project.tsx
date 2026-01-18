@@ -5,7 +5,6 @@ import { OverviewHud, useOverviewData } from "@/dashboard/project/features/overv
 
 import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
-import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import { BudgetProvider } from "@/dashboard/project/features/budget/context/BudgetProvider";
 import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
 import { useFilesNavigation } from "@/dashboard/project/components/Shared/hooks/useFilesNavigation";
@@ -36,8 +35,6 @@ interface OverviewHudWrapperProps {
   projectId: string;
   projectTitle?: string;
   address?: string;
-  filesOpen: boolean;
-  setFilesOpen: (open: boolean) => void;
   quickLinksRef: React.RefObject<QuickLinksRef | null>;
 }
 
@@ -45,8 +42,6 @@ const OverviewHudWrapper: React.FC<OverviewHudWrapperProps> = ({
   projectId,
   projectTitle,
   address,
-  filesOpen,
-  setFilesOpen,
   quickLinksRef,
 }) => {
   const overviewData = useOverviewData(projectId);
@@ -101,21 +96,6 @@ const OverviewHudWrapper: React.FC<OverviewHudWrapperProps> = ({
     handleTaskDrawerClose();
   }, [overviewData, handleTaskDrawerClose]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const handleOpenFiles = (event: Event) => {
-      const detail = (event as CustomEvent<{ projectId?: string }>).detail;
-      if (detail?.projectId && detail.projectId !== projectId) return;
-      setFilesOpen(true);
-    };
-
-    window.addEventListener("project-open-files", handleOpenFiles);
-    return () => {
-      window.removeEventListener("project-open-files", handleOpenFiles);
-    };
-  }, [projectId, setFilesOpen]);
-  
   // Project list for the modal (just the current project)
   const taskProjects = useMemo(() => [{
     id: projectId,
@@ -125,17 +105,6 @@ const OverviewHudWrapper: React.FC<OverviewHudWrapperProps> = ({
   return (
     <div className="overview-layout overview-hud-layout">
       <QuickLinksComponent ref={quickLinksRef} hideTrigger />
-
-      {FileManagerComponent && (
-        <FileManagerComponent
-          {...{
-            isOpen: filesOpen,
-            onRequestClose: () => setFilesOpen(false),
-            showTrigger: false,
-            folder: "uploads",
-          }}
-        />
-      )}
 
       <OverviewHud
         projectId={projectId}
@@ -192,15 +161,13 @@ const SingleProject: React.FC = () => {
   const location = useLocation();
 
   const { projectId } = useParams<{ projectId: string }>();
-  const [filesOpen, setFilesOpen] = useState<boolean>(false);
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const { ws } = useSocket();
 
-  // Use files navigation hook for V2 support
+  // Use files navigation hook for V2 overlay
   const { openFiles } = useFilesNavigation({
     projectId,
     projectTitle: activeProject?.title,
-    openLegacyModal: () => setFilesOpen(true),
   });
 
   const projectNameFromPath = useMemo(() => {
@@ -434,8 +401,6 @@ const SingleProject: React.FC = () => {
         projectId={resolvedActiveProject.projectId}
         projectTitle={resolvedActiveProject.title}
         address={resolvedActiveProject.address as string | undefined}
-        filesOpen={filesOpen}
-        setFilesOpen={setFilesOpen}
         quickLinksRef={quickLinksRef}
       />
     </BudgetProvider>

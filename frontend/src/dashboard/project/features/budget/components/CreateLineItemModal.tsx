@@ -4,10 +4,8 @@ import { faPaperclip, faXmark } from "@fortawesome/free-solid-svg-icons";
 import Modal from "@/shared/ui/ModalWithStack";
 import ConfirmModal from "@/shared/ui/ConfirmModal";
 import AttachmentPreviewModal from "@/shared/ui/AttachmentPreviewModal";
-import FileManagerComponent, {
-  type FileItem,
-  type FileManagerRef,
-} from "@/dashboard/project/components/FileManager/FileManager";
+import { FileManagerV2 } from "@/dashboard/project/components/FileManager";
+import type { FileItem, FileManagerRef } from "@/dashboard/project/components/FileManager";
 import styles from "./create-line-item-modal.module.css";
 import { parseBudget, formatUSD } from "@/shared/utils/budgetUtils";
 import { uploadFile } from "@/shared/utils/api";
@@ -1211,7 +1209,7 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     selectedAttachmentIndex !== null ? item.attachments?.[selectedAttachmentIndex] ?? null : null;
 
   const budgetFilesPicker = (
-    <FileManagerComponent
+    <FileManagerV2
       ref={fileManagerRef}
       showTrigger={false}
       selectionMode="multi"

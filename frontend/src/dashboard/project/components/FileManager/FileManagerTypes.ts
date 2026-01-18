@@ -17,6 +17,7 @@ export interface FileManagerProps {
 export interface FileItem {
   fileName: string;
   url: string;
+  key?: string;  // S3 key for file operations (move, rename, delete)
   lastModified?: number;
   size?: number;
   kind?: string;

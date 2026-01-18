@@ -1,5 +1,5 @@
 import React, { useState, useLayoutEffect, Suspense } from "react";
-import { Routes, Route, Navigate, useLocation, Location } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useParams, Location } from "react-router-dom";
 import Login from "../dashboard/features/auth/Login/Login";
 import Register from "../dashboard/features/auth/Register/Register";
 import EmailVerification from "@/dashboard/features/auth/email-verification/EmailVerification";
@@ -26,10 +26,15 @@ const DashboardSlidesPage = React.lazy(() => import("@/dashboard/project/feature
 const DashboardSlidesPresentationPage = React.lazy(
   () => import("@/dashboard/project/features/slides/SlidesPresentationPage")
 );
-const DashboardFilesPage = React.lazy(
-  () => import("@/dashboard/project/features/files/FilesPage")
+const DashboardFilesOverlay = React.lazy(
+  () => import("@/dashboard/project/features/files/FilesOverlay")
 );
 const DashboardTasksPage = React.lazy(() => import("../dashboard/home/pages/TasksPage"));
+
+// Files overlay route location state type
+interface FilesLocationState {
+  backgroundLocation?: Location;
+}
 
 const ScrollToTop: React.FC = () => {
   const { pathname } = useLocation();
@@ -122,12 +127,30 @@ interface ActualRoutesProps {
   location: Location;
 }
 
+// Helper component to extract projectId and render FilesOverlay
+const FilesOverlayWrapper: React.FC = () => {
+  const { projectId } = useParams<{ projectId: string }>();
+  if (!projectId) return null;
+  return <DashboardFilesOverlay projectId={projectId} />;
+};
+
 const ActualRoutes: React.FC<ActualRoutesProps> = ({ location }) => {
+  // Check for backgroundLocation in state (used for overlay pattern)
+  const state = location.state as FilesLocationState | undefined;
+  const backgroundLocation = state?.backgroundLocation;
+  
+  // Determine which location to use for rendering routes
+  // If we have a backgroundLocation, render the app using that and overlay files on top
+  const routeLocation = backgroundLocation || location;
+  
+  // Check if current path is a /files route for overlay rendering
+  const isFilesRoute = /\/projects\/[^/]+\/[^/]*\/files\/?$/.test(location.pathname);
   
   return (
-    <AnimatePresence mode="wait">
-      <Routes key={location.pathname} location={location}>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+    <>
+      <AnimatePresence mode="wait">
+        <Routes key={routeLocation.pathname} location={routeLocation}>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
         
 
         
@@ -163,7 +186,7 @@ const ActualRoutes: React.FC<ActualRoutesProps> = ({ location }) => {
           <Route path="projects/allprojects" element={<DashboardWelcome />} />
           <Route
             path="projects/:projectId/:projectName?"
-            element={<DashboardSingleProject key={location.key} />}
+            element={<DashboardSingleProject key={routeLocation.key} />}
           />
           <Route
             path="projects/:projectId/:projectName?/budget"
@@ -185,9 +208,11 @@ const ActualRoutes: React.FC<ActualRoutesProps> = ({ location }) => {
             path="projects/:projectId/:projectName?/slides/present"
             element={<DashboardSlidesPresentationPage />}
           />
+          {/* Files route: renders project overview as fallback when no backgroundLocation */}
+          {/* The actual overlay is rendered separately below */}
           <Route
             path="projects/:projectId/:projectName?/files"
-            element={<DashboardFilesPage />}
+            element={<DashboardSingleProject key={`${routeLocation.key}-files-fallback`} />}
           />
           <Route path="tasks" element={<DashboardTasksPage />} />
           <Route path="new" element={<DashboardNewProject />} />
@@ -287,6 +312,19 @@ const ActualRoutes: React.FC<ActualRoutesProps> = ({ location }) => {
         <Route path="/hq/*" element={<HQRedirect />} />
       </Routes>
     </AnimatePresence>
+    
+    {/* Render Files overlay when on /files route */}
+    {isFilesRoute && (
+      <Suspense fallback={<Spinner />}>
+        <Routes location={location}>
+          <Route
+            path="/dashboard/projects/:projectId/:projectName?/files"
+            element={<FilesOverlayWrapper />}
+          />
+        </Routes>
+      </Suspense>
+    )}
+    </>
   );
 };
 

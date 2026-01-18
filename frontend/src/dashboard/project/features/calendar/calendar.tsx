@@ -5,7 +5,6 @@ import {
   ProjectPageLayout,
   ProjectHeader,
   QuickLinksComponent,
-  FileManager as FileManagerComponent,
 } from "@/dashboard/project/components";
 import type { QuickLinksRef } from "@/dashboard/project/components";
 import { useFilesNavigation } from "@/dashboard/project/components/Shared/hooks/useFilesNavigation";
@@ -61,14 +60,12 @@ const CalendarPage: React.FC = () => {
 
   const { ws } = useSocket();
 
-  const [filesOpen, setFilesOpen] = useState(false);
   const quickLinksRef = useRef<QuickLinksRef | null>(null);
 
-  // Use files navigation hook for V2 support
+  // Use files navigation hook for V2 overlay
   const { openFiles } = useFilesNavigation({
     projectId,
     projectTitle: activeProject?.title,
-    openLegacyModal: () => setFilesOpen(true),
   });
 
   const teamMembers = useTeamMembers(activeProject ?? null);
@@ -1064,12 +1061,6 @@ const CalendarPage: React.FC = () => {
       }
     >
       <QuickLinksComponent ref={quickLinksRef} hideTrigger />
-      <FileManagerComponent
-        isOpen={filesOpen}
-        onRequestClose={() => setFilesOpen(false)}
-        showTrigger={false}
-        folder="uploads"
-      />
 
       <CalendarSurface
         events={calendarEvents}

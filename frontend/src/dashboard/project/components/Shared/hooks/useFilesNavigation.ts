@@ -1,55 +1,52 @@
 /**
- * useFilesNavigation - Hook for opening files, respecting V2 feature flag
+ * useFilesNavigation - Hook for opening FileManager V2 overlay
  * 
- * When files.v2.enabled is ON, navigates to /project/:id/files
- * When OFF, opens the legacy modal
+ * Always navigates to /project/:id/files with backgroundLocation state,
+ * which renders as an overlay on top of the current page.
  */
 
 import { useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { isFilesV2Enabled } from '@/shared/utils/featureFlags';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
 
 interface UseFilesNavigationOptions {
   projectId: string | undefined;
   projectTitle?: string | null;
-  /** Callback to open legacy modal (when V2 is disabled) */
-  openLegacyModal: () => void;
 }
 
 interface UseFilesNavigationResult {
-  /** Open files - either navigates to V2 or opens modal */
+  /** Open files overlay - navigates to /files with backgroundLocation */
   openFiles: () => void;
-  /** Whether V2 is enabled */
-  isV2Enabled: boolean;
 }
 
 export function useFilesNavigation({
   projectId,
   projectTitle,
-  openLegacyModal,
 }: UseFilesNavigationOptions): UseFilesNavigationResult {
   const navigate = useNavigate();
-  const isV2Enabled = isFilesV2Enabled();
+  const location = useLocation();
 
   const openFiles = useCallback(() => {
-    if (isV2Enabled && projectId) {
-      // Navigate to V2 full-page file manager
-      const filesPath = getProjectDashboardPath(
-        projectId,
-        projectTitle ?? undefined,
-        '/files'
-      );
-      navigate(filesPath);
-    } else {
-      // Open legacy modal
-      openLegacyModal();
-    }
-  }, [isV2Enabled, projectId, projectTitle, navigate, openLegacyModal]);
+    if (!projectId) return;
+    
+    // Navigate to files route with backgroundLocation for overlay pattern
+    const filesPath = getProjectDashboardPath(
+      projectId,
+      projectTitle ?? undefined,
+      '/files'
+    );
+    
+    // Pass current location as backgroundLocation so the overlay
+    // renders on top of the current page and can return here on close
+    navigate(filesPath, { 
+      state: { 
+        backgroundLocation: location 
+      } 
+    });
+  }, [projectId, projectTitle, navigate, location]);
 
   return {
     openFiles,
-    isV2Enabled,
   };
 }
 

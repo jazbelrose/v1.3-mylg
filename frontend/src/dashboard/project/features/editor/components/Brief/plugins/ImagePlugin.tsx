@@ -20,7 +20,8 @@ import { DEFAULT_IMAGE_BORDER_RADIUS } from "./nodes/imageBorderRadius";
 import { useData } from "@/app/contexts/useData";
 import { S3_PUBLIC_BASE, normalizeFileUrl } from "@/shared/utils/api";
 import { OPEN_IMAGE_COMMAND } from "../commands";
-import FileManagerComponent, { type FileItem } from "@/dashboard/project/components/FileManager/FileManager";
+import { FileManagerV2 } from "@/dashboard/project/components/FileManager";
+import type { FileItem } from "@/dashboard/project/components/FileManager";
 import { notify } from "@/shared/ui/ToastNotifications";
 import styles from "./ImagePlugin.module.css";
 
@@ -352,7 +353,7 @@ export default function ImagePlugin({ showToolbarButton = true, slidesMode = fal
       </ReactModal>
 
       {isFileManagerOpen && (
-        <FileManagerComponent
+        <FileManagerV2
           isOpen={isFileManagerOpen}
           onRequestClose={() => setIsFileManagerOpen(false)}
           showTrigger={false}

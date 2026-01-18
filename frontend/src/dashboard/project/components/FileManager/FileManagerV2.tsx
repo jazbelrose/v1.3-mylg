@@ -392,21 +392,29 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       async (targetFolderKey: string, targetFolderName: string) => {
         if (!activeProject?.projectId || moveTargetFiles.length === 0) return;
 
-        try {
-          // For now, we'll move files by updating their keys
-          // In a real implementation, this would call an API
-          const movedCount = moveTargetFiles.length;
-          
-          // TODO: Implement actual API call to move files
-          // await apiFetch(`${EDIT_PROJECT_URL}/${activeProject.projectId}/files/move`, {
-          //   method: 'POST',
-          //   body: JSON.stringify({
-          //     files: moveTargetFiles.map(f => f.key),
-          //     targetFolder: targetFolderKey,
-          //   }),
-          // });
+        const movedCount = moveTargetFiles.length;
 
-          notify('success', `Moved ${movedCount} item${movedCount > 1 ? 's' : ''} to ${targetFolderName}`);
+        try {
+          // Call the move API
+          const response = await apiFetch(`${EDIT_PROJECT_URL}/${activeProject.projectId}/files/move`, {
+            method: 'POST',
+            body: JSON.stringify({
+              fileKeys: moveTargetFiles.map((f) => f.key),
+              targetFolder: targetFolderKey,
+            }),
+          }) as { ok?: boolean; moved?: { oldKey: string; newKey: string }[]; errors?: { key: string; error: string }[]; error?: string };
+
+          if (response.ok) {
+            notify('success', `Moved ${movedCount} item${movedCount > 1 ? 's' : ''} to ${targetFolderName}`);
+          } else {
+            const errCount = response.errors?.length || 0;
+            if (errCount > 0 && response.moved?.length > 0) {
+              notify('warning', `Moved ${response.moved.length} items, ${errCount} failed`);
+            } else {
+              throw new Error(response.error || 'Move failed');
+            }
+          }
+
           setIsMoveModalOpen(false);
           setMoveTargetFiles([]);
           setSelectedItems(new Set());
@@ -427,14 +435,18 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
         if (!activeProject?.projectId) return;
 
         try {
-          // TODO: Implement actual rename API call
-          // await apiFetch(`${EDIT_PROJECT_URL}/${activeProject.projectId}/files/rename`, {
-          //   method: 'POST',
-          //   body: JSON.stringify({
-          //     oldKey: file.key,
-          //     newName: newName,
-          //   }),
-          // });
+          // Call the rename API
+          const response = await apiFetch(`${EDIT_PROJECT_URL}/${activeProject.projectId}/files/rename`, {
+            method: 'POST',
+            body: JSON.stringify({
+              oldKey: file.key,
+              newName: newName,
+            }),
+          }) as { ok?: boolean; error?: string };
+
+          if (!response.ok) {
+            throw new Error(response.error || 'Rename failed');
+          }
 
           notify('success', `Renamed to "${newName}"`);
           setRenameTargetId(null);

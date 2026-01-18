@@ -8,7 +8,6 @@ import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPage
 import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
 import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
-import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import { useFilesNavigation } from "@/dashboard/project/components/Shared/hooks/useFilesNavigation";
 import SlidesSidebar from "./components/SlidesSidebar";
 import SlideEditor from "./components/SlideEditor";
@@ -250,17 +249,15 @@ const SlidesPage: React.FC = () => {
   const [pendingDeleteSlideIds, setPendingDeleteSlideIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
-  const [filesOpen, setFilesOpen] = useState(false);
   // Zoom state: 0 = "fit to view", otherwise percentage (25-300)
   const [zoom, setZoom] = useState(0);
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const uiThumbsEnabled = isUiThumbsEnabled();
 
-  // Use files navigation hook for V2 support
+  // Use files navigation hook for V2 overlay
   const { openFiles } = useFilesNavigation({
     projectId,
     projectTitle: activeProject?.title,
-    openLegacyModal: () => setFilesOpen(true),
   });
 
   const [toolbarPortalNode, setToolbarPortalNode] = useState<HTMLDivElement | null>(null);
@@ -1961,14 +1958,6 @@ const SlidesPage: React.FC = () => {
         confirmLabel="Delete"
         cancelLabel="Cancel"
       />
-      {filesOpen && (
-        <FileManagerComponent
-          isOpen={filesOpen}
-          onRequestClose={() => setFilesOpen(false)}
-          showTrigger={false}
-          folder="uploads"
-        />
-      )}
       <QuickLinksComponent ref={quickLinksRef} hideTrigger />
       
       <div className="slides-shell">

@@ -44,10 +44,8 @@ import {
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 import { formatTaskName } from "@/shared/utils/taskNameFormatting";
 import AttachmentPreviewModal from "@/shared/ui/AttachmentPreviewModal";
-import FileManagerComponent, {
-  type FileItem,
-  type FileManagerRef,
-} from "@/dashboard/project/components/FileManager/FileManager";
+import { FileManagerV2 } from "@/dashboard/project/components/FileManager";
+import type { FileItem, FileManagerRef } from "@/dashboard/project/components/FileManager";
 
 import styles from "./QuickCreateTaskModal.module.css";
 import type {
@@ -2880,7 +2878,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     />
   );
   const projectFilesPicker = (
-    <FileManagerComponent
+    <FileManagerV2
       ref={fileManagerRef}
       showTrigger={false}
       selectionMode="multi"

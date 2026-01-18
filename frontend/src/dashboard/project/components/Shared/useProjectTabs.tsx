@@ -2,7 +2,6 @@ import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useData } from "@/app/contexts/useData";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
-import { isFilesV2Enabled } from "@/shared/utils/featureFlags";
 
 export type ProjectTabItem = {
   key: string;
@@ -34,7 +33,7 @@ export const useProjectTabs = (
   const showCalendarTab = isAdmin || isDesigner;
   const showEditorTab = isAdmin || isDesigner;
   const showSlidesTab = isAdmin || isDesigner;
-  const showFilesTab = isFilesV2Enabled(); // Feature flag controlled
+  // Files tab removed - folder icon is the single entry point
 
   const hasProject = Boolean(projectId);
 
@@ -94,17 +93,7 @@ export const useProjectTabs = (
     [hasProject, projectId, projectTitle]
   );
 
-  const filesPath = React.useMemo(
-    () =>
-      hasProject
-        ? getProjectDashboardPath(
-            projectId,
-            projectTitle ?? undefined,
-            "/files"
-          )
-        : "/dashboard/projects",
-    [hasProject, projectId, projectTitle]
-  );
+  // filesPath removed - Files tab no longer in header nav
 
   const tabs = React.useMemo<ProjectTabItem[]>(() => {
     const tabDefinitions = [
@@ -143,13 +132,7 @@ export const useProjectTabs = (
         matches: (pathname: string) => pathname.startsWith(slidesPath),
         visible: showSlidesTab,
       },
-      {
-        key: "files",
-        label: "Files",
-        path: filesPath,
-        matches: (pathname: string) => pathname.startsWith(filesPath),
-        visible: showFilesTab,
-      },
+      // Files tab removed - folder icon is the single entry point
     ];
 
     return tabDefinitions.reduce<ProjectTabItem[]>((acc, tab) => {
@@ -172,12 +155,10 @@ export const useProjectTabs = (
     calendarPath,
     editorPath,
     slidesPath,
-    filesPath,
     showBudgetTab,
     showCalendarTab,
     showEditorTab,
     showSlidesTab,
-    showFilesTab,
   ]);
 
   const storageKey = React.useMemo(

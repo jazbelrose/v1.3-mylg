@@ -5,7 +5,6 @@ import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPage
 import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
 import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
-import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import { useFilesNavigation } from "@/dashboard/project/components/Shared/hooks/useFilesNavigation";
 import PreviewDrawer from "@/dashboard/project/features/editor/components/PreviewDrawer";
 import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/LexicalEditor";
@@ -35,17 +34,15 @@ const EditorPage: React.FC = () => {
 
   const [activeProject, setActiveProject] = useState<Project | null>(initialActiveProject);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [filesOpen, setFilesOpen] = useState(false);
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const coverImage = useMemo(() => resolveProjectCoverUrl(activeProject), [activeProject]);
   const projectPalette = useProjectPalette(coverImage, { color: activeProject?.color });
   const [briefContent, setBriefContent] = useState<string>("");
 
-  // Use files navigation hook for V2 support
+  // Use files navigation hook for V2 overlay
   const { openFiles } = useFilesNavigation({
     projectId,
     projectTitle: activeProject?.title,
-    openLegacyModal: () => setFilesOpen(true),
   });
 
   const handleBriefChange = useCallback((json: string) => {
@@ -236,12 +233,6 @@ const EditorPage: React.FC = () => {
               transition={{ duration: 0.3 }}
             >
               <QuickLinksComponent ref={quickLinksRef} hideTrigger />
-              <FileManagerComponent
-                isOpen={filesOpen}
-                onRequestClose={() => setFilesOpen(false)}
-                showTrigger={false}
-                folder="uploads"
-              />
               <div className="main-view-container">
                 <motion.div
                   className="editor-mode-panel"

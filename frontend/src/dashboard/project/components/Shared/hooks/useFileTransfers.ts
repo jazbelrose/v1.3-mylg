@@ -117,6 +117,7 @@ export const useFileTransfers = ({
           return {
             fileName: name,
             url: normalizeFileUrl(url),
+            key: fullKey,  // S3 key for file operations (move, rename, delete)
             lastModified: (item as { lastModified?: string | Date }).lastModified
               ? new Date((item as { lastModified?: string | Date }).lastModified!).getTime()
               : 0,

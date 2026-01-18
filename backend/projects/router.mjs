@@ -2,7 +2,7 @@
 import { corsHeadersFromEvent, preflightFromEvent, json } from "/opt/nodejs/utils/cors.mjs";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
-import { DeleteObjectsCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
+import { CopyObjectCommand, DeleteObjectsCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
@@ -1607,6 +1607,149 @@ const deleteProjectFiles = async (e, C, { projectId }) => {
   }
 };
 
+// POST /projects/:projectId/files/move
+// Body: { fileKeys: string[], targetFolder: string }
+// Moves files to a new folder by copying then deleting
+const moveProjectFiles = async (e, C, { projectId }) => {
+  const body = B(e);
+  const fileKeys = Array.isArray(body.fileKeys) ? body.fileKeys.filter(Boolean) : [];
+  const targetFolder = typeof body.targetFolder === "string" ? body.targetFolder.trim() : null;
+
+  if (!projectId) return json(400, C, { error: "projectId is required" });
+  if (!fileKeys.length) return json(400, C, { error: "fileKeys must be a non-empty array" });
+  if (!targetFolder) return json(400, C, { error: "targetFolder is required" });
+
+  const projectPrefix = `public/projects/${projectId}/`;
+  const moved = [];
+  const errors = [];
+
+  for (const oldKey of fileKeys) {
+    try {
+      // Validate old key is in project scope
+      if (!oldKey.startsWith(projectPrefix)) {
+        errors.push({ key: oldKey, error: "Key not within project scope" });
+        continue;
+      }
+
+      // Extract filename from old key
+      const filename = oldKey.split("/").pop();
+      if (!filename) {
+        errors.push({ key: oldKey, error: "Invalid key format" });
+        continue;
+      }
+
+      // Build new key
+      const newKey = `${projectPrefix}${targetFolder}/${filename}`;
+
+      // Skip if source and destination are the same
+      if (oldKey === newKey) {
+        moved.push({ oldKey, newKey, status: "skipped" });
+        continue;
+      }
+
+      // Copy object to new location
+      await s3.send(
+        new CopyObjectCommand({
+          Bucket: FILE_BUCKET,
+          CopySource: `${FILE_BUCKET}/${oldKey}`,
+          Key: newKey,
+        })
+      );
+
+      // Delete original
+      await s3.send(
+        new DeleteObjectsCommand({
+          Bucket: FILE_BUCKET,
+          Delete: { Objects: [{ Key: oldKey }] },
+        })
+      );
+
+      moved.push({ oldKey, newKey, status: "moved" });
+    } catch (err) {
+      console.error("move_file_error", { projectId, oldKey, err });
+      errors.push({ key: oldKey, error: err.message || "Move failed" });
+    }
+  }
+
+  return json(200, C, {
+    ok: errors.length === 0,
+    projectId,
+    targetFolder,
+    moved,
+    errors,
+  });
+};
+
+// POST /projects/:projectId/files/rename
+// Body: { oldKey: string, newName: string }
+// Renames a file by copying to new name then deleting original
+const renameProjectFile = async (e, C, { projectId }) => {
+  const body = B(e);
+  const oldKey = typeof body.oldKey === "string" ? body.oldKey.trim() : null;
+  const newName = typeof body.newName === "string" ? body.newName.trim() : null;
+
+  if (!projectId) return json(400, C, { error: "projectId is required" });
+  if (!oldKey) return json(400, C, { error: "oldKey is required" });
+  if (!newName) return json(400, C, { error: "newName is required" });
+
+  const projectPrefix = `public/projects/${projectId}/`;
+
+  // Validate old key is in project scope
+  if (!oldKey.startsWith(projectPrefix)) {
+    return json(400, C, { error: "Key not within project scope" });
+  }
+
+  // Extract folder path from old key
+  const parts = oldKey.split("/");
+  parts.pop(); // Remove old filename
+  const folderPath = parts.join("/");
+
+  // Build new key
+  const newKey = `${folderPath}/${newName}`;
+
+  // Skip if names are the same
+  if (oldKey === newKey) {
+    return json(200, C, {
+      ok: true,
+      projectId,
+      oldKey,
+      newKey,
+      status: "skipped",
+    });
+  }
+
+  try {
+    // Copy object to new location
+    await s3.send(
+      new CopyObjectCommand({
+        Bucket: FILE_BUCKET,
+        CopySource: `${FILE_BUCKET}/${oldKey}`,
+        Key: newKey,
+      })
+    );
+
+    // Delete original
+    await s3.send(
+      new DeleteObjectsCommand({
+        Bucket: FILE_BUCKET,
+        Delete: { Objects: [{ Key: oldKey }] },
+      })
+    );
+
+    return json(200, C, {
+      ok: true,
+      projectId,
+      oldKey,
+      newKey,
+      status: "renamed",
+    });
+  } catch (err) {
+    console.error("rename_file_error", { projectId, oldKey, newName, err });
+    const message = err?.message || "Failed to rename file";
+    return json(500, C, { error: message });
+  }
+};
+
 const TEXT_LIKE_EXTENSIONS = new Set([
   "txt",
   "md",
@@ -2983,6 +3126,8 @@ const routes = [
 
   // Files
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/files\/delete$/i,                       h: deleteProjectFiles },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/files\/move$/i,                         h: moveProjectFiles },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/files\/rename$/i,                       h: renameProjectFile },
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/files\/view$/i,                         h: viewProjectFile },
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/files\/put-url$/i,                       h: createProjectFilePutUrl },
 

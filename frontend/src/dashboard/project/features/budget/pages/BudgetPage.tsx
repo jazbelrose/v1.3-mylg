@@ -15,7 +15,6 @@ import styles from "./budget-page.module.css";
 import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
 import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
 import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLinksComponent";
-import FileManagerComponent from "@/dashboard/project/components/FileManager/FileManager";
 import { useFilesNavigation } from "@/dashboard/project/components/Shared/hooks/useFilesNavigation";
 import BudgetHeader from "@/dashboard/project/features/budget/components/HeaderStats";
 import BudgetFileModal from "@/dashboard/project/features/budget/components/BudgetFileModal";
@@ -95,15 +94,13 @@ const BudgetPageContent = () => {
   const isAdmin = !!isAdminCtx;
   const canEdit = isAdmin || isBuilder || isDesigner;
   const [activeProject, setActiveProject] = useState(initialActiveProject);
-  const [filesOpen, setFilesOpen] = useState(false);
   const quickLinksRef = useRef(null);
   const tableRef = useRef(null);
 
-  // Use files navigation hook for V2 support
+  // Use files navigation hook for V2 overlay
   const { openFiles } = useFilesNavigation({
     projectId,
     projectTitle: activeProject?.title,
-    openLegacyModal: () => setFilesOpen(true),
   });
 
   const [tableHeight, setTableHeight] = useState(0);
@@ -1317,12 +1314,6 @@ const BudgetPageContent = () => {
           >
             <div className="budget-layout">
               <QuickLinksComponent ref={quickLinksRef} hideTrigger={true} />
-              <FileManagerComponent
-                isOpen={filesOpen}
-                onRequestClose={() => setFilesOpen(false)}
-                showTrigger={false}
-                folder="uploads"
-              />
 
               {/* Use the new component structure */}
               <BudgetStateManager activeProject={activeProject}>
