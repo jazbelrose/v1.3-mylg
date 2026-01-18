@@ -1,4 +1,4 @@
-import { useCallback, type FC, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, type FC, type KeyboardEvent as ReactKeyboardEvent, type DragEvent as ReactDragEvent } from "react";
 import { Pin } from "lucide-react";
 import Squircle from "@/shared/ui/Squircle";
 import { getFileUrl } from "@/shared/utils/api";
@@ -17,6 +17,14 @@ type ProjectsIconGridProps = {
   imgError: Record<string, boolean>;
   onPinToggle: (project: ProjectWithMeta) => void;
   size: IconSize;
+  // Drag-and-drop for pinned reordering
+  draggedProjectId?: string | null;
+  dragOverProjectId?: string | null;
+  onTileDragStart?: (projectId: string) => (event: ReactDragEvent<HTMLDivElement>) => void;
+  onTileDragOver?: (projectId: string) => (event: ReactDragEvent<HTMLDivElement>) => void;
+  onTileDragLeave?: (projectId: string) => () => void;
+  onTileDrop?: (project: ProjectWithMeta) => (event: ReactDragEvent<HTMLDivElement>) => void;
+  onTileDragEnd?: () => void;
 };
 
 const ProjectsIconGrid: FC<ProjectsIconGridProps> = ({
@@ -28,8 +36,16 @@ const ProjectsIconGrid: FC<ProjectsIconGridProps> = ({
   imgError,
   onPinToggle,
   size,
+  draggedProjectId,
+  dragOverProjectId,
+  onTileDragStart,
+  onTileDragOver,
+  onTileDragLeave,
+  onTileDrop,
+  onTileDragEnd,
 }) => {
   const sizeClass = size === "S" ? styles.gridS : size === "L" ? styles.gridL : styles.gridM;
+  const isDragEnabled = Boolean(onTileDragStart && onTileDrop);
 
   const handleTileKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>, projectId: string) => {
@@ -121,17 +137,30 @@ const ProjectsIconGrid: FC<ProjectsIconGridProps> = ({
         if (statusLabel) metaParts.push(statusLabel);
         if (dueLabel && metaParts.length < 2) metaParts.push(dueLabel);
 
+        // Drag state for this tile
+        const isDragging = draggedProjectId === project.projectId;
+        const isDragOver = dragOverProjectId === project.projectId && draggedProjectId !== project.projectId;
+        const canDrag = isDragEnabled && project.pinned;
+
         return (
           <div
             key={project.projectId}
             className={[
               styles.tile,
               project.pinned ? styles.tilePinned : "",
+              isDragging ? styles.tileDragging : "",
+              isDragOver ? styles.tileDragOver : "",
             ].filter(Boolean).join(" ")}
             role="gridcell"
             tabIndex={0}
+            draggable={canDrag}
             onClick={() => onOpenProject(project.projectId)}
             onKeyDown={(e) => handleTileKeyDown(e, project.projectId)}
+            onDragStart={canDrag && onTileDragStart ? onTileDragStart(project.projectId) : undefined}
+            onDragOver={canDrag && onTileDragOver ? onTileDragOver(project.projectId) : undefined}
+            onDragLeave={canDrag && onTileDragLeave ? onTileDragLeave(project.projectId) : undefined}
+            onDrop={canDrag && onTileDrop ? onTileDrop(project) : undefined}
+            onDragEnd={canDrag ? onTileDragEnd : undefined}
             title={project.title}
           >
             {/* Pin indicator (always visible when pinned) */}

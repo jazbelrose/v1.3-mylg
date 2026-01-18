@@ -296,6 +296,58 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
     setDragOverProjectId(null);
   }, []);
 
+  // Generic drag handlers for icon grid (work with divs)
+  const handleTileDragStart = useCallback(
+    (projectId: string) => (event: ReactDragEvent<HTMLDivElement>) => {
+      if (!projectId) return;
+      event.stopPropagation();
+      event.dataTransfer?.setData("text/plain", projectId);
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+      setDraggedProjectId(projectId);
+    },
+    [],
+  );
+
+  const handleTileDragOver = useCallback(
+    (projectId: string) => (event: ReactDragEvent<HTMLDivElement>) => {
+      if (!projectId || projectId === draggedProjectId) return;
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+      setDragOverProjectId(projectId);
+    },
+    [draggedProjectId],
+  );
+
+  const handleTileDragLeave = useCallback(
+    (projectId: string) => () => {
+      if (dragOverProjectId === projectId) {
+        setDragOverProjectId(null);
+      }
+    },
+    [dragOverProjectId],
+  );
+
+  const handleTileDrop = useCallback(
+    (project: ProjectWithMeta) => (event: ReactDragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!draggedProjectId || project.projectId === draggedProjectId || !project.pinned) {
+        return;
+      }
+      setPinnedOrder((prev) => {
+        const next = moveIdBeforeTarget(prev, draggedProjectId, project.projectId);
+        persistPinnedProjectOrder(next);
+        return next;
+      });
+      setDragOverProjectId(null);
+    },
+    [draggedProjectId, persistPinnedProjectOrder],
+  );
+
   const handleTableDragOver = useCallback(
     (event: ReactDragEvent<HTMLTableSectionElement>) => {
       if (!draggedProjectId) return;
@@ -583,6 +635,13 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
             imgError={imgError}
             onPinToggle={toggleProjectPin}
             size={iconSize}
+            draggedProjectId={draggedProjectId}
+            dragOverProjectId={dragOverProjectId}
+            onTileDragStart={handleTileDragStart}
+            onTileDragOver={handleTileDragOver}
+            onTileDragLeave={handleTileDragLeave}
+            onTileDrop={handleTileDrop}
+            onTileDragEnd={handleRowDragEnd}
           />
         )}
       </div>

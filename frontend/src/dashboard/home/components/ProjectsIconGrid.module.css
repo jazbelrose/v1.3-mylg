@@ -78,6 +78,29 @@
   border-color: rgba(250, 51, 86, 0.25);
 }
 
+/* Drag states for pinned project reordering */
+.tileDragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+.tileDragOver {
+  border-color: rgba(250, 51, 86, 0.6);
+  background: rgba(250, 51, 86, 0.08);
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 2px rgba(250, 51, 86, 0.3);
+}
+
+.tilePinned[draggable="true"] {
+  cursor: grab;
+}
+
+.tilePinned[draggable="true"]:active {
+  cursor: grabbing;
+}
+
 /* Icon container */
 .iconWrap {
   position: relative;
