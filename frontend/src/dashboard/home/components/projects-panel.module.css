@@ -193,11 +193,12 @@
 }
 
 .kpiScopeTrigger {
-  height: 28px;
-  padding: 0 10px;
+  height: 32px;
+  padding: 0 12px;
   border: 1px solid rgba(255, 255, 255, .14);
-  background: rgba(255, 255, 255, .01);
-  border-radius: 999px;
+  background: rgba(255, 255, 255, .03);
+  border-radius: 9999px;
+  font-size: 12.5px;
 }
 
 .kpis::-webkit-scrollbar {
@@ -219,24 +220,31 @@
 
 /* =============================================
    Projects Header Right Side - Two Clusters
+   Normalized height: 32px for all controls
    ============================================= */
 
 .projectsHeaderRight {
+  --projects-control-h: 32px;
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 20px; /* cluster separation */
+  gap: 16px; /* cluster separation */
   margin: 4px 2px;
   min-width: 0;
   flex-wrap: wrap;
 }
 
-/* MetaCluster: Ongoing · Next · Projects */
+/* MetaCluster: Ongoing · Next · Projects - wrapped in a single pill */
 .metaCluster {
   display: flex;
   align-items: center;
   white-space: nowrap;
+  height: var(--projects-control-h);
+  padding: 0 14px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .metaItem {
@@ -244,9 +252,9 @@
   border: 0;
   background: transparent;
   color: rgba(255, 255, 255, 0.75);
-  font-size: 12px;
+  font-size: 12.5px;
   line-height: 1;
-  padding: 6px 1px;
+  padding: 0;
   cursor: pointer;
   transition: color 0.15s ease, opacity 0.15s ease;
   display: inline-flex;
@@ -266,7 +274,7 @@
 /* Dot separator between meta items (no extra DOM) */
 .metaItem + .metaItem::before {
   content: "·";
-  opacity: 0.5;
+  opacity: 0.45;
   margin: 0 10px;
   font-weight: 500;
 }
@@ -280,7 +288,7 @@
 .viewPrefsCluster {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex: 0 0 auto;
 }
 

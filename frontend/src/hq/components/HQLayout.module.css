@@ -75,14 +75,14 @@
   min-width: 0;
 
   /* Keep sizing consistent with the right-side action controls */
-  --hq-control-h: 36px;
+  --hq-control-h: 32px;
 }
 
 .pageTitleRow button {
   height: var(--hq-control-h);
-  padding: 0 16px;
-  border-radius: 12px;
-  font-size: 13px;
+  padding: 0 14px;
+  border-radius: 9999px;
+  font-size: 12.5px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
@@ -102,25 +102,25 @@
   display: flex;
   flex-wrap: nowrap;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
 
   /* Single source of truth for top-bar control height */
-  --hq-control-h: 36px;
+  --hq-control-h: 32px;
 }
 
 .mobileActionsRow {
   /* Keep mobile header controls identical in sizing */
-  --hq-control-h: 36px;
+  --hq-control-h: 32px;
 }
 
 /* Normalize every control in the HQ top bar */
 .actionsRow button,
 .mobileActionsRow button {
   height: var(--hq-control-h);
-  padding: 0 16px;
-  border-radius: 12px;
-  font-size: 13px;
+  padding: 0 14px;
+  border-radius: 9999px;
+  font-size: 12.5px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
@@ -152,10 +152,10 @@
   height: var(--hq-control-h);
   padding: 0 14px;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
   color: rgba(255, 255, 255, 0.75);
-  font-size: 13px;
+  font-size: 12.5px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
@@ -173,14 +173,14 @@
 }
 
 .orgCreateButton {
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
   color: #ffffff;
   cursor: pointer;
 }
 
 .orgCreateButton:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .orgCreateButton:focus-visible {
