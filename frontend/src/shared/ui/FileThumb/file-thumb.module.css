@@ -1,0 +1,195 @@
+/* FileThumb Component Styles */
+
+/* ============================================================================
+   CONTAINER
+   ============================================================================ */
+
+.thumbContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  cursor: inherit;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.thumbContainer[role="button"] {
+  cursor: pointer;
+}
+
+.thumbContainer[role="button"]:hover {
+  transform: translateY(-2px);
+}
+
+.thumbContainer[role="button"]:focus-visible {
+  outline: 2px solid rgba(250, 51, 86, 0.6);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Size variants */
+.thumbSm {
+  width: 48px;
+  min-height: 48px;
+}
+
+.thumbMd {
+  width: 80px;
+  min-height: 80px;
+}
+
+.thumbLg {
+  width: 120px;
+  min-height: 120px;
+}
+
+/* ============================================================================
+   IMAGE RENDERING
+   ============================================================================ */
+
+.imageContainer {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.imageLoading {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.thumbImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.thumbnailBadge {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================================================
+   TYPE TILE
+   ============================================================================ */
+
+.typeTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  position: relative;
+  gap: 4px;
+}
+
+.typeTileWrapper {
+  width: 100%;
+}
+
+/* Type tile sizes */
+.typeTileSm {
+  padding: 8px;
+}
+
+.typeTileSm .typeTileIcon {
+  font-size: 16px;
+}
+
+.typeTileSm .typeTileLabel {
+  font-size: 0.55rem;
+  padding: 1px 4px;
+}
+
+.typeTileMd {
+  padding: 12px;
+}
+
+.typeTileMd .typeTileIcon {
+  font-size: 24px;
+}
+
+.typeTileMd .typeTileLabel {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+}
+
+.typeTileLg {
+  padding: 16px;
+}
+
+.typeTileLg .typeTileIcon {
+  font-size: 32px;
+}
+
+.typeTileLg .typeTileLabel {
+  font-size: 0.75rem;
+  padding: 3px 8px;
+}
+
+.typeTileIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.typeTileLabel {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* ============================================================================
+   FILE NAME
+   ============================================================================ */
+
+.thumbFileName {
+  width: 100%;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+/* Truncated filename with two lines */
+.thumbFileNameMultiline {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  word-break: break-word;
+}

@@ -410,7 +410,22 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
 
     let cancelled = false;
 
-    const isImage = (name: string) => /\.(png|jpe?g|webp|gif|bmp)$/i.test(name);
+    const isImage = (name: string) => /\.(png|jpe?g|webp|gif|bmp|svg|ico)$/i.test(name);
+    
+    // Get file extension and derive MIME type for FileThumb
+    const getFileType = (name: string): string => {
+      const ext = name.split('.').pop()?.toLowerCase() || '';
+      if (isImage(name)) return 'image';
+      if (ext === 'pdf') return 'application/pdf';
+      if (['doc', 'docx'].includes(ext)) return 'application/msword';
+      if (['xls', 'xlsx', 'csv'].includes(ext)) return 'application/excel';
+      if (['ppt', 'pptx'].includes(ext)) return 'application/powerpoint';
+      if (['dwg', 'dxf', 'vwx'].includes(ext)) return 'application/cad';
+      if (['mp4', 'mov', 'avi', 'webm'].includes(ext)) return 'video';
+      if (['mp3', 'wav', 'aac'].includes(ext)) return 'audio';
+      if (['zip', 'rar', '7z', 'tar'].includes(ext)) return 'application/archive';
+      return ext; // Return extension as fallback
+    };
 
     (async () => {
       try {
@@ -434,7 +449,7 @@ export function useOverviewData(projectId: string | undefined): OverviewData {
             return {
               fileId: key,
               fileName: name,
-              fileType: isImage(name) ? 'image' : undefined,
+              fileType: getFileType(name),
               thumbnailUrl: isImage(name) ? url : undefined,
               uploadedAt,
             };

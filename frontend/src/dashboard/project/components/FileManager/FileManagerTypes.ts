@@ -23,6 +23,31 @@ export interface FileItem {
   [key: string]: unknown;
 }
 
+/**
+ * FileNode - Extended file/folder type for modern file manager
+ * This type aligns with the API expectations defined in the spec
+ */
+export interface FileNode {
+  id: string;
+  parentId: string | null;
+  name: string;
+  isFolder: boolean;
+  mimeType?: string;
+  ext?: string;
+  sizeBytes?: number;
+  updatedAt: string;
+  createdAt: string;
+  uploadedBy?: {
+    id: string;
+    name: string;
+    avatarUrl?: string;
+  };
+  path?: string[];
+  thumbnailUrl?: string;
+  previewUrl?: string;
+  downloadUrl?: string;
+}
+
 export interface FolderOption {
   key: string;
   name: string;

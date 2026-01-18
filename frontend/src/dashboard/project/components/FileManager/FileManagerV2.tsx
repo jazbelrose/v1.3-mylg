@@ -1,0 +1,959 @@
+/**
+ * FileManagerV2 - Modern 3-panel file manager
+ * 
+ * Features:
+ * - Left sidebar with folder tree navigation
+ * - Main content area with list/grid view
+ * - Right inspector panel for file details
+ * - Breadcrumb navigation
+ * - Bulk actions with ZIP download
+ * - Context menus
+ * - Drag & drop upload
+ * - Keyboard shortcuts (Shift, Ctrl/Cmd select, ESC clear)
+ */
+
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import Modal from '@/shared/ui/ModalWithStack';
+import ConfirmModal from '@/shared/ui/ConfirmModal';
+import {
+  Search,
+  List,
+  Grid,
+  Upload,
+  Plus,
+  ChevronDown,
+  X,
+  PanelLeftClose,
+  PanelLeft,
+  PanelRightClose,
+  PanelRight,
+  Check,
+} from 'lucide-react';
+import { useData } from '@/app/contexts/useData';
+import { useSocket } from '@/app/contexts/useSocket';
+import { FolderTree, FolderTreeItem } from './FolderTree';
+import { Breadcrumb, BreadcrumbSegment } from './Breadcrumb';
+import { ContextMenu, ContextMenuAction } from './ContextMenu';
+import { BulkActionBar } from './BulkActionBar';
+import { FileInspector, FileDetails } from './FileInspector';
+import { FileListView, FileListItem, SortField, SortDirection } from './FileListView';
+import { FileThumb } from '@/shared/ui/FileThumb';
+import { useFileManagerState } from '../Shared/hooks/useFileManagerState';
+import { useFileMessenger } from '../Shared/hooks/useFileMessenger';
+import { useFileTransfers } from '../Shared/hooks/useFileTransfers';
+import type { Message } from '@/app/contexts/DataProvider';
+import type { FileManagerProps, FileManagerRef, FolderOption, FileItem, ViewMode } from './FileManagerTypes';
+import { apiFetch, EDIT_PROJECT_URL } from '@/shared/utils/api';
+import { notify } from '@/shared/ui/ToastNotifications';
+import { getFileKind } from './FileManagerUtils';
+import Dropdown from './Dropdown';
+import styles from './file-manager-v2.module.css';
+import legacyStyles from './file-manager.module.css';
+
+export type { FileManagerProps, FileManagerRef, FileItem };
+
+if (typeof document !== 'undefined') {
+  Modal.setAppElement('#root');
+}
+
+const SYSTEM_FOLDERS: FolderOption[] = [
+  { key: 'drawings', name: 'Drawings' },
+  { key: 'invoices', name: 'Documents' },
+  { key: 'downloads', name: 'Downloads' },
+];
+
+const ROOT_FOLDER: FolderOption = { key: 'uploads', name: 'Project Files' };
+
+const sanitizeFolderKey = (name: string, existingKeys: Set<string>): string => {
+  const fallback = 'folder';
+  const cleaned = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\-\s_]+/g, '')
+    .replace(/[\s_]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  const base = cleaned || fallback;
+  let candidate = base;
+  let counter = 2;
+
+  while (existingKeys.has(candidate)) {
+    candidate = `${base}-${counter}`;
+    counter += 1;
+  }
+
+  return candidate;
+};
+
+const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
+  (
+    {
+      folder = 'uploads',
+      displayName,
+      style,
+      showTrigger = true,
+      isOpen,
+      onRequestClose,
+      selectionMode = 'none',
+      onFileSelect,
+      fileTypeFilter = 'all',
+    },
+    ref
+  ) => {
+    const {
+      activeProject,
+      user,
+      isAdmin,
+      isBuilder,
+      isDesigner,
+      projectMessages = {},
+      setProjectMessages = () => {},
+    } = useData();
+    const { ws } = useSocket() || {};
+
+    const canUpload = isAdmin || isBuilder || isDesigner || folder === 'uploads';
+    const canDelete = isAdmin || isBuilder || isDesigner;
+
+    // State from shared hook
+    const state = useFileManagerState({
+      folder,
+      displayName,
+      isOpen,
+      onRequestClose,
+      activeProject,
+      selectionMode,
+      onFileSelect,
+      fileTypeFilter,
+    });
+
+    const {
+      fileInputRef,
+      scrollerRef,
+      folderKey,
+      setFolderKey,
+      renderedName,
+      setSelectedFiles,
+      isFilesModalOpen,
+      setFilesModalOpen,
+      closeFilesModal,
+      onConfirmSelection,
+      isImageModalOpen,
+      selectedImage,
+      currentIndex,
+      selectedItems,
+      setSelectedItems,
+      isSelectMode,
+      setIsSelectMode,
+      toggleSelectMode,
+      isConfirmingDelete,
+      setIsConfirmingDelete,
+      isDragging,
+      setIsDragging,
+      isLoading,
+      setIsLoading,
+      searchTerm,
+      setSearchTerm,
+      viewMode,
+      toggleViewMode,
+      sortOption,
+      setSortOption,
+      filterOption,
+      setFilterOption,
+      filterOptionsList,
+      displayedFiles,
+      handleSelectionChange,
+      handleSelectAll,
+      isSelected,
+      handleFileClick,
+      closeImageModal,
+      selectedFilesCount,
+      localActiveProject,
+      setLocalActiveProject,
+      handleTouchStart,
+      handleTouchMove,
+      handleTouchEnd,
+      sortOptionsList,
+      customFolders,
+      addCustomFolder,
+    } = state;
+
+    // Local UI state
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [inspectorOpen, setInspectorOpen] = useState(false);
+    const [inspectorFile, setInspectorFile] = useState<FileDetails | null>(null);
+    const [contextMenu, setContextMenu] = useState<{
+      x: number;
+      y: number;
+      file: FileItem | null;
+      type: 'file' | 'folder' | 'empty';
+    } | null>(null);
+    const [isZipping, setIsZipping] = useState(false);
+
+    // Convert sortOption to field and direction
+    const [sortField, sortDirection] = useMemo((): [SortField, SortDirection] => {
+      const parts = sortOption.split('-');
+      const field = parts[0];
+      const direction = parts[1] as SortDirection;
+      if (field === 'kind') {
+        return ['type', direction];
+      }
+      if (field === 'date') {
+        return ['updated', direction];
+      }
+      return [field as SortField, direction];
+    }, [sortOption]);
+
+    // Keyboard shortcuts
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        // ESC to clear selection or close
+        if (e.key === 'Escape') {
+          if (contextMenu) {
+            setContextMenu(null);
+          } else if (selectedItems.size > 0) {
+            setSelectedItems(new Set());
+          } else {
+            closeFilesModal();
+          }
+          return;
+        }
+
+        // Enter to confirm selection
+        if (e.key === 'Enter' && selectionMode === 'multi' && selectedItems.size > 0) {
+          onConfirmSelection();
+          return;
+        }
+
+        // Ctrl/Cmd + A to select all
+        if ((e.ctrlKey || e.metaKey) && e.key === 'a' && isFilesModalOpen) {
+          e.preventDefault();
+          handleSelectAll();
+        }
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [
+      selectedItems.size,
+      onConfirmSelection,
+      closeFilesModal,
+      selectionMode,
+      contextMenu,
+      handleSelectAll,
+      isFilesModalOpen,
+      setSelectedItems,
+    ]);
+
+    const { removeReferences } = useFileMessenger({
+      activeProject: activeProject || {},
+      localActiveProject,
+      setLocalActiveProject,
+      setProjectMessages,
+      user,
+      ws,
+    });
+
+    const folderDisplayList = useMemo(() => {
+      const seen = new Set<string>();
+      return [...SYSTEM_FOLDERS, ...customFolders].filter((folder) => {
+        if (seen.has(folder.key)) return false;
+        seen.add(folder.key);
+        return true;
+      });
+    }, [customFolders]);
+
+    const activeFolderName = useMemo(() => {
+      if (folderKey === ROOT_FOLDER.key) return ROOT_FOLDER.name;
+      return folderDisplayList.find((f) => f.key === folderKey)?.name || folderKey;
+    }, [folderDisplayList, folderKey]);
+
+    const canCreateFolder = canUpload;
+
+    const {
+      loadFiles,
+      handleFileSelect,
+      handleDragOver,
+      handleDragLeave,
+      handleDrop,
+      handleBulkDownload,
+      handleDelete,
+      performDelete,
+      handleDeleteSingle,
+      handleDownloadSingle,
+    } = useFileTransfers({
+      activeProject: activeProject || {},
+      folderKey,
+      selectedItems,
+      setSelectedFiles,
+      setSelectedItems,
+      setIsSelectMode,
+      setIsLoading,
+      setIsConfirmingDelete,
+      setIsDragging,
+      setLocalActiveProject,
+      removeReferences,
+      projectMessages: projectMessages as Record<string, Message[]>,
+      canDelete,
+    });
+
+    // Wrap bulk download to track zipping state
+    const handleBulkDownloadWithState = useCallback(async () => {
+      setIsZipping(true);
+      try {
+        await handleBulkDownload();
+      } finally {
+        setIsZipping(false);
+      }
+    }, [handleBulkDownload]);
+
+    // Create folder
+    const handleCreateFolder = useCallback(async () => {
+      if (typeof window === 'undefined') return;
+      const projectId = (activeProject?.projectId as string | undefined) ?? undefined;
+      if (!projectId) {
+        notify('error', 'You need an active project to create folders.');
+        return;
+      }
+
+      const inputName = window.prompt('New folder name', '');
+      const trimmed = inputName?.trim();
+      if (!trimmed) return;
+
+      const existingKeys = new Set<string>([
+        ROOT_FOLDER.key,
+        ...folderDisplayList.map((f) => f.key),
+      ]);
+      const folderKeyValue = sanitizeFolderKey(trimmed, existingKeys);
+      const newFolder: FolderOption = { key: folderKeyValue, name: trimmed };
+      const updatedCustomFolders = Array.from(
+        new Map<string, FolderOption>(
+          [...customFolders, newFolder].map((f) => [f.key, f])
+        ).values()
+      );
+
+      addCustomFolder(newFolder);
+      setFolderKey(newFolder.key);
+      setSelectedFiles([]);
+      setSelectedItems(new Set());
+      setIsSelectMode(false);
+
+      try {
+        await apiFetch(`${EDIT_PROJECT_URL}/${projectId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customFolders: updatedCustomFolders,
+            [newFolder.key]: [],
+          }),
+        });
+        notify('success', `Folder "${newFolder.name}" created.`);
+      } catch (error) {
+        console.error('Error creating folder', error);
+        notify('error', 'Unable to create folder. Please try again.');
+      }
+    }, [
+      activeProject?.projectId,
+      addCustomFolder,
+      customFolders,
+      folderDisplayList,
+      setFolderKey,
+      setSelectedFiles,
+      setSelectedItems,
+      setIsSelectMode,
+    ]);
+
+    // Open modal
+    const openFilesModal = useCallback(async () => {
+      setFilesModalOpen(true);
+      await loadFiles();
+    }, [loadFiles, setFilesModalOpen]);
+
+    useImperativeHandle(ref, () => ({
+      open: openFilesModal,
+      close: closeFilesModal,
+    }));
+
+    // Build folder tree items
+    const folderTreeRoot: FolderTreeItem = useMemo(
+      () => ({
+        key: ROOT_FOLDER.key,
+        name: ROOT_FOLDER.name,
+      }),
+      []
+    );
+
+    const folderTreeSystem: FolderTreeItem[] = useMemo(
+      () => SYSTEM_FOLDERS.map((f) => ({ key: f.key, name: f.name })),
+      []
+    );
+
+    const folderTreeCustom: FolderTreeItem[] = useMemo(
+      () => customFolders.map((f) => ({ key: f.key, name: f.name })),
+      [customFolders]
+    );
+
+    // Breadcrumb segments
+    const breadcrumbSegments: BreadcrumbSegment[] = useMemo(() => {
+      if (folderKey === ROOT_FOLDER.key) return [];
+      const folder = folderDisplayList.find((f) => f.key === folderKey);
+      return folder ? [{ key: folder.key, name: folder.name }] : [];
+    }, [folderKey, folderDisplayList]);
+
+    // Context menu handlers
+    const handleContextMenu = useCallback(
+      (e: React.MouseEvent, file?: FileItem) => {
+        e.preventDefault();
+        setContextMenu({
+          x: e.clientX,
+          y: e.clientY,
+          file: file || null,
+          type: file ? (file.kind === 'folder' ? 'folder' : 'file') : 'empty',
+        });
+      },
+      []
+    );
+
+    const handleContextMenuAction = useCallback(
+      (action: ContextMenuAction) => {
+        const file = contextMenu?.file;
+        setContextMenu(null);
+
+        switch (action) {
+          case 'open':
+          case 'preview':
+            if (file) {
+              const index = displayedFiles.findIndex((f) => f.url === file.url);
+              handleFileClick(file, index);
+            }
+            break;
+          case 'download':
+            if (file) handleDownloadSingle(file);
+            break;
+          case 'copy-link':
+            if (file?.url) {
+              navigator.clipboard.writeText(file.url);
+              notify('success', 'Link copied to clipboard');
+            }
+            break;
+          case 'rename':
+            // TODO: Implement rename
+            notify('info', 'Rename feature coming soon');
+            break;
+          case 'move':
+            // TODO: Implement move
+            notify('info', 'Move feature coming soon');
+            break;
+          case 'delete':
+            if (file) handleDeleteSingle(file.url);
+            break;
+          case 'details':
+            if (file) {
+              setInspectorFile({
+                fileName: file.fileName,
+                url: file.url,
+                sizeBytes: file.size,
+                updatedAt: file.lastModified
+                  ? new Date(file.lastModified).toISOString()
+                  : undefined,
+                mimeType: file.kind,
+              });
+              setInspectorOpen(true);
+            }
+            break;
+          case 'new-folder':
+            handleCreateFolder();
+            break;
+          case 'upload':
+            fileInputRef.current?.click();
+            break;
+        }
+      },
+      [
+        contextMenu,
+        displayedFiles,
+        handleFileClick,
+        handleDownloadSingle,
+        handleDeleteSingle,
+        handleCreateFolder,
+        fileInputRef,
+      ]
+    );
+
+    // Handle file click for inspector
+    const handleFileClickWithInspector = useCallback(
+      (file: FileItem, index: number, event?: React.MouseEvent) => {
+        // If shift or ctrl/cmd key, handle selection
+        if (event?.shiftKey || event?.ctrlKey || event?.metaKey) {
+          handleSelectionChange(file.url, index, event);
+          return;
+        }
+
+        // Otherwise, show in inspector and preview
+        setInspectorFile({
+          fileName: file.fileName,
+          url: file.url,
+          sizeBytes: file.size,
+          updatedAt: file.lastModified
+            ? new Date(file.lastModified).toISOString()
+            : undefined,
+          mimeType: file.kind,
+        });
+        setInspectorOpen(true);
+
+        // Also trigger original file click for preview modal
+        handleFileClick(file, index, event);
+      },
+      [handleFileClick, handleSelectionChange]
+    );
+
+    // Convert FileItem[] to FileListItem[]
+    const listItems: FileListItem[] = useMemo(
+      () =>
+        displayedFiles.map((file) => ({
+          id: file.url,
+          fileName: file.fileName,
+          url: file.url,
+          mimeType: file.kind,
+          sizeBytes: file.size,
+          updatedAt: file.lastModified
+            ? new Date(file.lastModified).toISOString()
+            : undefined,
+          kind: file.kind,
+        })),
+      [displayedFiles]
+    );
+
+    // Handle sort change from list view
+    const handleSortChange = useCallback(
+      (field: SortField) => {
+        let newSort: string;
+        const currentField = sortField;
+        const currentDir = sortDirection;
+
+        if (field === currentField) {
+          // Toggle direction
+          newSort = `${field === 'type' ? 'kind' : field === 'updated' ? 'date' : field}-${currentDir === 'asc' ? 'desc' : 'asc'}`;
+        } else {
+          // New field, default asc
+          newSort = `${field === 'type' ? 'kind' : field === 'updated' ? 'date' : field}-asc`;
+        }
+        setSortOption(newSort as typeof sortOption);
+      },
+      [sortField, sortDirection, setSortOption]
+    );
+
+    // Grid view
+    const renderGridView = () => (
+      <div className={styles.gridContainer}>
+        {displayedFiles.map((file, index) => {
+          const isItemSelected = isSelected(file.url);
+          return (
+            <div
+              key={file.url}
+              className={`${styles.gridItem} ${isItemSelected ? styles.gridItemSelected : ''}`}
+              onClick={(e) => {
+                if (e.shiftKey || e.ctrlKey || e.metaKey || selectionMode === 'multi') {
+                  handleSelectionChange(file.url, index, e);
+                } else {
+                  handleFileClickWithInspector(file, index, e);
+                }
+              }}
+              onContextMenu={(e) => handleContextMenu(e, file)}
+              tabIndex={0}
+              role="button"
+              aria-selected={isItemSelected}
+            >
+              <div
+                className={styles.gridItemCheckbox}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSelectionChange(file.url, index);
+                }}
+              >
+                {isItemSelected && <Check size={12} />}
+              </div>
+              <div className={styles.gridItemThumb}>
+                <FileThumb
+                  url={file.url}
+                  fileName={file.fileName}
+                  mimeType={file.kind}
+                  size="md"
+                />
+              </div>
+              <div className={styles.gridItemName}>{file.fileName}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+
+    return (
+      <>
+        {/* Trigger button (if showTrigger) */}
+        {showTrigger && (
+          <div
+            className={`dashboard-item files files-shared-style ${legacyStyles.fileManager}`}
+            onClick={() => void openFilesModal()}
+            style={style}
+          >
+            <div className={legacyStyles.fileManagerInner}>
+              <Upload size={20} />
+              <span>{renderedName}</span>
+            </div>
+            <span className={legacyStyles.arrow}>&gt;</span>
+          </div>
+        )}
+
+        {/* Main Modal */}
+        <Modal
+          isOpen={isFilesModalOpen}
+          onRequestClose={closeFilesModal}
+          contentLabel="File Manager"
+          shouldCloseOnOverlayClick={!isConfirmingDelete && !contextMenu}
+          style={{
+            overlay: {
+              pointerEvents: isConfirmingDelete ? 'none' : 'auto',
+            },
+          }}
+          className={{
+            base: legacyStyles.fileModalContent,
+            afterOpen: legacyStyles.fileModalContentAfterOpen,
+            beforeClose: legacyStyles.fileModalContentBeforeClose,
+          }}
+          overlayClassName={{
+            base: legacyStyles.fileModalOverlay,
+            afterOpen: legacyStyles.fileModalOverlayAfterOpen,
+            beforeClose: legacyStyles.fileModalOverlayBeforeClose,
+          }}
+          closeTimeoutMS={300}
+        >
+          <div className={styles.fileManagerV2}>
+            {/* TOOLBAR */}
+            <div className={styles.toolbar}>
+              <div className={styles.toolbarLeft}>
+                {/* Sidebar toggle */}
+                <button
+                  type="button"
+                  className={styles.toolbarBtn}
+                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                  aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                >
+                  {sidebarCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
+                </button>
+
+                {/* Breadcrumb */}
+                <Breadcrumb
+                  segments={breadcrumbSegments}
+                  onNavigate={setFolderKey}
+                  rootLabel="Project Files"
+                />
+              </div>
+
+              <div className={styles.toolbarCenter}>
+                {/* Search */}
+                <div className={styles.searchWrapper}>
+                  <Search size={14} className={styles.searchIcon} />
+                  <input
+                    type="text"
+                    placeholder="Search files..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={styles.searchInput}
+                  />
+                </div>
+
+                {/* Filter dropdown */}
+                <Dropdown
+                  label="Filter"
+                  options={filterOptionsList}
+                  value={filterOption}
+                  onChange={setFilterOption}
+                />
+              </div>
+
+              <div className={styles.toolbarRight}>
+                {/* View toggle */}
+                <button
+                  type="button"
+                  className={`${styles.toolbarBtn} ${viewMode === 'list' ? styles.active : ''}`}
+                  onClick={toggleViewMode}
+                  aria-label="Toggle view"
+                >
+                  {viewMode === 'list' ? <List size={18} /> : <Grid size={18} />}
+                </button>
+
+                {/* Inspector toggle */}
+                <button
+                  type="button"
+                  className={`${styles.toolbarBtn} ${inspectorOpen ? styles.active : ''}`}
+                  onClick={() => setInspectorOpen(!inspectorOpen)}
+                  aria-label={inspectorOpen ? 'Hide details' : 'Show details'}
+                >
+                  {inspectorOpen ? <PanelRightClose size={18} /> : <PanelRight size={18} />}
+                </button>
+
+                {/* Upload button */}
+                {canUpload && (
+                  <>
+                    <input
+                      type="file"
+                      multiple
+                      onChange={handleFileSelect}
+                      ref={fileInputRef}
+                      className={legacyStyles.hiddenInput}
+                    />
+                    <button
+                      type="button"
+                      className={styles.toolbarBtnPrimary}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload size={16} />
+                      <span>Upload</span>
+                    </button>
+                  </>
+                )}
+
+                {/* Close button */}
+                <button
+                  type="button"
+                  className={styles.toolbarBtn}
+                  onClick={closeFilesModal}
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* BODY */}
+            <div className={styles.fileManagerBody}>
+              {/* LEFT SIDEBAR */}
+              {!sidebarCollapsed && (
+                <FolderTree
+                  currentFolder={folderKey}
+                  onFolderSelect={setFolderKey}
+                  rootFolder={folderTreeRoot}
+                  systemFolders={folderTreeSystem}
+                  customFolders={folderTreeCustom}
+                  canCreateFolder={canCreateFolder}
+                  onCreateFolder={handleCreateFolder}
+                  isCollapsed={sidebarCollapsed}
+                />
+              )}
+
+              {/* MAIN PANE */}
+              <div className={styles.mainPane}>
+                <div
+                  ref={scrollerRef}
+                  className={`${styles.contentArea} ${isDragging ? styles.contentAreaDragging : ''}`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onContextMenu={(e) => {
+                    // Only trigger if clicking on empty area
+                    if (e.target === e.currentTarget) {
+                      handleContextMenu(e);
+                    }
+                  }}
+                >
+                  {isDragging && (
+                    <div className={styles.dropOverlay}>Drop files to upload</div>
+                  )}
+
+                  {isLoading ? (
+                    <div className={styles.loadingState}>
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <div key={i} className={styles.skeletonRow}>
+                          <div className={styles.skeletonThumb} />
+                          <div className={`${styles.skeletonText} ${styles.skeletonTextWide}`} />
+                          <div className={`${styles.skeletonText} ${styles.skeletonTextMedium}`} />
+                          <div className={`${styles.skeletonText} ${styles.skeletonTextNarrow}`} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : displayedFiles.length === 0 ? (
+                    <div className={styles.emptyState}>
+                      <Upload size={48} className={styles.emptyStateIcon} />
+                      <h3 className={styles.emptyStateTitle}>No files yet</h3>
+                      <p className={styles.emptyStateText}>
+                        Drag and drop files here, or click Upload to add files.
+                      </p>
+                      <div className={styles.emptyStateActions}>
+                        {canUpload && (
+                          <button
+                            type="button"
+                            className={styles.toolbarBtnPrimary}
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <Upload size={16} />
+                            <span>Upload Files</span>
+                          </button>
+                        )}
+                        {canCreateFolder && (
+                          <button
+                            type="button"
+                            className={styles.toolbarBtn}
+                            onClick={handleCreateFolder}
+                          >
+                            <Plus size={16} />
+                            <span>New Folder</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : viewMode === 'list' ? (
+                    <FileListView
+                      files={listItems}
+                      selectedItems={selectedItems}
+                      onSelectionChange={handleSelectionChange}
+                      onFileClick={(file, index, e) => {
+                        const originalFile = displayedFiles[index];
+                        if (originalFile) {
+                          handleFileClickWithInspector(originalFile, index, e);
+                        }
+                      }}
+                      onDownload={(file) => {
+                        const originalFile = displayedFiles.find((f) => f.url === file.url);
+                        if (originalFile) handleDownloadSingle(originalFile);
+                      }}
+                      onContextMenu={(e, file) => {
+                        const originalFile = displayedFiles.find((f) => f.url === file.url);
+                        handleContextMenu(e, originalFile);
+                      }}
+                      sortField={sortField}
+                      sortDirection={sortDirection}
+                      onSortChange={handleSortChange}
+                      canDelete={canDelete}
+                    />
+                  ) : (
+                    renderGridView()
+                  )}
+                </div>
+
+                {/* BULK ACTION BAR */}
+                {selectedItems.size > 0 && (
+                  <BulkActionBar
+                    selectedCount={selectedItems.size}
+                    onClearSelection={() => setSelectedItems(new Set())}
+                    onDownload={() => {
+                      const firstUrl = Array.from(selectedItems)[0];
+                      const file = displayedFiles.find((f) => f.url === firstUrl);
+                      if (file) handleDownloadSingle(file);
+                    }}
+                    onDownloadZip={handleBulkDownloadWithState}
+                    onDelete={handleDelete}
+                    canDelete={canDelete}
+                    isZipping={isZipping}
+                    onCopyLink={
+                      selectedItems.size === 1
+                        ? () => {
+                            const url = Array.from(selectedItems)[0];
+                            navigator.clipboard.writeText(url);
+                            notify('success', 'Link copied to clipboard');
+                          }
+                        : undefined
+                    }
+                  />
+                )}
+
+                {/* Selection mode bar for multi-selection */}
+                {selectionMode === 'multi' && selectedItems.size > 0 && (
+                  <div className={legacyStyles.selectionBar}>
+                    <span>{selectedItems.size} selected</span>
+                    <div className={legacyStyles.selectionActions}>
+                      <button
+                        type="button"
+                        className={legacyStyles.secondaryButton}
+                        onClick={() => setSelectedItems(new Set())}
+                      >
+                        Clear
+                      </button>
+                      <button
+                        type="button"
+                        className={legacyStyles.primaryButton}
+                        onClick={onConfirmSelection}
+                      >
+                        Insert {selectedItems.size} selected
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* RIGHT INSPECTOR */}
+              {inspectorOpen && inspectorFile && (
+                <FileInspector
+                  file={inspectorFile}
+                  onClose={() => {
+                    setInspectorOpen(false);
+                    setInspectorFile(null);
+                  }}
+                  onDownload={() => {
+                    const file = displayedFiles.find(
+                      (f) => f.url === inspectorFile.url
+                    );
+                    if (file) handleDownloadSingle(file);
+                  }}
+                  onCopyLink={() => {
+                    navigator.clipboard.writeText(inspectorFile.url);
+                    notify('success', 'Link copied to clipboard');
+                  }}
+                  onDelete={
+                    canDelete
+                      ? () => handleDeleteSingle(inspectorFile.url)
+                      : undefined
+                  }
+                  canEdit={canDelete}
+                />
+              )}
+            </div>
+          </div>
+        </Modal>
+
+        {/* Context Menu */}
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            isOpen={true}
+            onClose={() => setContextMenu(null)}
+            onAction={handleContextMenuAction}
+            contextType={contextMenu.type}
+            canDelete={canDelete}
+            canUpload={canUpload}
+          />
+        )}
+
+        {/* Delete Confirmation Modal */}
+        <ConfirmModal
+          isOpen={isConfirmingDelete}
+          onRequestClose={() => setIsConfirmingDelete(false)}
+          onConfirm={performDelete}
+          message="Are you sure you want to delete the selected files?"
+          className={{
+            base: legacyStyles.confirmContent,
+            afterOpen: legacyStyles.confirmContentAfterOpen,
+            beforeClose: legacyStyles.confirmContentBeforeClose,
+          }}
+          overlayClassName={{
+            base: legacyStyles.confirmOverlay,
+            afterOpen: legacyStyles.confirmOverlayAfterOpen,
+            beforeClose: legacyStyles.confirmOverlayBeforeClose,
+          }}
+        />
+      </>
+    );
+  }
+);
+
+FileManagerV2Component.displayName = 'FileManagerV2Component';
+
+export default FileManagerV2Component;

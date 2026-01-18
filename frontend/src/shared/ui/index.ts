@@ -23,6 +23,10 @@ export { default as UserProfilePicture } from "./UserProfilePicture";
 export { default as VerificationCodeModal } from "./VerificationCodeModal";
 export { default as WebSocketDiagnostic } from "./WebSocketDiagnostic";
 
+// File Thumbnail Components (never show broken icons)
+export { FileThumb, FileIconByType, getFileTypeInfo } from "./FileThumb";
+export type { FileThumbProps, FileIconByTypeProps, FileTypeInfo } from "./FileThumb";
+
 // Section / layout UI
 export { default as Counter } from "./Counter";
 export { default as InlineSvg } from "./InlineSVG";

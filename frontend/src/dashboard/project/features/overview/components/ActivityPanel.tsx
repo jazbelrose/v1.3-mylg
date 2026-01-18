@@ -25,6 +25,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
+import { FileThumb } from '@/shared/ui/FileThumb';
 import styles from '../OverviewHud.module.css';
 
 // ============================================================================
@@ -449,11 +450,13 @@ export function ActivityPanel({
                       role="button"
                       tabIndex={0}
                     >
-                      {file.thumbnailUrl ? (
-                        <img src={file.thumbnailUrl} alt={file.fileName} />
-                      ) : (
-                        <FileUp size={16} />
-                      )}
+                      <FileThumb
+                        url={file.thumbnailUrl}
+                        thumbnailUrl={file.thumbnailUrl}
+                        fileName={file.fileName}
+                        mimeType={file.fileType}
+                        size="sm"
+                      />
                     </div>
                   ))}
                 </div>
