@@ -1,0 +1,115 @@
+.trigger {
+  height: var(--org-pill-h, 36px);
+  padding: 0 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.trigger:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.35);
+  outline-offset: 2px;
+}
+
+.trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.value {
+  color: rgba(255, 255, 255, 0.95);
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu {
+  z-index: 9999;
+  min-width: 280px;
+  max-width: min(420px, calc(100vw - 24px));
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(18, 19, 20, 0.98);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.menuLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 4px 8px 8px;
+}
+
+.menuSeparator {
+  height: 1px;
+  margin: 8px 0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.menuHint {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.menuRadioItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  user-select: none;
+}
+
+.menuRadioItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.menuRadioItem[data-state="checked"] {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.menuRadioItem:focus-visible {
+  outline: 1px solid rgba(250, 51, 86, 0.65);
+  outline-offset: 2px;
+}
+
+.menuRadioLabel {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.menuRadioIndicator {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menuRadioIndicator[data-state="unchecked"] {
+  display: none;
+}

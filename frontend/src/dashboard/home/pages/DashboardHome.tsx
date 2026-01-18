@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { LayoutGrid, List } from "lucide-react";
 import { useData } from "@/app/contexts/useData";
 import { UserLite } from "@/app/contexts/DataProvider";
+import { useOrg } from "@/app/contexts/useOrg";
 import { slugify } from "@/shared/utils/slug";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { prefetchBudgetData } from "@/dashboard/project/features/budget/context/useBudget";
@@ -30,6 +31,7 @@ import commandCenterStyles from "@/dashboard/home/components/ProjectsCommandCent
 import mobileStyles from "@/dashboard/home/components/projects-panel.module.css";
 import ProjectsIconGrid, { type IconSize } from "@/dashboard/home/components/ProjectsIconGrid";
 import iconGridStyles from "@/dashboard/home/components/ProjectsIconGrid.module.css";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
 import "./dashboard-styles.css";
 
@@ -204,6 +206,56 @@ const WelcomeScreen: React.FC = () => {
     projects,
     fetchProjectDetails,
   } = useData();
+
+  const { orgs, activeOrgId, setActiveOrgId, isLoading: orgsLoading } = useOrg();
+
+  const activeOrgName = useMemo(() => {
+    const match = orgs.find((org) => org.orgId === activeOrgId);
+    return match?.name || match?.orgId || null;
+  }, [activeOrgId, orgs]);
+
+  const orgDropdown = (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          className={[commandCenterStyles.orgCreateButton, commandCenterStyles.orgDropdownTrigger].join(" ")}
+          aria-haspopup="menu"
+          aria-label="Switch organization"
+          title="Switch org"
+          disabled={orgsLoading}
+        >
+          <span className={commandCenterStyles.orgDropdownValue}>
+            {activeOrgName ?? (orgs.length ? "Select…" : "No orgs")}
+          </span>
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          className={commandCenterStyles.orgMenu}
+          sideOffset={8}
+          align="start"
+          collisionPadding={12}
+        >
+          <DropdownMenu.Label className={commandCenterStyles.orgMenuLabel}>Org</DropdownMenu.Label>
+          <DropdownMenu.Separator className={commandCenterStyles.orgMenuSeparator} />
+
+          {orgs.length ? (
+            <DropdownMenu.RadioGroup value={activeOrgId ?? ""} onValueChange={(v) => setActiveOrgId(v)}>
+              {orgs.map((org) => (
+                <DropdownMenu.RadioItem key={org.orgId} value={org.orgId} className={commandCenterStyles.orgMenuRadioItem}>
+                  <span className={commandCenterStyles.orgMenuRadioLabel}>{org.name || org.orgId}</span>
+                  <DropdownMenu.ItemIndicator className={commandCenterStyles.orgMenuRadioIndicator}>✓</DropdownMenu.ItemIndicator>
+                </DropdownMenu.RadioItem>
+              ))}
+            </DropdownMenu.RadioGroup>
+          ) : (
+            <div className={commandCenterStyles.orgMenuHint}>No orgs yet.</div>
+          )}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -1082,6 +1134,8 @@ const WelcomeScreen: React.FC = () => {
                       <div className={mobileStyles.titleWrap}>
                         <h3 className={commandCenterStyles.pageTitle}>Projects</h3>
                       </div>
+
+                      {orgDropdown}
                     </div>
 
                     <div className={mobileStyles.kpis} aria-label="Project summary">
