@@ -1102,7 +1102,7 @@ const WelcomeScreen: React.FC = () => {
         ProjectWithDetails & { status?: unknown; finishline?: string; title?: string }
       >;
       const totalProjectsCount = projectsList.length;
-      const pendingProjectsCount = projectsList.filter((p) => parseProjectStatusToNumber(p.status) < 100).length;
+      const ongoingProjectsCount = projectsList.filter((p) => parseProjectStatusToNumber(p.status) < 100).length;
       const nextDueProject = projectsList
         .filter((p) => {
           if (!p.finishline) return false;
@@ -1112,8 +1112,8 @@ const WelcomeScreen: React.FC = () => {
         })
         .sort((a, b) => new Date(a.finishline as string).getTime() - new Date(b.finishline as string).getTime())[0];
       const nextDueLabel = nextDueProject
-        ? `Next: ${(nextDueProject.title || "Untitled").trim()} ${formatShortDate(nextDueProject.finishline) || ""}`.trim()
-        : "No upcoming";
+        ? `${(nextDueProject.title || "Untitled").trim()} ${formatShortDate(nextDueProject.finishline) || ""}`.trim()
+        : null;
       const scopeLabel =
         dashboardView === "all"
           ? "All projects"
@@ -1138,37 +1138,35 @@ const WelcomeScreen: React.FC = () => {
                       {orgDropdown}
                     </div>
 
-                    <div className={mobileStyles.kpis} aria-label="Project summary">
-                      <button
-                        type="button"
-                        className={`${mobileStyles.chip} ${showPendingProjectsOnly ? mobileStyles.chipActive : ""}`}
-                        aria-pressed={showPendingProjectsOnly}
-                        onClick={() => setShowPendingProjectsOnly((prev) => !prev)}
-                        title="Toggle pending projects"
-                      >
-                        {pendingProjectsCount} Pending
-                      </button>
-                      <span className={mobileStyles.dot} aria-hidden />
-                      <button
-                        type="button"
-                        className={`${mobileStyles.chip} ${mobileStyles.chipNext}`}
-                        onClick={() => {
-                          if (nextDueProject?.projectId) {
-                            void handleNavigateToProject({ projectId: nextDueProject.projectId });
-                          }
-                        }}
-                        disabled={!nextDueProject?.projectId}
-                        title={nextDueProject ? "Open next project" : "No upcoming projects"}
-                      >
-                        {nextDueLabel}
-                      </button>
-
-                      <span className={mobileStyles.kpiSpacer} aria-hidden />
-
-                      <div className={mobileStyles.kpiRightGroup} aria-label="Projects scope">
+                    <div className={mobileStyles.projectsHeaderRight} aria-label="Project summary">
+                      {/* MetaCluster: Ongoing · Next · Projects */}
+                      <div className={mobileStyles.metaCluster}>
                         <button
                           type="button"
-                          className={mobileStyles.chip}
+                          className={`${mobileStyles.metaItem} ${showPendingProjectsOnly ? mobileStyles.metaItemActive : ""}`}
+                          aria-pressed={showPendingProjectsOnly}
+                          onClick={() => setShowPendingProjectsOnly((prev) => !prev)}
+                          title="Toggle ongoing projects"
+                        >
+                          {ongoingProjectsCount} Ongoing
+                        </button>
+                        {nextDueLabel && (
+                          <button
+                            type="button"
+                            className={mobileStyles.metaItem}
+                            onClick={() => {
+                              if (nextDueProject?.projectId) {
+                                void handleNavigateToProject({ projectId: nextDueProject.projectId });
+                              }
+                            }}
+                            title={nextDueProject ? "Open next project" : "No upcoming projects"}
+                          >
+                            Next: {nextDueLabel}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className={mobileStyles.metaItem}
                           onClick={() => {
                             setDashboardView("all");
                             setActiveKpi(null);
@@ -1179,7 +1177,10 @@ const WelcomeScreen: React.FC = () => {
                         >
                           {totalProjectsCount} Projects
                         </button>
+                      </div>
 
+                      {/* ViewPrefsCluster: dropdown, view mode, density */}
+                      <div className={mobileStyles.viewPrefsCluster}>
                         <ProjectsFilterMenu
                           filtersOpen={projectFilters.filtersOpen}
                           filtersRef={projectFilters.filtersRef}
@@ -1226,45 +1227,43 @@ const WelcomeScreen: React.FC = () => {
                         />
 
                         {/* View switcher */}
-                        <div className={iconGridStyles.controls}>
-                          <div className={iconGridStyles.viewSwitcher} role="group" aria-label="View mode">
-                            <button
-                              type="button"
-                              className={`${iconGridStyles.viewBtn} ${projectsViewMode === "icon" ? iconGridStyles.viewBtnActive : ""}`}
-                              onClick={() => setProjectsViewMode("icon")}
-                              aria-pressed={projectsViewMode === "icon"}
-                              title="Icon view"
-                            >
-                              <LayoutGrid size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              className={`${iconGridStyles.viewBtn} ${projectsViewMode === "list" ? iconGridStyles.viewBtnActive : ""}`}
-                              onClick={() => setProjectsViewMode("list")}
-                              aria-pressed={projectsViewMode === "list"}
-                              title="List view"
-                            >
-                              <List size={14} />
-                            </button>
-                          </div>
-
-                          {/* Size control (only in icon view) */}
-                          {projectsViewMode === "icon" && (
-                            <div className={iconGridStyles.sizeControl} role="group" aria-label="Icon size">
-                              {(["S", "M", "L"] as const).map((s) => (
-                                <button
-                                  key={s}
-                                  type="button"
-                                  className={`${iconGridStyles.sizeBtn} ${projectsIconSize === s ? iconGridStyles.sizeBtnActive : ""}`}
-                                  onClick={() => setProjectsIconSize(s)}
-                                  aria-pressed={projectsIconSize === s}
-                                >
-                                  {s}
-                                </button>
-                              ))}
-                            </div>
-                          )}
+                        <div className={iconGridStyles.viewSwitcher} role="group" aria-label="View mode">
+                          <button
+                            type="button"
+                            className={`${iconGridStyles.viewBtn} ${projectsViewMode === "icon" ? iconGridStyles.viewBtnActive : ""}`}
+                            onClick={() => setProjectsViewMode("icon")}
+                            aria-pressed={projectsViewMode === "icon"}
+                            title="Icon view"
+                          >
+                            <LayoutGrid size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className={`${iconGridStyles.viewBtn} ${projectsViewMode === "list" ? iconGridStyles.viewBtnActive : ""}`}
+                            onClick={() => setProjectsViewMode("list")}
+                            aria-pressed={projectsViewMode === "list"}
+                            title="List view"
+                          >
+                            <List size={14} />
+                          </button>
                         </div>
+
+                        {/* Size control (only in icon view) */}
+                        {projectsViewMode === "icon" && (
+                          <div className={iconGridStyles.sizeControl} role="group" aria-label="Icon size">
+                            {(["S", "M", "L"] as const).map((s) => (
+                              <button
+                                key={s}
+                                type="button"
+                                className={`${iconGridStyles.sizeBtn} ${projectsIconSize === s ? iconGridStyles.sizeBtnActive : ""}`}
+                                onClick={() => setProjectsIconSize(s)}
+                                aria-pressed={projectsIconSize === s}
+                              >
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

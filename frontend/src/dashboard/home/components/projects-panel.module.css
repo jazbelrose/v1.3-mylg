@@ -217,6 +217,73 @@
   flex: 0 0 auto;
 }
 
+/* =============================================
+   Projects Header Right Side - Two Clusters
+   ============================================= */
+
+.projectsHeaderRight {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px; /* cluster separation */
+  margin: 4px 2px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+/* MetaCluster: Ongoing · Next · Projects */
+.metaCluster {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.metaItem {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 1px;
+  cursor: pointer;
+  transition: color 0.15s ease, opacity 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.metaItem:hover {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.metaItem:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Dot separator between meta items (no extra DOM) */
+.metaItem + .metaItem::before {
+  content: "·";
+  opacity: 0.5;
+  margin: 0 10px;
+  font-weight: 500;
+}
+
+.metaItemActive {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 500;
+}
+
+/* ViewPrefsCluster: dropdown, view mode toggle, S/M/L size */
+.viewPrefsCluster {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
 .chip {
   border: 1px solid var(--chip-border, rgba(255, 255, 255, .14));
   border-radius: 999px;
