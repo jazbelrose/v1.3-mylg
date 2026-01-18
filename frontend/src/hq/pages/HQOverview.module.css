@@ -199,10 +199,17 @@
   gap: 6px;
   --hq-hero-chart-height: 320px;
   padding: 0 8px 6px;
+  /* Stable height to prevent layout shift during loading */
+  min-height: calc(var(--hq-hero-chart-height) + 36px);
 }
 
 .heroChart .emptyState {
   padding: 10px 8px 8px;
+  /* Match the min-height of heroChartStageWrap for no-data state */
+  min-height: calc(var(--hq-hero-chart-height, 320px) + 20px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .heroChartSvg {
@@ -305,6 +312,8 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 12px;
+  /* Stable min-height to prevent layout shift */
+  min-height: 88px;
 }
 
 .kpi {
@@ -315,6 +324,8 @@
   display: grid;
   gap: 6px;
   min-width: 0;
+  /* Fixed height for stable layout */
+  min-height: 88px;
 }
 
 .kpiLabel {
@@ -353,6 +364,13 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+  /* Stable min-height for consistent layout */
+  min-height: 180px;
+}
+
+/* Individual gridRow cards should have consistent min-heights */
+.gridRow > * {
+  min-height: 160px;
 }
 
 .gridRowTwoCol {
@@ -366,12 +384,14 @@
   grid-template-columns: 320px 1fr 1fr;
   gap: 14px;
   align-items: stretch;
+  /* Stable min-height to prevent layout shift */
+  min-height: 240px;
 }
 
 .midCard {
-
   --hq-card-header-padding-x: 8px;
-  
+  /* Stable min-height for skeleton/loaded consistency */
+  min-height: 200px;
 }
 
 
@@ -380,6 +400,7 @@
   /* Keep the card compact; let the list scroll inside. */
   --hq-card-min-h: 0px;
   max-height: 260px;
+  min-height: 200px;
   overflow: hidden;
   /* Override midRow's align-items: stretch for this card. */
   align-self: start;

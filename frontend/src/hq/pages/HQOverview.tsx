@@ -34,6 +34,17 @@ import { todayPacificIsoDate } from "@/hq/lib/hqDate";
 import HeroCashChart, { type DailyPoint, type VisibleHeroCashSeries } from "@/hq/components/HeroCashChart";
 import TxnModalApply from "@/hq/components/TxnModalApply";
 import RecurringSeriesModal from "@/hq/components/RecurringSeriesModal";
+import {
+  HeroCashChartSkeleton,
+  KpiRowSkeleton,
+  AccountsCardSkeleton,
+  RecurringCardSkeleton,
+  TopCategoriesCardSkeleton,
+  CashFlowChartSkeleton,
+  AlertsCardSkeleton,
+  UncategorizedCardSkeleton,
+  TransactionsPreviewSkeleton,
+} from "@/hq/components/HQSkeleton";
 import styles from "./HQOverview.module.css";
 
 const currency = new Intl.NumberFormat("en-US", {
@@ -844,7 +855,11 @@ const HQOverview: React.FC = () => {
               </div>
             </div>
 
-            {chartCollapsed ? null : heroCashSeries && chart ? (
+            {chartCollapsed ? null : chartLoading ? (
+              <div className={styles.heroChartStageWrap}>
+                <HeroCashChartSkeleton />
+              </div>
+            ) : heroCashSeries && chart ? (
               <div className={styles.heroChartStageWrap}>
                 <HeroCashChart
                   balance={heroCashSeries.balance}
@@ -876,10 +891,9 @@ const HQOverview: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className={styles.emptyState}>
-                {chartLoading
-                  ? "Loading chart…"
-                  : chartNeedsImport
+              <div className={styles.heroChartStageWrap}>
+                <div className={styles.emptyState}>
+                  {chartNeedsImport
                     ? canAdmin
                       ? (
                         <div>
@@ -893,6 +907,7 @@ const HQOverview: React.FC = () => {
                     : chartError
                       ? "Could not load chart."
                       : "Set ending balance today on your accounts to see the chart."}
+                </div>
               </div>
             )}
           </div>
@@ -1025,7 +1040,7 @@ const HQOverview: React.FC = () => {
             }
           >
             {recurringLoading && recurringItems.length === 0 ? (
-              <div className={styles.emptyState}>Loading…</div>
+              <RecurringCardSkeleton rows={HQ_OVERVIEW_RECURRING_PREVIEW_LIMIT} />
             ) : recurringError ? (
               <div className={styles.emptyState}>Could not load recurring commitments.</div>
             ) : recurringItems.length === 0 ? (
@@ -1094,7 +1109,7 @@ const HQOverview: React.FC = () => {
             }}
           >
             {topCategoriesLoading && topCategories.length === 0 ? (
-              <div className={styles.emptyState}>Loading…</div>
+              <TopCategoriesCardSkeleton rows={HQ_OVERVIEW_TOP_CATEGORIES_PREVIEW_LIMIT} />
             ) : topCategoriesError ? (
               <div className={styles.emptyState}>Could not load top categories.</div>
             ) : topCategories.length === 0 ? (

@@ -49,7 +49,7 @@ import type {
 } from "../lib/magicLayoutTypes";
 import type { LayoutMode } from "../lib/pictureFrameLayoutGenerator";
 import VariantsRail from "./VariantsRail";
-import { FileManager, type FileItem } from "@/dashboard/project/components/FileManager";
+import { FileManagerV2, type FileItem } from "@/dashboard/project/components/FileManager";
 import { ConfirmModal } from "@/shared/ui";
 import "./MagicLayoutPanel.css";
 
@@ -1256,7 +1256,7 @@ export const MagicLayoutPanel: React.FC<MagicLayoutPanelProps> = ({
 
       {/* File manager modal */}
       {isFileManagerOpen && (
-        <FileManager
+        <FileManagerV2
           isOpen={isFileManagerOpen}
           onRequestClose={() => setIsFileManagerOpen(false)}
           onFileSelect={handleProjectFileSelect}

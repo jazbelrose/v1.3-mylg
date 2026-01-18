@@ -17,7 +17,7 @@ import { INSERT_PICTURE_FRAME_COMMAND, INSERT_PICTURE_FRAME_LAYOUT_COMMAND, INSE
 import { $createPictureFrameNode, PictureFrameNode } from "./nodes/PictureFrameNode";
 import { generatePictureFrameLayout } from "@/dashboard/project/features/slides/lib/pictureFrameLayoutGenerator";
 import { ProjectsContext } from "@/app/contexts/ProjectsContext";
-import { FileManager, type FileItem } from "@/dashboard/project/components/FileManager";
+import { FileManagerV2, type FileItem } from "@/dashboard/project/components/FileManager";
 import { S3_PUBLIC_BASE } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
 
@@ -326,14 +326,13 @@ export default function PictureFramePlugin(): React.ReactElement | null {
 
       {/* File manager modal for project file selection */}
       {isFileManagerOpen && (
-        <FileManager
+        <FileManagerV2
           isOpen={isFileManagerOpen}
           onRequestClose={() => {
             setIsFileManagerOpen(false);
             pendingPictureFrameKeyRef.current = null;
           }}
           onFileSelect={handleProjectFileSelect}
-          showTrigger={false}
           folder="uploads"
           selectionMode="single"
           fileTypeFilter="images"

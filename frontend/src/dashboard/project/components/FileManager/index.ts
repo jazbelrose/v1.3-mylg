@@ -1,10 +1,7 @@
 // FileManager Components Barrel Export
-export { default as FileManager } from './FileManager';
+// V2 is now the only version - exported as both FileManagerV2 and FileManager for compatibility
 export { default as FileManagerV2 } from './FileManagerV2';
-export { default as FileManagerContent } from './FileManagerContent';
-export { default as FileManagerFooter } from './FileManagerFooter';
-export { default as FileManagerToolbar } from './FileManagerToolbar';
-export { default as FilePreviewModal } from './FilePreviewModal';
+export { default as FileManager } from './FileManagerV2';  // Alias for backward compatibility
 
 // V2 Components
 export { FolderTree } from './FolderTree';

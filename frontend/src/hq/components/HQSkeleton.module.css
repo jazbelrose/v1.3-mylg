@@ -1,0 +1,574 @@
+/* =============================================================================
+   HQ SKELETON LOADING STYLES
+   Premium SV-style shimmer with subtle animated gradients
+   ============================================================================= */
+
+/* -----------------------------------------------------------------------------
+   Base shimmer animation
+   Low contrast, premium feel like Linear/Notion
+   ----------------------------------------------------------------------------- */
+@keyframes hqShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Fallback for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .skeletonText,
+  .skeletonPill,
+  .skeletonBar,
+  .skeletonChart,
+  .skeletonRow,
+  .skeletonKpi {
+    animation: none !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   Base skeleton element
+   ----------------------------------------------------------------------------- */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.08) 20%,
+    rgba(255, 255, 255, 0.12) 40%,
+    rgba(255, 255, 255, 0.08) 60%,
+    rgba(255, 255, 255, 0.04) 80%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: hqShimmer 1.5s linear infinite;
+  border-radius: 6px;
+}
+
+/* -----------------------------------------------------------------------------
+   Text skeleton (lines of text)
+   ----------------------------------------------------------------------------- */
+.skeletonText {
+  height: 14px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.09) 25%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(255, 255, 255, 0.09) 75%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: hqShimmer 1.5s linear infinite;
+  border-radius: 4px;
+}
+
+.skeletonTextXs {
+  height: 10px;
+}
+
+.skeletonTextSm {
+  height: 11px;
+}
+
+.skeletonTextMd {
+  height: 14px;
+}
+
+.skeletonTextLg {
+  height: 20px;
+}
+
+.skeletonTextXl {
+  height: 26px;
+}
+
+.skeletonTextWide {
+  width: 80%;
+}
+
+.skeletonTextMedium {
+  width: 50%;
+}
+
+.skeletonTextNarrow {
+  width: 30%;
+}
+
+.skeletonTextTiny {
+  width: 15%;
+}
+
+/* -----------------------------------------------------------------------------
+   Pill skeleton (toggle buttons, tags)
+   ----------------------------------------------------------------------------- */
+.skeletonPill {
+  height: 26px;
+  width: 42px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.08) 25%,
+    rgba(255, 255, 255, 0.11) 50%,
+    rgba(255, 255, 255, 0.08) 75%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: hqShimmer 1.5s linear infinite;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.skeletonPillSm {
+  height: 22px;
+  width: 36px;
+}
+
+.skeletonPillLg {
+  height: 30px;
+  width: 60px;
+}
+
+/* -----------------------------------------------------------------------------
+   Bar skeleton (chart bars, progress)
+   ----------------------------------------------------------------------------- */
+.skeletonBar {
+  height: 8px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.07) 25%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.07) 75%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: hqShimmer 1.5s linear infinite;
+  border-radius: 4px;
+}
+
+/* -----------------------------------------------------------------------------
+   Chart skeleton (full chart area placeholder)
+   ----------------------------------------------------------------------------- */
+.skeletonChart {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.02) 0%,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.04) 75%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  background-size: 200% 100%;
+  animation: hqShimmer 1.8s linear infinite;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+/* Faint grid lines inside chart skeleton */
+.skeletonChartGrid {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px 56px 32px 12px;
+  pointer-events: none;
+}
+
+.skeletonChartGridLine {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.04);
+  width: 100%;
+}
+
+/* Fake axis labels */
+.skeletonChartAxisY {
+  position: absolute;
+  top: 24px;
+  right: 12px;
+  bottom: 32px;
+  width: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.skeletonChartAxisX {
+  position: absolute;
+  bottom: 10px;
+  left: 12px;
+  right: 56px;
+  height: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.skeletonChartAxisLabel {
+  height: 10px;
+  width: 32px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  background-size: 200% 100%;
+  animation: hqShimmer 1.8s linear infinite;
+  border-radius: 3px;
+}
+
+.skeletonChartAxisLabelY {
+  width: 36px;
+  text-align: right;
+}
+
+/* Subtle wave/line path inside chart */
+.skeletonChartWave {
+  position: absolute;
+  bottom: 36px;
+  left: 12px;
+  right: 56px;
+  height: 60%;
+  background: linear-gradient(
+    180deg,
+    rgba(45, 212, 191, 0.06) 0%,
+    rgba(45, 212, 191, 0.02) 100%
+  );
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' preserveAspectRatio='none'%3E%3Cpath d='M0 30 Q 15 10, 30 20 T 60 18 T 85 25 T 100 15 L100 40 L0 40 Z' fill='white'/%3E%3C/svg%3E");
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' preserveAspectRatio='none'%3E%3Cpath d='M0 30 Q 15 10, 30 20 T 60 18 T 85 25 T 100 15 L100 40 L0 40 Z' fill='white'/%3E%3C/svg%3E");
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  opacity: 0.6;
+}
+
+/* -----------------------------------------------------------------------------
+   Row skeleton (list items, table rows)
+   ----------------------------------------------------------------------------- */
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  min-height: 28px;
+  box-shadow: inset 0 -1px rgba(255, 255, 255, 0.04);
+}
+
+.skeletonRow:last-child {
+  box-shadow: none;
+}
+
+/* -----------------------------------------------------------------------------
+   KPI skeleton (metric cards)
+   ----------------------------------------------------------------------------- */
+.skeletonKpi {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.08) 0%,
+    rgba(255, 255, 255, 0.02) 25%,
+    rgba(255, 255, 255, 0.04) 50%,
+    rgba(255, 255, 255, 0.02) 75%,
+    rgba(0, 0, 0, 0.08) 100%
+  );
+  background-size: 200% 100%;
+  animation: hqShimmer 1.6s linear infinite;
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.skeletonKpiLabel {
+  height: 11px;
+  width: 70%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.07) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: hqShimmer 1.5s linear infinite;
+  border-radius: 3px;
+}
+
+.skeletonKpiValue {
+  height: 24px;
+  width: 55%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.09) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: hqShimmer 1.5s linear infinite;
+  border-radius: 4px;
+}
+
+.skeletonKpiHint {
+  height: 10px;
+  width: 85%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  background-size: 200% 100%;
+  animation: hqShimmer 1.5s linear infinite;
+  border-radius: 3px;
+}
+
+/* -----------------------------------------------------------------------------
+   Container utilities for stable layouts
+   ----------------------------------------------------------------------------- */
+.skeletonContainer {
+  position: relative;
+}
+
+/* Crossfade transition wrapper */
+.skeletonFade {
+  transition: opacity 0.2s ease-out;
+}
+
+.skeletonFadeOut {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.skeletonFadeIn {
+  opacity: 1;
+}
+
+/* Ensure visibility transitions properly */
+.skeletonHidden {
+  visibility: hidden;
+  position: absolute;
+}
+
+/* Absolute overlay for skeleton on top of content placeholder */
+.skeletonOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* -----------------------------------------------------------------------------
+   HQ-specific skeleton layouts
+   ----------------------------------------------------------------------------- */
+
+/* Hero chart module skeleton */
+.heroChartSkeleton {
+  display: grid;
+  gap: 8px;
+}
+
+.heroChartHeaderSkeleton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 44px;
+  padding: 6px 8px 0;
+}
+
+.heroChartHeaderLeft {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.heroChartHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.heroChartTitleSkeleton {
+  height: 16px;
+  width: 48px;
+}
+
+.heroChartSubtitleSkeleton {
+  height: 11px;
+  width: 180px;
+  max-width: 40vw;
+}
+
+.heroChartPillGroup {
+  display: flex;
+  gap: 6px;
+}
+
+.heroChartDivider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.heroChartStageSkeleton {
+  padding: 0 8px 6px;
+}
+
+/* Chart stage inside skeleton (without external padding) */
+.skeletonChartStage {
+  /* No padding - matching the chart container itself */
+}
+
+.heroChartCanvasSkeleton {
+  /* Must match HeroCashChart.module.css .stage height exactly */
+  height: var(--hq-hero-chart-height, clamp(220px, 26vw, 340px));
+  min-height: var(--hq-hero-chart-height, 320px);
+}
+
+.heroChartFooterSkeleton {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 0 8px 6px;
+}
+
+.heroChartFooterItem {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* KPI row skeleton */
+.kpiRowSkeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+/* Mid row card skeletons */
+.midCardSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.midCardHeaderSkeleton {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 8px;
+}
+
+/* Account list skeleton */
+.accountRowSkeleton {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 30px;
+  padding: 6px 8px;
+}
+
+.accountRightSkeleton {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Recurring list skeleton */
+.recurringRowSkeleton {
+  display: grid;
+  grid-template-columns: 180px 1fr 92px;
+  column-gap: 12px;
+  align-items: center;
+  height: 28px;
+  padding: 0 8px;
+  box-shadow: inset 0 -1px rgba(255, 255, 255, 0.04);
+}
+
+.recurringRowSkeleton:last-child {
+  box-shadow: none;
+}
+
+/* Top categories skeleton */
+.topCategoriesRowSkeleton {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) auto;
+  gap: 12px;
+  align-items: center;
+  height: 28px;
+  padding: 0 8px;
+  box-shadow: inset 0 -1px rgba(255, 255, 255, 0.04);
+}
+
+.topCategoriesRowSkeleton:last-child {
+  box-shadow: none;
+}
+
+/* Cash in/out bar chart skeleton */
+.cashFlowRowSkeleton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.cashFlowBarSkeleton {
+  flex: 1;
+  height: 12px;
+}
+
+.cashFlowLabelSkeleton {
+  width: 32px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+/* Alerts skeleton */
+.alertRowSkeleton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  padding: 6px 0;
+}
+
+/* Transaction row skeleton */
+.txnRowSkeleton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 8px;
+  box-shadow: inset 0 -1px rgba(255, 255, 255, 0.04);
+}
+
+.txnRowSkeleton:last-child {
+  box-shadow: none;
+}
+
+.txnMainSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}

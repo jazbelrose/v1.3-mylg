@@ -6,7 +6,7 @@ import {
   type PictureFrameLayoutResult,
   type LayoutMode,
 } from "@/dashboard/project/features/slides/lib/pictureFrameLayoutGenerator";
-import { FileManager, type FileItem } from "@/dashboard/project/components/FileManager";
+import { FileManagerV2, type FileItem } from "@/dashboard/project/components/FileManager";
 import "./LayoutGeneratorPanel.css";
 
 export interface LayoutGeneratorPanelProps {
@@ -316,7 +316,7 @@ export const LayoutGeneratorPanel: React.FC<LayoutGeneratorPanelProps> = ({
 
       {/* File manager modal for project files */}
       {isFileManagerOpen && (
-        <FileManager
+        <FileManagerV2
           isOpen={isFileManagerOpen}
           onRequestClose={() => setIsFileManagerOpen(false)}
           onFileSelect={handleProjectFileSelect}
