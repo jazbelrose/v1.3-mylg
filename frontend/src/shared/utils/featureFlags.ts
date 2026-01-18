@@ -92,29 +92,6 @@ export function getAllFeatureFlags(): FeatureFlags {
   }, {} as FeatureFlags);
 }
 
-// Convenience hooks/helpers for specific flags
-
-/**
- * Check if FileManager V2 is enabled
- */
-export function isFilesV2Enabled(): boolean {
-  return isFeatureEnabled('files.v2.enabled');
-}
-
-/**
- * Enable FileManager V2
- */
-export function enableFilesV2(): void {
-  enableFeature('files.v2.enabled');
-}
-
-/**
- * Disable FileManager V2
- */
-export function disableFilesV2(): void {
-  disableFeature('files.v2.enabled');
-}
-
 // Expose to window for easy dev toggle in console
 if (typeof window !== 'undefined') {
   (window as typeof window & { featureFlags?: object }).featureFlags = {
@@ -123,9 +100,5 @@ if (typeof window !== 'undefined') {
     disable: disableFeature,
     reset: resetFeature,
     getAll: getAllFeatureFlags,
-    // Convenience
-    enableFilesV2,
-    disableFilesV2,
-    isFilesV2Enabled,
   };
 }

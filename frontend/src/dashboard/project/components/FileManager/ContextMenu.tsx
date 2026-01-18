@@ -5,9 +5,11 @@
  * - Positioned at cursor
  * - Keyboard navigation
  * - Closes on click outside
+ * - Uses createPortal for proper z-index above modals
  */
 
 import React, { useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Eye,
   Download,
@@ -199,7 +201,7 @@ export function ContextMenu({
   const adjustedX = Math.min(x, window.innerWidth - 200);
   const adjustedY = Math.min(y, window.innerHeight - menuItems.length * 36 - 20);
 
-  return (
+  const menu = (
     <div
       ref={menuRef}
       className={styles.contextMenu}
@@ -226,6 +228,9 @@ export function ContextMenu({
       ))}
     </div>
   );
+
+  // Portal to body to ensure it appears above modals
+  return createPortal(menu, document.body);
 }
 
 export default ContextMenu;

@@ -48,6 +48,9 @@ export const useFileTransfers = ({
   projectMessages,
   canDelete,
 }: UseFileTransfersParams) => {
+  // Track drag enter/leave count to prevent flickering
+  // (child elements trigger enter/leave events too)
+  const dragCounterRef = useRef(0);
   const uploadQueue = useMemo(() => pLimit(3), []);
   const editQueue = useMemo(() => pLimit(1), []);
   const pendingUpdateRef = useRef<Array<{ fileName: string; url: string }> | null>(null);
@@ -278,7 +281,21 @@ export const useFileTransfers = ({
   const handleDragOver = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault();
+      event.stopPropagation();
+      // Set dragging state on dragover to keep it active
       setIsDragging(true);
+    },
+    [setIsDragging]
+  );
+
+  const handleDragEnter = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      dragCounterRef.current++;
+      if (dragCounterRef.current === 1) {
+        setIsDragging(true);
+      }
     },
     [setIsDragging]
   );
@@ -286,7 +303,11 @@ export const useFileTransfers = ({
   const handleDragLeave = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault();
-      setIsDragging(false);
+      event.stopPropagation();
+      dragCounterRef.current--;
+      if (dragCounterRef.current === 0) {
+        setIsDragging(false);
+      }
     },
     [setIsDragging]
   );
@@ -294,6 +315,9 @@ export const useFileTransfers = ({
   const handleDrop = useCallback(
     async (event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault();
+      event.stopPropagation();
+      // Reset drag counter and state
+      dragCounterRef.current = 0;
       setIsDragging(false);
       const files = Array.from(event.dataTransfer.files || []);
       await uploadFiles(files);
@@ -418,6 +442,7 @@ export const useFileTransfers = ({
     fetchS3Files,
     uploadFiles,
     handleFileSelect,
+    handleDragEnter,
     handleDragOver,
     handleDragLeave,
     handleDrop,

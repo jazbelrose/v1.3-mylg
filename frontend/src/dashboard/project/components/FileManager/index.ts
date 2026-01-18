@@ -10,6 +10,10 @@ export { Breadcrumb } from './Breadcrumb';
 export type { BreadcrumbProps, BreadcrumbSegment } from './Breadcrumb';
 export { ContextMenu } from './ContextMenu';
 export type { ContextMenuProps, ContextMenuAction, ContextMenuItem } from './ContextMenu';
+export { ActionSheet } from './ActionSheet';
+export type { ActionSheetProps } from './ActionSheet';
+export { QuickLookModal } from './QuickLookModal';
+export type { QuickLookModalProps } from './QuickLookModal';
 export { BulkActionBar } from './BulkActionBar';
 export type { BulkActionBarProps } from './BulkActionBar';
 export { FileInspector } from './FileInspector';
@@ -20,6 +24,10 @@ export { FileGridView } from './FileGridView';
 export type { FileGridViewProps, GridItem } from './FileGridView';
 export { FolderPickerModal } from './FolderPickerModal';
 export type { FolderPickerModalProps, FolderPickerFolder } from './FolderPickerModal';
+
+// Hooks
+export { useLongPress } from './hooks/useLongPress';
+export type { UseLongPressOptions, LongPressHandlers } from './hooks/useLongPress';
 
 // Types and Utils
 export * from './FileManagerTypes';

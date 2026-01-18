@@ -57,17 +57,19 @@ export function BulkActionBar({
   return (
     <div className={styles.bulkActionBar}>
       <div className={styles.bulkActionLeft}>
+        <span className={styles.bulkActionCount}>
+          {selectedCount} selected
+        </span>
         <button
           type="button"
           className={styles.bulkActionClear}
           onClick={onClearSelection}
-          aria-label="Clear selection"
+          aria-label="Deselect all"
+          title="Deselect all (Esc)"
         >
-          <X size={14} />
+          <X size={12} />
+          <span>Deselect</span>
         </button>
-        <span className={styles.bulkActionCount}>
-          {selectedCount} selected
-        </span>
       </div>
 
       <div className={styles.bulkActionRight}>

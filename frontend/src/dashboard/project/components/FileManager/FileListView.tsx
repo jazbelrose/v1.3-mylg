@@ -7,6 +7,8 @@
  * - Sortable columns
  * - Selection support
  * - Inline rename (F2 or context menu)
+ * - Double-click to preview
+ * - Visible "..." actions button for touch accessibility
  */
 
 import React, { useCallback, useState, useRef, useEffect } from 'react';
@@ -51,12 +53,16 @@ export interface FileListViewProps {
   onSelectionChange: (url: string, index: number, event?: React.MouseEvent) => void;
   /** File click callback (open/preview) */
   onFileClick: (file: FileListItem, index: number, event?: React.MouseEvent) => void;
+  /** Double-click callback for preview */
+  onFileDoubleClick?: (file: FileListItem, index: number) => void;
   /** Folder click callback */
   onFolderClick?: (folderKey: string) => void;
   /** Download single file */
   onDownload: (file: FileListItem) => void;
   /** Context menu callback */
   onContextMenu?: (e: React.MouseEvent, file: FileListItem) => void;
+  /** Action sheet callback (for touch) */
+  onActionSheet?: (file: FileListItem) => void;
   /** Delete single file */
   onDelete?: (file: FileListItem) => void;
   /** Rename file callback */
@@ -122,9 +128,11 @@ export function FileListView({
   selectedItems,
   onSelectionChange,
   onFileClick,
+  onFileDoubleClick,
   onFolderClick,
   onDownload,
   onContextMenu,
+  onActionSheet,
   onDelete,
   onRename,
   sortField = 'name',
@@ -175,6 +183,11 @@ export function FileListView({
 
   const handleRowClick = useCallback(
     (file: FileListItem, index: number, e: React.MouseEvent) => {
+      // Prevent browser text selection on shift+click
+      if (e.shiftKey) {
+        e.preventDefault();
+      }
+      
       if (file.isFolder && onFolderClick) {
         onFolderClick(file.id);
       } else if (e.shiftKey || e.ctrlKey || e.metaKey) {
@@ -190,11 +203,14 @@ export function FileListView({
     (file: FileListItem, index: number, e: React.MouseEvent) => {
       if (file.isFolder && onFolderClick) {
         onFolderClick(file.id);
+      } else if (onFileDoubleClick) {
+        // Double-click opens preview
+        onFileDoubleClick(file, index);
       } else {
         onFileClick(file, index, e);
       }
     },
-    [onFileClick, onFolderClick]
+    [onFileClick, onFileDoubleClick, onFolderClick]
   );
 
   const handleContextMenu = useCallback(
@@ -203,6 +219,20 @@ export function FileListView({
       onContextMenu?.(e, file);
     },
     [onContextMenu]
+  );
+
+  const handleActionsClick = useCallback(
+    (e: React.MouseEvent, file: FileListItem) => {
+      e.stopPropagation();
+      // On touch devices, trigger action sheet
+      // On desktop, trigger context menu at button position
+      if ('ontouchstart' in window && onActionSheet) {
+        onActionSheet(file);
+      } else if (onContextMenu) {
+        onContextMenu(e, file);
+      }
+    },
+    [onContextMenu, onActionSheet]
   );
 
   const renderSortIcon = (field: SortField) => {
@@ -355,10 +385,7 @@ export function FileListView({
                     <button
                       type="button"
                       className={styles.listActionBtn}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onContextMenu?.(e, item);
-                      }}
+                      onClick={(e) => handleActionsClick(e, item)}
                       aria-label="More actions"
                     >
                       <MoreHorizontal size={14} />

@@ -6,10 +6,12 @@
  * - Folder tiles are smaller than current oversized blocks
  * - File tiles show thumbnail or type tile
  * - Selection checkboxes
+ * - Visible "..." actions button for touch accessibility
+ * - Double-click/double-tap to preview
  */
 
-import React, { useCallback } from 'react';
-import { Check, Folder } from 'lucide-react';
+import React, { useCallback, useRef } from 'react';
+import { Check, Folder, MoreHorizontal } from 'lucide-react';
 import { FileThumb } from '@/shared/ui/FileThumb';
 import styles from './file-manager-v2.module.css';
 
@@ -31,10 +33,14 @@ export interface FileGridViewProps {
   onSelectionChange: (url: string, index: number, event?: React.MouseEvent) => void;
   /** Item click callback (open/preview) */
   onItemClick: (item: GridItem, index: number, event?: React.MouseEvent) => void;
+  /** Double-click callback for preview */
+  onItemDoubleClick?: (item: GridItem, index: number) => void;
   /** Folder click callback */
   onFolderClick?: (folderKey: string) => void;
   /** Context menu callback */
   onContextMenu?: (e: React.MouseEvent, item: GridItem) => void;
+  /** Action sheet callback (for touch) */
+  onActionSheet?: (item: GridItem) => void;
   /** Selection mode */
   selectionMode?: 'none' | 'single' | 'multi';
   /** Empty state message */
@@ -46,13 +52,35 @@ export function FileGridView({
   selectedItems,
   onSelectionChange,
   onItemClick,
+  onItemDoubleClick,
   onFolderClick,
   onContextMenu,
+  onActionSheet,
   selectionMode = 'none',
   emptyMessage = 'No files in this folder',
 }: FileGridViewProps) {
+  // Track last click for double-click detection
+  const lastClickRef = useRef<{ url: string; time: number } | null>(null);
+
   const handleClick = useCallback(
     (item: GridItem, index: number, e: React.MouseEvent) => {
+      // Prevent browser text selection on shift+click
+      if (e.shiftKey) {
+        e.preventDefault();
+      }
+      
+      const now = Date.now();
+      const isDoubleClick = lastClickRef.current?.url === item.url && now - lastClickRef.current.time < 300;
+      
+      if (isDoubleClick && onItemDoubleClick && !item.isFolder) {
+        // Double-click: open preview
+        onItemDoubleClick(item, index);
+        lastClickRef.current = null;
+        return;
+      }
+      
+      lastClickRef.current = { url: item.url, time: now };
+      
       if (item.isFolder && onFolderClick) {
         onFolderClick(item.id);
       } else if (e.shiftKey || e.ctrlKey || e.metaKey || selectionMode === 'multi') {
@@ -61,7 +89,7 @@ export function FileGridView({
         onItemClick(item, index, e);
       }
     },
-    [onItemClick, onFolderClick, onSelectionChange, selectionMode]
+    [onItemClick, onItemDoubleClick, onFolderClick, onSelectionChange, selectionMode]
   );
 
   const handleContextMenu = useCallback(
@@ -70,6 +98,20 @@ export function FileGridView({
       onContextMenu?.(e, item);
     },
     [onContextMenu]
+  );
+
+  const handleActionsClick = useCallback(
+    (e: React.MouseEvent, item: GridItem) => {
+      e.stopPropagation();
+      // On desktop, trigger context menu at button position
+      // On touch, trigger action sheet
+      if ('ontouchstart' in window && onActionSheet) {
+        onActionSheet(item);
+      } else if (onContextMenu) {
+        onContextMenu(e, item);
+      }
+    },
+    [onContextMenu, onActionSheet]
   );
 
   if (items.length === 0) {
@@ -105,6 +147,16 @@ export function FileGridView({
             >
               {isSelected && <Check size={12} />}
             </div>
+
+            {/* Actions button (visible "...") */}
+            <button
+              type="button"
+              className={styles.gridItemActions}
+              onClick={(e) => handleActionsClick(e, item)}
+              aria-label="More actions"
+            >
+              <MoreHorizontal size={14} />
+            </button>
 
             {/* Thumbnail area */}
             <div className={styles.gridItemThumb}>

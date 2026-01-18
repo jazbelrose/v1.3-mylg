@@ -7,9 +7,12 @@
  * - Right inspector panel for file details
  * - Breadcrumb navigation
  * - Bulk actions with ZIP download
- * - Context menus
+ * - Context menus + touch action sheet
  * - Drag & drop upload
- * - Keyboard shortcuts (Shift, Ctrl/Cmd select, ESC clear)
+ * - Keyboard shortcuts (Shift, Ctrl/Cmd select, ESC clear, Space for Quick Look)
+ * - Quick Look preview modal with navigation and zoom
+ * - Long-press support for touch devices
+ * - Responsive: collapsible sidebar, bottom sheet inspector on mobile
  */
 
 import React, {
@@ -36,12 +39,16 @@ import {
   PanelRightClose,
   PanelRight,
   Check,
+  Menu,
+  MoreHorizontal,
 } from 'lucide-react';
 import { useData } from '@/app/contexts/useData';
 import { useSocket } from '@/app/contexts/useSocket';
 import { FolderTree, FolderTreeItem } from './FolderTree';
 import { Breadcrumb, BreadcrumbSegment } from './Breadcrumb';
 import { ContextMenu, ContextMenuAction } from './ContextMenu';
+import { ActionSheet } from './ActionSheet';
+import { QuickLookModal } from './QuickLookModal';
 import { BulkActionBar } from './BulkActionBar';
 import { FileInspector, FileDetails } from './FileInspector';
 import { FileListView, FileListItem, SortField, SortDirection } from './FileListView';
@@ -206,6 +213,23 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
     // Rename state (for triggering from context menu)
     const [renameTargetId, setRenameTargetId] = useState<string | null>(null);
 
+    // Quick Look preview modal state
+    const [quickLookOpen, setQuickLookOpen] = useState(false);
+    const [quickLookIndex, setQuickLookIndex] = useState(0);
+    
+    // Action sheet state (for touch devices)
+    const [actionSheetOpen, setActionSheetOpen] = useState(false);
+    const [actionSheetFile, setActionSheetFile] = useState<FileItem | null>(null);
+    
+    // Mobile drawer state
+    const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+    
+    // Track selected file index for keyboard navigation
+    const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+
+    // Detect touch device
+    const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
     // Convert sortOption to field and direction
     const [sortField, sortDirection] = useMemo((): [SortField, SortDirection] => {
       const parts = sortOption.split('-');
@@ -220,12 +244,32 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       return [field as SortField, direction];
     }, [sortOption]);
 
+    // Open Quick Look for a file
+    const openQuickLook = useCallback((index: number) => {
+      if (index >= 0 && index < displayedFiles.length) {
+        setQuickLookIndex(index);
+        setQuickLookOpen(true);
+      }
+    }, [displayedFiles.length]);
+
     // Keyboard shortcuts
     useEffect(() => {
+      if (!isFilesModalOpen) return;
+
       const handleKeyDown = (e: KeyboardEvent) => {
+        // Don't handle if Quick Look is open (it has its own handlers)
+        if (quickLookOpen) return;
+        
+        // Don't handle if typing in an input
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
         // ESC to clear selection or close
         if (e.key === 'Escape') {
-          if (contextMenu) {
+          if (actionSheetOpen) {
+            setActionSheetOpen(false);
+            setActionSheetFile(null);
+          } else if (contextMenu) {
             setContextMenu(null);
           } else if (selectedItems.size > 0) {
             setSelectedItems(new Set());
@@ -235,16 +279,58 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
           return;
         }
 
-        // Enter to confirm selection
-        if (e.key === 'Enter' && selectionMode === 'multi' && selectedItems.size > 0) {
-          onConfirmSelection();
+        // Spacebar to open Quick Look for selected/focused file
+        if (e.key === ' ' || e.key === 'Space') {
+          e.preventDefault();
+          
+          // If files are selected, preview the first selected
+          if (selectedItems.size > 0) {
+            const firstSelectedUrl = Array.from(selectedItems)[0];
+            const index = displayedFiles.findIndex(f => f.url === firstSelectedUrl);
+            if (index >= 0) {
+              openQuickLook(index);
+            }
+          } else if (focusedIndex >= 0) {
+            // Preview focused file
+            openQuickLook(focusedIndex);
+          }
+          return;
+        }
+
+        // Enter to confirm selection or open file
+        if (e.key === 'Enter') {
+          if (selectionMode === 'multi' && selectedItems.size > 0) {
+            onConfirmSelection();
+          } else if (focusedIndex >= 0 && displayedFiles[focusedIndex]) {
+            openQuickLook(focusedIndex);
+          }
+          return;
+        }
+
+        // Arrow keys for navigation
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setFocusedIndex(prev => Math.min(prev + 1, displayedFiles.length - 1));
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setFocusedIndex(prev => Math.max(prev - 1, 0));
           return;
         }
 
         // Ctrl/Cmd + A to select all
-        if ((e.ctrlKey || e.metaKey) && e.key === 'a' && isFilesModalOpen) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
           e.preventDefault();
           handleSelectAll();
+          return;
+        }
+
+        // Ctrl/Cmd + D or Ctrl/Cmd + Shift + A to deselect all
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || (e.shiftKey && e.key === 'A'))) {
+          e.preventDefault();
+          setSelectedItems(new Set());
+          return;
         }
       };
 
@@ -252,13 +338,19 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       return () => document.removeEventListener('keydown', handleKeyDown);
     }, [
       selectedItems.size,
+      selectedItems,
       onConfirmSelection,
       closeFilesModal,
       selectionMode,
       contextMenu,
+      actionSheetOpen,
+      quickLookOpen,
       handleSelectAll,
       isFilesModalOpen,
       setSelectedItems,
+      displayedFiles,
+      focusedIndex,
+      openQuickLook,
     ]);
 
     const { removeReferences } = useFileMessenger({
@@ -289,6 +381,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
     const {
       loadFiles,
       handleFileSelect,
+      handleDragEnter,
       handleDragOver,
       handleDragLeave,
       handleDrop,
@@ -521,17 +614,33 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       []
     );
 
+    // Open action sheet for touch devices
+    const handleActionSheet = useCallback((file: FileItem) => {
+      setActionSheetFile(file);
+      setActionSheetOpen(true);
+    }, []);
+
+    // Handle action from context menu or action sheet
     const handleContextMenuAction = useCallback(
       (action: ContextMenuAction) => {
-        const file = contextMenu?.file;
+        const file = contextMenu?.file || actionSheetFile;
         setContextMenu(null);
+        setActionSheetOpen(false);
+        setActionSheetFile(null);
 
         switch (action) {
           case 'open':
-          case 'preview':
             if (file) {
               const index = displayedFiles.findIndex((f) => f.url === file.url);
               handleFileClick(file, index);
+            }
+            break;
+          case 'preview':
+            if (file) {
+              const index = displayedFiles.findIndex((f) => f.url === file.url);
+              if (index >= 0) {
+                openQuickLook(index);
+              }
             }
             break;
           case 'download':
@@ -582,14 +691,44 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       },
       [
         contextMenu,
+        actionSheetFile,
         displayedFiles,
         handleFileClick,
         handleDownloadSingle,
         handleDeleteSingle,
         handleCreateFolder,
         fileInputRef,
+        openQuickLook,
       ]
     );
+
+    // Handle double-click/double-tap to open Quick Look
+    const handleFileDoubleClick = useCallback(
+      (file: FileItem, index: number) => {
+        openQuickLook(index);
+      },
+      [openQuickLook]
+    );
+
+    // Quick Look handlers
+    const handleQuickLookNavigate = useCallback((index: number) => {
+      setQuickLookIndex(index);
+    }, []);
+
+    const handleQuickLookDownload = useCallback((file: FileItem) => {
+      handleDownloadSingle(file);
+    }, [handleDownloadSingle]);
+
+    const handleQuickLookCopyLink = useCallback((file: FileItem) => {
+      if (file.url) {
+        navigator.clipboard.writeText(file.url);
+        notify('success', 'Link copied to clipboard');
+      }
+    }, []);
+
+    const handleQuickLookDelete = useCallback((file: FileItem) => {
+      handleDeleteSingle(file.url);
+    }, [handleDeleteSingle]);
 
     // Handle file click for inspector
     const handleFileClickWithInspector = useCallback(
@@ -599,6 +738,9 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
           handleSelectionChange(file.url, index, event);
           return;
         }
+
+        // Update focused index for keyboard nav
+        setFocusedIndex(index);
 
         // Otherwise, show in inspector and preview
         setInspectorFile({
@@ -654,6 +796,9 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       [sortField, sortDirection, setSortOption]
     );
 
+    // Track last click for double-click in grid view
+    const lastGridClickRef = useRef<{ url: string; time: number } | null>(null);
+
     // Grid view
     const renderGridView = () => (
       <div className={styles.gridContainer}>
@@ -664,6 +809,23 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
               key={file.url}
               className={`${styles.gridItem} ${isItemSelected ? styles.gridItemSelected : ''}`}
               onClick={(e) => {
+                // Prevent browser text selection on shift+click
+                if (e.shiftKey) {
+                  e.preventDefault();
+                }
+                
+                const now = Date.now();
+                const isDoubleClick = lastGridClickRef.current?.url === file.url && now - lastGridClickRef.current.time < 300;
+                
+                if (isDoubleClick) {
+                  // Double-click: open Quick Look
+                  openQuickLook(index);
+                  lastGridClickRef.current = null;
+                  return;
+                }
+                
+                lastGridClickRef.current = { url: file.url, time: now };
+                
                 if (e.shiftKey || e.ctrlKey || e.metaKey || selectionMode === 'multi') {
                   handleSelectionChange(file.url, index, e);
                 } else {
@@ -684,6 +846,22 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
               >
                 {isItemSelected && <Check size={12} />}
               </div>
+              {/* Actions button */}
+              <button
+                type="button"
+                className={styles.gridItemActions}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isTouchDevice) {
+                    handleActionSheet(file);
+                  } else {
+                    handleContextMenu(e, file);
+                  }
+                }}
+                aria-label="More actions"
+              >
+                <MoreHorizontal size={14} />
+              </button>
               <div className={styles.gridItemThumb}>
                 <FileThumb
                   url={file.url}
@@ -858,6 +1036,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                 <div
                   ref={scrollerRef}
                   className={`${styles.contentArea} ${isDragging ? styles.contentAreaDragging : ''}`}
+                  onDragEnter={handleDragEnter}
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
@@ -924,6 +1103,12 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                           handleFileClickWithInspector(originalFile, index, e);
                         }
                       }}
+                      onFileDoubleClick={(file, index) => {
+                        const originalFile = displayedFiles[index];
+                        if (originalFile) {
+                          handleFileDoubleClick(originalFile, index);
+                        }
+                      }}
                       onDownload={(file) => {
                         const originalFile = displayedFiles.find((f) => f.url === file.url);
                         if (originalFile) handleDownloadSingle(originalFile);
@@ -931,6 +1116,10 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                       onContextMenu={(e, file) => {
                         const originalFile = displayedFiles.find((f) => f.url === file.url);
                         handleContextMenu(e, originalFile);
+                      }}
+                      onActionSheet={(file) => {
+                        const originalFile = displayedFiles.find((f) => f.url === file.url);
+                        if (originalFile) handleActionSheet(originalFile);
                       }}
                       sortField={sortField}
                       sortDirection={sortDirection}
@@ -1021,21 +1210,49 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
               )}
             </div>
           </div>
-        </Modal>
 
-        {/* Context Menu */}
-        {contextMenu && (
-          <ContextMenu
-            x={contextMenu.x}
-            y={contextMenu.y}
-            isOpen={true}
-            onClose={() => setContextMenu(null)}
+          {/* Context Menu (desktop right-click) - inside Modal to appear above it */}
+          {contextMenu && (
+            <ContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              isOpen={true}
+              onClose={() => setContextMenu(null)}
+              onAction={handleContextMenuAction}
+              contextType={contextMenu.type}
+              canDelete={canDelete}
+              canUpload={canUpload}
+            />
+          )}
+
+          {/* Action Sheet (mobile/tablet long-press or "..." button) */}
+          <ActionSheet
+            isOpen={actionSheetOpen}
+            onClose={() => {
+              setActionSheetOpen(false);
+              setActionSheetFile(null);
+            }}
             onAction={handleContextMenuAction}
-            contextType={contextMenu.type}
+            contextType={actionSheetFile ? (actionSheetFile.kind === 'folder' ? 'folder' : 'file') : 'file'}
+            fileName={actionSheetFile?.fileName}
             canDelete={canDelete}
             canUpload={canUpload}
           />
-        )}
+
+          {/* Quick Look Preview Modal */}
+          <QuickLookModal
+            isOpen={quickLookOpen}
+            onRequestClose={() => setQuickLookOpen(false)}
+            files={displayedFiles}
+            currentIndex={quickLookIndex}
+            onNavigate={handleQuickLookNavigate}
+            onDownload={handleQuickLookDownload}
+            onCopyLink={handleQuickLookCopyLink}
+            onDelete={canDelete ? handleQuickLookDelete : undefined}
+            projectId={activeProject?.projectId as string | undefined}
+            canEdit={canDelete}
+          />
+        </Modal>
 
         {/* Delete Confirmation Modal */}
         <ConfirmModal
