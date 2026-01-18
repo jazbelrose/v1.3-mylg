@@ -6,9 +6,10 @@
  * - Auto-detects if image should be rendered via <img> or type tile
  * - Handles onError fallback gracefully
  * - Supports thumbnails for PDFs/videos if provided
+ * - Memoized for performance with virtualized lists
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 import { FileIconByType, getFileTypeInfo } from './FileIconByType';
 import styles from './file-thumb.module.css';
 
@@ -127,6 +128,7 @@ export function FileThumb({
             onError={handleImgError}
             onLoad={handleImgLoad}
             loading="lazy"
+            decoding="async"
           />
         </div>
       );
@@ -143,6 +145,7 @@ export function FileThumb({
             onError={handleImgError}
             onLoad={handleImgLoad}
             loading="lazy"
+            decoding="async"
           />
           {/* Extension badge overlay for non-images */}
           <span
@@ -183,4 +186,22 @@ export function FileThumb({
   );
 }
 
+// Custom comparison for memo - only re-render when visual props change
+function arePropsEqual(prev: FileThumbProps, next: FileThumbProps): boolean {
+  return (
+    prev.url === next.url &&
+    prev.thumbnailUrl === next.thumbnailUrl &&
+    prev.fileName === next.fileName &&
+    prev.mimeType === next.mimeType &&
+    prev.extension === next.extension &&
+    prev.size === next.size &&
+    prev.className === next.className &&
+    prev.showFileName === next.showFileName
+  );
+}
+
+// Memoized version for use in virtualized lists
+const MemoizedFileThumb = memo(FileThumb, arePropsEqual);
+
+export { MemoizedFileThumb };
 export default FileThumb;

@@ -87,7 +87,7 @@ export function getFileTypeInfo(mimeType?: string, extension?: string): FileType
   }
 
   // 3D Models
-  if (['c4d', 'obj', 'fbx', '3ds', 'blend', 'stl'].includes(ext)) {
+  if (['c4d', 'obj', 'fbx', '3ds', 'blend', 'stl', 'gltf', 'glb', 'usdz'].includes(ext)) {
     return {
       icon: <FaCube size={24} />,
       color: '#7c3aed',
@@ -103,6 +103,16 @@ export function getFileTypeInfo(mimeType?: string, extension?: string): FileType
       color: '#ff6b00',
       label: ext.toUpperCase(),
       gradient: 'linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)',
+    };
+  }
+
+  // EPS (Encapsulated PostScript)
+  if (ext === 'eps' || mime.includes('postscript')) {
+    return {
+      icon: <FileImage size={24} />,
+      color: '#ec4899',
+      label: 'EPS',
+      gradient: 'linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)',
     };
   }
 

@@ -20,6 +20,7 @@ import React, {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -53,6 +54,13 @@ import { BulkActionBar } from './BulkActionBar';
 import { FileInspector, FileDetails } from './FileInspector';
 import { FileListView, FileListItem, SortField, SortDirection } from './FileListView';
 import { FileGridView } from './FileGridView';
+import { VirtualizedFileGrid, type VirtualizedFileGridProps } from './VirtualizedFileGrid';
+import { OptimizedFileGrid } from './OptimizedFileGrid';
+import { type GridTileItem } from './GridTile';
+import { type OptimizedGridTileItem } from './OptimizedGridTile';
+import { useSelectionStore } from './hooks/useSelectionStore';
+import { PerfHUD } from './components/PerfHUD';
+import { useFilesPerf } from './hooks/useFilesPerf';
 import { FolderPickerModal, FolderPickerFolder } from './FolderPickerModal';
 import { FileThumb } from '@/shared/ui/FileThumb';
 import { useFileManagerState } from '../Shared/hooks/useFileManagerState';
@@ -206,6 +214,32 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
     } | null>(null);
     const [isZipping, setIsZipping] = useState(false);
     
+    // High-performance selection store for grid view
+    // Uses subscription pattern so only affected tiles re-render
+    const selectionStore = useSelectionStore();
+    
+    // Dev-only perf instrumentation
+    const perf = useFilesPerf();
+    const [gridRenderCount, setGridRenderCount] = useState(0);
+    const [tileRenderCount, setTileRenderCount] = useState(0);
+    
+    // Track grid renders
+    const trackGridRender = useCallback(() => {
+      setGridRenderCount(c => c + 1);
+      perf.countRender('Grid');
+    }, [perf]);
+    
+    // Track tile renders (called by tiles)
+    const trackTileRender = useCallback(() => {
+      setTileRenderCount(c => c + 1);
+      perf.countRender('Tile');
+    }, [perf]);
+    
+    // Sync selection store with state when selectedItems changes (for bulk action bar, etc.)
+    useEffect(() => {
+      selectionStore.set(selectedItems);
+    }, [selectedItems, selectionStore]);
+    
     // Move modal state
     const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
     const [moveTargetFiles, setMoveTargetFiles] = useState<FileItem[]>([]);
@@ -226,6 +260,11 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
     
     // Track selected file index for keyboard navigation
     const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+    
+    // Container size for virtualized grid
+    const contentAreaRef = useRef<HTMLDivElement>(null);
+    const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+    const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
     // Detect touch device
     const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -244,6 +283,19 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       return [field as SortField, direction];
     }, [sortOption]);
 
+    // Convert displayedFiles to GridTileItem format for virtualized grid
+    // Memoized with stable reference - only recreates when displayedFiles changes
+    const gridItems = useMemo<OptimizedGridTileItem[]>(() => {
+      return displayedFiles.map((file) => ({
+        id: file.url,
+        fileName: file.fileName,
+        url: file.url,
+        thumbnailUrl: undefined, // FileThumb will handle thumbnails
+        mimeType: file.kind,
+        isFolder: false,
+      }));
+    }, [displayedFiles]);
+
     // Open Quick Look for a file
     const openQuickLook = useCallback((index: number) => {
       if (index >= 0 && index < displayedFiles.length) {
@@ -251,6 +303,67 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
         setQuickLookOpen(true);
       }
     }, [displayedFiles.length]);
+
+    // RAF-throttled resize handling to prevent layout thrash
+    const rafRef = useRef<number | null>(null);
+    const pendingSizeRef = useRef<{ width: number; height: number } | null>(null);
+
+    // Measure container size for virtualized grid
+    useLayoutEffect(() => {
+      // Create ResizeObserver once with RAF throttling
+      if (!resizeObserverRef.current) {
+        resizeObserverRef.current = new ResizeObserver((entries) => {
+          const entry = entries[0];
+          if (entry) {
+            const { width, height } = entry.contentRect;
+            pendingSizeRef.current = { width, height };
+            
+            // Throttle via requestAnimationFrame
+            if (!rafRef.current) {
+              rafRef.current = requestAnimationFrame(() => {
+                rafRef.current = null;
+                const pending = pendingSizeRef.current;
+                if (!pending) return;
+                
+                setContainerSize((prev) => {
+                  // Avoid unnecessary re-renders for tiny changes
+                  if (Math.abs(prev.width - pending.width) < 2 && Math.abs(prev.height - pending.height) < 2) {
+                    return prev;
+                  }
+                  return pending;
+                });
+              });
+            }
+          }
+        });
+      }
+      
+      return () => {
+        if (rafRef.current) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = null;
+        }
+        resizeObserverRef.current?.disconnect();
+        resizeObserverRef.current = null;
+      };
+    }, []);
+    
+    // Observe content area when ref is set
+    useEffect(() => {
+      if (!contentAreaRef.current || !resizeObserverRef.current) return;
+      
+      // Immediate measurement
+      const rect = contentAreaRef.current.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        setContainerSize({ width: rect.width, height: rect.height });
+      }
+      
+      resizeObserverRef.current.observe(contentAreaRef.current);
+      
+      return () => {
+        resizeObserverRef.current?.disconnect();
+      };
+    }, [isFilesModalOpen]);
 
     // Keyboard shortcuts
     useEffect(() => {
@@ -760,10 +873,26 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       [handleFileClick, handleSelectionChange]
     );
 
-    // Convert FileItem[] to FileListItem[]
+    // Convert FileItem[] to FileListItem[] with progressive loading
+    const LIST_BATCH_SIZE = 100;
+    const [listItemCount, setListItemCount] = useState(LIST_BATCH_SIZE);
+    
+    // Reset list count when files change
+    useEffect(() => {
+      setListItemCount(LIST_BATCH_SIZE);
+    }, [displayedFiles.length]);
+    
+    const visibleListFiles = useMemo(() => displayedFiles.slice(0, listItemCount), [displayedFiles, listItemCount]);
+    const hasMoreListItems = displayedFiles.length > listItemCount;
+    const remainingListCount = displayedFiles.length - listItemCount;
+    
+    const handleLoadMoreList = useCallback(() => {
+      setListItemCount(prev => Math.min(prev + LIST_BATCH_SIZE, displayedFiles.length));
+    }, [displayedFiles.length]);
+    
     const listItems: FileListItem[] = useMemo(
       () =>
-        displayedFiles.map((file) => ({
+        visibleListFiles.map((file) => ({
           id: file.url,
           fileName: file.fileName,
           url: file.url,
@@ -774,7 +903,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
             : undefined,
           kind: file.kind,
         })),
-      [displayedFiles]
+      [visibleListFiles]
     );
 
     // Handle sort change from list view
@@ -796,13 +925,64 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       [sortField, sortDirection, setSortOption]
     );
 
+    // Virtualized grid callbacks - wrap to convert OptimizedGridTileItem to FileItem
+    const handleVirtualGridItemClick = useCallback(
+      (item: OptimizedGridTileItem, index: number, event?: React.MouseEvent) => {
+        const file = displayedFiles[index];
+        if (file) {
+          handleFileClickWithInspector(file, index, event);
+        }
+      },
+      [displayedFiles, handleFileClickWithInspector]
+    );
+
+    const handleVirtualGridDoubleClick = useCallback(
+      (_item: OptimizedGridTileItem, index: number) => {
+        openQuickLook(index);
+      },
+      [openQuickLook]
+    );
+
+    const handleVirtualGridContextMenu = useCallback(
+      (e: React.MouseEvent, item: OptimizedGridTileItem) => {
+        const file = displayedFiles.find((f) => f.url === item.url);
+        handleContextMenu(e, file);
+      },
+      [displayedFiles, handleContextMenu]
+    );
+
+    const handleVirtualGridActionSheet = useCallback(
+      (item: OptimizedGridTileItem) => {
+        const file = displayedFiles.find((f) => f.url === item.url);
+        if (file) handleActionSheet(file);
+      },
+      [displayedFiles, handleActionSheet]
+    );
+
     // Track last click for double-click in grid view
     const lastGridClickRef = useRef<{ url: string; time: number } | null>(null);
 
-    // Grid view
-    const renderGridView = () => (
+    // Grid view (fallback for when virtualization isn't ready - progressive loading)
+    const FALLBACK_BATCH_SIZE = 50;
+    const [fallbackItemCount, setFallbackItemCount] = useState(FALLBACK_BATCH_SIZE);
+    
+    // Reset fallback count when files change
+    useEffect(() => {
+      setFallbackItemCount(FALLBACK_BATCH_SIZE);
+    }, [displayedFiles.length]);
+    
+    const renderGridView = () => {
+      const itemsToRender = displayedFiles.slice(0, fallbackItemCount);
+      const hasMore = displayedFiles.length > fallbackItemCount;
+      const remainingCount = displayedFiles.length - fallbackItemCount;
+      
+      const handleLoadMore = () => {
+        setFallbackItemCount(prev => Math.min(prev + FALLBACK_BATCH_SIZE, displayedFiles.length));
+      };
+      
+      return (
       <div className={styles.gridContainer}>
-        {displayedFiles.map((file, index) => {
+        {itemsToRender.map((file, index) => {
           const isItemSelected = isSelected(file.url);
           return (
             <div
@@ -874,6 +1054,32 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
             </div>
           );
         })}
+        {hasMore && (
+          <button
+            type="button"
+            className={styles.loadMoreTile}
+            onClick={handleLoadMore}
+            aria-label={`Load ${Math.min(FALLBACK_BATCH_SIZE, remainingCount)} more files`}
+          >
+            <div className={styles.loadMoreContent}>
+              <span className={styles.loadMoreCount}>+{remainingCount}</span>
+              <span className={styles.loadMoreLabel}>Load More</span>
+            </div>
+          </button>
+        )}
+      </div>
+    );
+    };
+    
+    // Skeleton grid for loading state
+    const renderGridSkeleton = () => (
+      <div className={styles.gridContainer}>
+        {Array.from({ length: 12 }).map((_, i) => (
+          <div key={i} className={styles.skeletonGridItem}>
+            <div className={styles.skeletonGridThumb} />
+            <div className={styles.skeletonGridName} />
+          </div>
+        ))}
       </div>
     );
 
@@ -1034,7 +1240,13 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
               {/* MAIN PANE */}
               <div className={styles.mainPane}>
                 <div
-                  ref={scrollerRef}
+                  ref={(el) => {
+                    // Combine refs - scrollerRef from state and contentAreaRef for sizing
+                    if (scrollerRef) {
+                      (scrollerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+                    }
+                    (contentAreaRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+                  }}
                   className={`${styles.contentArea} ${isDragging ? styles.contentAreaDragging : ''}`}
                   onDragEnter={handleDragEnter}
                   onDragOver={handleDragOver}
@@ -1053,14 +1265,18 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
 
                   {isLoading ? (
                     <div className={styles.loadingState}>
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <div key={i} className={styles.skeletonRow}>
-                          <div className={styles.skeletonThumb} />
-                          <div className={`${styles.skeletonText} ${styles.skeletonTextWide}`} />
-                          <div className={`${styles.skeletonText} ${styles.skeletonTextMedium}`} />
-                          <div className={`${styles.skeletonText} ${styles.skeletonTextNarrow}`} />
-                        </div>
-                      ))}
+                      {viewMode === 'grid' ? (
+                        renderGridSkeleton()
+                      ) : (
+                        Array.from({ length: 8 }).map((_, i) => (
+                          <div key={i} className={styles.skeletonRow}>
+                            <div className={styles.skeletonThumb} />
+                            <div className={`${styles.skeletonText} ${styles.skeletonTextWide}`} />
+                            <div className={`${styles.skeletonText} ${styles.skeletonTextMedium}`} />
+                            <div className={`${styles.skeletonText} ${styles.skeletonTextNarrow}`} />
+                          </div>
+                        ))
+                      )}
                     </div>
                   ) : displayedFiles.length === 0 ? (
                     <div className={styles.emptyState}>
@@ -1093,38 +1309,64 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                       </div>
                     </div>
                   ) : viewMode === 'list' ? (
-                    <FileListView
-                      files={listItems}
-                      selectedItems={selectedItems}
+                    <>
+                      <FileListView
+                        files={listItems}
+                        selectedItems={selectedItems}
+                        onSelectionChange={handleSelectionChange}
+                        onFileClick={(file, index, e) => {
+                          const originalFile = visibleListFiles[index];
+                          if (originalFile) {
+                            handleFileClickWithInspector(originalFile, index, e);
+                          }
+                        }}
+                        onFileDoubleClick={(file, index) => {
+                          const originalFile = visibleListFiles[index];
+                          if (originalFile) {
+                            handleFileDoubleClick(originalFile, index);
+                          }
+                        }}
+                        onDownload={(file) => {
+                          const originalFile = displayedFiles.find((f) => f.url === file.url);
+                          if (originalFile) handleDownloadSingle(originalFile);
+                        }}
+                        onContextMenu={(e, file) => {
+                          const originalFile = displayedFiles.find((f) => f.url === file.url);
+                          handleContextMenu(e, originalFile);
+                        }}
+                        onActionSheet={(file) => {
+                          const originalFile = displayedFiles.find((f) => f.url === file.url);
+                          if (originalFile) handleActionSheet(originalFile);
+                        }}
+                        sortField={sortField}
+                        sortDirection={sortDirection}
+                        onSortChange={handleSortChange}
+                        canDelete={canDelete}
+                      />
+                      {hasMoreListItems && (
+                        <button
+                          type="button"
+                          className={styles.loadMoreRow}
+                          onClick={handleLoadMoreList}
+                        >
+                          <span>Load {Math.min(LIST_BATCH_SIZE, remainingListCount)} more</span>
+                          <span className={styles.loadMoreBadge}>+{remainingListCount}</span>
+                        </button>
+                      )}
+                    </>
+                  ) : containerSize.width > 0 && containerSize.height > 0 ? (
+                    <OptimizedFileGrid
+                      items={gridItems}
+                      selectionStore={selectionStore}
                       onSelectionChange={handleSelectionChange}
-                      onFileClick={(file, index, e) => {
-                        const originalFile = displayedFiles[index];
-                        if (originalFile) {
-                          handleFileClickWithInspector(originalFile, index, e);
-                        }
-                      }}
-                      onFileDoubleClick={(file, index) => {
-                        const originalFile = displayedFiles[index];
-                        if (originalFile) {
-                          handleFileDoubleClick(originalFile, index);
-                        }
-                      }}
-                      onDownload={(file) => {
-                        const originalFile = displayedFiles.find((f) => f.url === file.url);
-                        if (originalFile) handleDownloadSingle(originalFile);
-                      }}
-                      onContextMenu={(e, file) => {
-                        const originalFile = displayedFiles.find((f) => f.url === file.url);
-                        handleContextMenu(e, originalFile);
-                      }}
-                      onActionSheet={(file) => {
-                        const originalFile = displayedFiles.find((f) => f.url === file.url);
-                        if (originalFile) handleActionSheet(originalFile);
-                      }}
-                      sortField={sortField}
-                      sortDirection={sortDirection}
-                      onSortChange={handleSortChange}
-                      canDelete={canDelete}
+                      onItemClick={handleVirtualGridItemClick}
+                      onItemDoubleClick={handleVirtualGridDoubleClick}
+                      onContextMenu={handleVirtualGridContextMenu}
+                      onActionSheet={handleVirtualGridActionSheet}
+                      selectionMode={selectionMode}
+                      containerWidth={containerSize.width}
+                      containerHeight={containerSize.height}
+                      emptyMessage="No files in this folder"
                     />
                   ) : (
                     renderGridView()
@@ -1285,6 +1527,14 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
           itemCount={moveTargetFiles.length}
           itemNames={moveTargetFiles.map((f) => f.fileName)}
           title="Move to folder"
+        />
+        
+        {/* Dev-only performance HUD (Ctrl+Shift+P to toggle) */}
+        <PerfHUD
+          gridRenderCount={gridRenderCount}
+          tileRenderCount={tileRenderCount}
+          fileCount={displayedFiles.length + customFolders.length}
+          filteredCount={gridItems.length}
         />
       </>
     );

@@ -440,7 +440,7 @@
 .timelineRowDone .focusPreviewTextOnly {
   text-decoration: line-through;
   text-decoration-thickness: 1.35px;
-  text-decoration-color: rgba(255, 255, 255, 0.6);
+  text-decoration-color: rgba(255, 255, 255, 0.3);
   text-decoration-skip-ink: none;
 }
 

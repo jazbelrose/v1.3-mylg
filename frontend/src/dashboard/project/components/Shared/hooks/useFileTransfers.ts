@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, startTransition } from "react";
 import type React from "react";
 import { uploadData, list } from "aws-amplify/storage";
 import {
@@ -16,6 +16,8 @@ import type { Message } from "../../../../../app/contexts/DataProvider";
 import type { FileItem, Project } from "../../FileManager/FileManagerTypes";
 import { getFileKind } from "../../FileManager/FileManagerUtils";
 import { downloadViaAnchor } from "../../../../../shared/utils/download";
+import { useFileListCache } from "../../FileManager/hooks/useFileListCache";
+import { filesPerf } from "../../FileManager/hooks/useFilesPerf";
 
 interface UseFileTransfersParams {
   activeProject: Project;
@@ -55,6 +57,9 @@ export const useFileTransfers = ({
   const editQueue = useMemo(() => pLimit(1), []);
   const pendingUpdateRef = useRef<Array<{ fileName: string; url: string }> | null>(null);
   const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // File list cache for stale-while-revalidate
+  const fileCache = useFileListCache();
 
   const normalizeFiles = useCallback((files: FileItem[] = []) => {
     return files.map((f) => ({
@@ -97,9 +102,34 @@ export const useFileTransfers = ({
     [folderKey, activeProject?.projectId, updateFolderFiles]
   );
 
-  const fetchS3Files = useCallback(async (): Promise<FileItem[]> => {
+  const fetchS3Files = useCallback(async (skipCache = false): Promise<FileItem[]> => {
     const projectId = activeProject?.projectId as string | undefined;
     if (!projectId) return [];
+    
+    // Check cache first (unless skip requested)
+    if (!skipCache) {
+      const cached = fileCache.getCached(projectId, folderKey);
+      if (cached && !fileCache.isStale(projectId, folderKey)) {
+        filesPerf.mark('fetchS3Files:cache-hit', { projectId, folderKey, fileCount: cached.files.length });
+        startTransition(() => {
+          setSelectedFiles(cached.files);
+        });
+        setIsLoading(false);
+        filesPerf.measure('fetchS3Files:cache-hit');
+        return cached.files;
+      }
+      
+      // Show cached data immediately while refreshing (stale-while-revalidate)
+      if (cached) {
+        startTransition(() => {
+          setSelectedFiles(cached.files);
+        });
+        setIsLoading(false); // Don't show loading for background refresh
+      }
+    }
+    
+    filesPerf.mark('fetchS3Files:api-start', { projectId, folderKey });
+    
     const prefixes =
       folderKey === "uploads"
         ? ["uploads/", "lexical/", "chat_uploads/"].map((dir) => `projects/${projectId}/${dir}`)
@@ -129,7 +159,18 @@ export const useFileTransfers = ({
         });
 
       const merged = Array.from(new Map(files.map((f) => [f.url, f])).values());
-      setSelectedFiles(merged);
+      
+      // Update cache
+      fileCache.setCache(projectId, folderKey, merged);
+      
+      // Use startTransition to prevent blocking UI when processing large file lists
+      startTransition(() => {
+        setSelectedFiles(merged);
+      });
+      filesPerf.measure('fetchS3Files:api-start');
+      filesPerf.mark('fetchS3Files:complete', { fileCount: merged.length });
+      filesPerf.measure('fetchS3Files:complete');
+      
       return merged;
     } catch (err) {
       console.error("Error listing S3 files:", err);
@@ -138,16 +179,21 @@ export const useFileTransfers = ({
     } finally {
       setIsLoading(false);
     }
-  }, [activeProject?.projectId, folderKey, setIsLoading, setSelectedFiles]);
+  }, [activeProject?.projectId, folderKey, setIsLoading, setSelectedFiles, fileCache]);
 
-  const loadFiles = useCallback(async () => {
-    const files = await fetchS3Files();
+  const loadFiles = useCallback(async (forceRefresh = false) => {
+    filesPerf.mark('loadFiles:start');
+    const files = await fetchS3Files(forceRefresh);
     if (!files.length) {
       const rawFiles = (activeProject?.[folderKey] as FileItem[]) || [];
       const normalized = normalizeFiles(rawFiles);
-      setSelectedFiles(normalized);
+      startTransition(() => {
+        setSelectedFiles(normalized);
+      });
+      filesPerf.measure('loadFiles:start');
       return normalized;
     }
+    filesPerf.measure('loadFiles:start');
     return files;
   }, [fetchS3Files, activeProject, folderKey, normalizeFiles, setSelectedFiles]);
 
@@ -256,6 +302,10 @@ export const useFileTransfers = ({
           notify("warning", "Files uploaded but metadata update failed");
         }
       }
+      
+      // Invalidate cache so next open gets fresh data
+      fileCache.invalidate(projectId, folderKey);
+      
       setIsLoading(false);
     },
     [
@@ -266,6 +316,7 @@ export const useFileTransfers = ({
       setSelectedFiles,
       updateFolderFiles,
       uploadFileToS3,
+      fileCache,
     ]
   );
 
@@ -390,6 +441,9 @@ export const useFileTransfers = ({
       setSelectedItems(new Set());
       setIsSelectMode(false);
       updateNotification(notificationId, "success", "Files deleted successfully");
+      
+      // Invalidate cache so next open gets fresh data
+      fileCache.invalidate(projectId, folderKey);
     } catch (error) {
       console.error("Error during deletion:", error);
       updateNotification(notificationId, "error", "Failed to delete selected files. Please try again.");
@@ -406,6 +460,7 @@ export const useFileTransfers = ({
     setLocalActiveProject,
     setSelectedFiles,
     setSelectedItems,
+    fileCache,
   ]);
 
   const handleDeleteSingle = useCallback(

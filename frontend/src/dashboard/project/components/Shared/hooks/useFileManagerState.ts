@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -70,6 +71,8 @@ export const useFileManagerState = ({
   const lastClickedIndexRef = useRef<number | null>(null);
   const [folderKey, setFolderKey] = useState<string>(folder);
   const [selectedFiles, setSelectedFiles] = useState<FileItem[]>([]);
+  // Defer file list updates to prevent UI blocking when many files are discovered
+  const deferredSelectedFiles = useDeferredValue(selectedFiles);
   const [isFilesModalOpen, setFilesModalOpen] = useState<boolean>(Boolean(isOpen));
   const [isImageModalOpen, setImageModalOpen] = useState<boolean>(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -80,6 +83,8 @@ export const useFileManagerState = ({
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  // Defer search filtering for smoother typing experience
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   const [viewMode, setViewMode] = useState<ViewMode>(() =>
     typeof window !== "undefined"
       ? ((localStorage.getItem("fileManagerViewMode") as ViewMode) || "grid")
@@ -188,9 +193,9 @@ export const useFileManagerState = ({
   );
 
   const displayedFiles = useMemo(() => {
-    let filtered = selectedFiles.filter(
+    let filtered = deferredSelectedFiles.filter(
       (f) =>
-        f.fileName.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        f.fileName.toLowerCase().includes(deferredSearchTerm.toLowerCase()) &&
         (filterOption === "all" || f.kind === filterOption)
     );
     
@@ -203,7 +208,7 @@ export const useFileManagerState = ({
     }
     
     return sortFiles(filtered);
-  }, [selectedFiles, searchTerm, filterOption, sortFiles, isSelectionEnabled, fileTypeFilter]);
+  }, [deferredSelectedFiles, deferredSearchTerm, filterOption, sortFiles, isSelectionEnabled, fileTypeFilter]);
 
   const toggleViewMode = useCallback(() => {
     const newMode: ViewMode = viewMode === "grid" ? "list" : "grid";
@@ -223,13 +228,12 @@ export const useFileManagerState = ({
   /**
    * Handle selection change with support for:
    * - Shift+click: Range select from last clicked to current
-   * - Ctrl/Cmd+click: Toggle individual item
-   * - Plain click: Toggle (in multi mode) or single select
+   * - Ctrl/Cmd+click: Toggle individual item while keeping existing selection
+   * - Plain click: Toggle the item (add/remove from selection)
    */
   const handleSelectionChange = useCallback(
     (url: string, index?: number, event?: React.MouseEvent) => {
       const isShift = event?.shiftKey ?? false;
-      const isCtrl = event?.ctrlKey || event?.metaKey;
       const currentIndex = index ?? displayedFiles.findIndex((f) => f.url === url);
 
       // Shift+click: range selection
@@ -246,7 +250,7 @@ export const useFileManagerState = ({
         return;
       }
 
-      // Ctrl/Cmd+click or normal multi-select: toggle
+      // Toggle selection (used for both Ctrl+click and checkbox clicks)
       setSelectedItems((prev) => {
         const newSelected = new Set(prev);
         if (newSelected.has(url)) {

@@ -1142,6 +1142,39 @@
 }
 
 /* ============================================================================
+   VIRTUALIZED GRID (react-window)
+   ============================================================================ */
+
+.virtualizedGrid {
+  /* Remove default scrollbar styles for better appearance */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.virtualizedGrid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.virtualizedGrid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.virtualizedGrid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.virtualizedGrid::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.virtualizedGridWrapper {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+/* ============================================================================
    CONTEXT MENU
    ============================================================================ */
 
@@ -1547,10 +1580,11 @@
 .loadingState {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
+  width: 100%;
+  height: 100%;
+  padding: 20px;
   color: rgba(255, 255, 255, 0.6);
+  overflow: hidden;
 }
 
 .skeletonRow {
@@ -1595,6 +1629,115 @@
   50% {
     opacity: 0.4;
   }
+}
+
+/* Grid skeleton styles */
+.skeletonGridItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.skeletonGridThumb {
+  width: 100%;
+  aspect-ratio: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+.skeletonGridName {
+  width: 70%;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+  animation-delay: 0.1s;
+}
+
+/* Load more tile button - minimal style */
+.loadMoreTile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 140px;
+  opacity: 0.7;
+}
+
+.loadMoreTile:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.15);
+  opacity: 1;
+}
+
+.loadMoreTile:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.loadMoreContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.loadMoreCount {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.loadMoreLabel {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Load more row for list view */
+.loadMoreRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.loadMoreRow:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.6);
+  opacity: 1;
+}
+
+.loadMoreRow:active {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.loadMoreBadge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.7rem;
+  font-weight: 500;
 }
 
 /* ============================================================================
