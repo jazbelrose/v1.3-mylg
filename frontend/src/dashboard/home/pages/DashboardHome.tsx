@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { LayoutGrid, List } from "lucide-react";
 import { useData } from "@/app/contexts/useData";
 import { UserLite } from "@/app/contexts/DataProvider";
 import { slugify } from "@/shared/utils/slug";
@@ -28,6 +29,8 @@ import ProjectsPanelDesktop from "@/dashboard/home/components/ProjectsPanelDeskt
 import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
 import commandCenterStyles from "@/dashboard/home/components/ProjectsCommandCenter.module.css";
 import mobileStyles from "@/dashboard/home/components/projects-panel.module.css";
+import ProjectsIconGrid, { type IconSize } from "@/dashboard/home/components/ProjectsIconGrid";
+import iconGridStyles from "@/dashboard/home/components/ProjectsIconGrid.module.css";
 
 import "./dashboard-styles.css";
 
@@ -53,6 +56,38 @@ type ProjectWithDetails = {
 type DashboardView = "all" | "my" | "team" | "pinned";
 type DashboardKpi = "overdue" | "due14d" | "atRisk" | "unread" | "unassigned" | "noLocation";
 type DashboardDateWindow = { start: Date | null; end: Date | null };
+
+type ProjectsViewMode = "list" | "icon";
+const VIEW_MODE_KEY = "mylg:projects-view-mode";
+const ICON_SIZE_KEY = "mylg:projects-icon-size";
+
+function readViewMode(): ProjectsViewMode {
+  try {
+    const val = localStorage.getItem(VIEW_MODE_KEY);
+    if (val === "icon" || val === "list") return val;
+  } catch {}
+  return "list";
+}
+
+function writeViewMode(mode: ProjectsViewMode): void {
+  try {
+    localStorage.setItem(VIEW_MODE_KEY, mode);
+  } catch {}
+}
+
+function readIconSize(): IconSize {
+  try {
+    const val = localStorage.getItem(ICON_SIZE_KEY);
+    if (val === "S" || val === "M" || val === "L") return val;
+  } catch {}
+  return "M";
+}
+
+function writeIconSize(size: IconSize): void {
+  try {
+    localStorage.setItem(ICON_SIZE_KEY, size);
+  } catch {}
+}
 
 function formatShortDate(iso?: string): string | undefined {
   if (!iso) return undefined;
@@ -188,6 +223,17 @@ const WelcomeScreen: React.FC = () => {
   const [dateWindow, setDateWindow] = useState<DashboardDateWindow>({ start: null, end: null });
   const [outlookStart, setOutlookStart] = useState<Date>(() => startOfDay(new Date()));
   const [showPendingProjectsOnly, setShowPendingProjectsOnly] = useState(false);
+  const [projectsViewMode, setProjectsViewMode] = useState<ProjectsViewMode>(readViewMode);
+  const [projectsIconSize, setProjectsIconSize] = useState<IconSize>(readIconSize);
+
+  // Persist view mode and icon size
+  useEffect(() => {
+    writeViewMode(projectsViewMode);
+  }, [projectsViewMode]);
+
+  useEffect(() => {
+    writeIconSize(projectsIconSize);
+  }, [projectsIconSize]);
 
   const panelsRef = useRef<HTMLDivElement | null>(null);
   const PROJECTS_HEIGHT_PX_STORAGE_KEY = "dashboardProjects.split.projectsHeightPx";
@@ -1125,6 +1171,47 @@ const WelcomeScreen: React.FC = () => {
                             </div>
                           }
                         />
+
+                        {/* View switcher */}
+                        <div className={iconGridStyles.controls}>
+                          <div className={iconGridStyles.viewSwitcher} role="group" aria-label="View mode">
+                            <button
+                              type="button"
+                              className={`${iconGridStyles.viewBtn} ${projectsViewMode === "icon" ? iconGridStyles.viewBtnActive : ""}`}
+                              onClick={() => setProjectsViewMode("icon")}
+                              aria-pressed={projectsViewMode === "icon"}
+                              title="Icon view"
+                            >
+                              <LayoutGrid size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              className={`${iconGridStyles.viewBtn} ${projectsViewMode === "list" ? iconGridStyles.viewBtnActive : ""}`}
+                              onClick={() => setProjectsViewMode("list")}
+                              aria-pressed={projectsViewMode === "list"}
+                              title="List view"
+                            >
+                              <List size={14} />
+                            </button>
+                          </div>
+
+                          {/* Size control (only in icon view) */}
+                          {projectsViewMode === "icon" && (
+                            <div className={iconGridStyles.sizeControl} role="group" aria-label="Icon size">
+                              {(["S", "M", "L"] as const).map((s) => (
+                                <button
+                                  key={s}
+                                  type="button"
+                                  className={`${iconGridStyles.sizeBtn} ${projectsIconSize === s ? iconGridStyles.sizeBtnActive : ""}`}
+                                  onClick={() => setProjectsIconSize(s)}
+                                  aria-pressed={projectsIconSize === s}
+                                >
+                                  {s}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1197,6 +1284,8 @@ const WelcomeScreen: React.FC = () => {
                       externalProjectFilter={projectExternalFilter}
                       projectsOverride={projectFilters.filteredProjects as unknown as ProjectLike[]}
                       variant="embedded"
+                      viewMode={projectsViewMode}
+                      iconSize={projectsIconSize}
                     />
                   </div>
                 </div>

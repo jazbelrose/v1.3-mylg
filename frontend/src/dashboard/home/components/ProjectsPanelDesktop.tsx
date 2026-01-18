@@ -3,6 +3,7 @@ import type { DragEvent as ReactDragEvent } from "react";
 
 import { motion, useReducedMotion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { LayoutGrid, List } from "lucide-react";
 
 import { useData } from "@/app/contexts/useData";
 import type { UserLite } from "@/app/contexts/DataProvider";
@@ -28,8 +29,42 @@ import {
 import { arraysEqual, moveIdBeforeTarget } from "@/dashboard/home/utils/reorder";
 
 import "@/dashboard/home/components/week-widget.css";
+import ProjectsIconGrid, { type IconSize } from "./ProjectsIconGrid";
+import iconGridStyles from "./ProjectsIconGrid.module.css";
 
 const DEFAULT_DESKTOP_ROWS = 6;
+
+type ViewMode = "list" | "icon";
+const VIEW_MODE_KEY = "mylg:projects-view-mode";
+const ICON_SIZE_KEY = "mylg:projects-icon-size";
+
+function readViewMode(): ViewMode {
+  try {
+    const val = localStorage.getItem(VIEW_MODE_KEY);
+    if (val === "icon" || val === "list") return val;
+  } catch {}
+  return "list";
+}
+
+function writeViewMode(mode: ViewMode): void {
+  try {
+    localStorage.setItem(VIEW_MODE_KEY, mode);
+  } catch {}
+}
+
+function readIconSize(): IconSize {
+  try {
+    const val = localStorage.getItem(ICON_SIZE_KEY);
+    if (val === "S" || val === "M" || val === "L") return val;
+  } catch {}
+  return "M";
+}
+
+function writeIconSize(size: IconSize): void {
+  try {
+    localStorage.setItem(ICON_SIZE_KEY, size);
+  } catch {}
+}
 
 export type ProjectsPanelDesktopProps = {
   onOpenProject?: (projectId: string) => void;
@@ -37,6 +72,10 @@ export type ProjectsPanelDesktopProps = {
   externalProjectFilter?: (project: ProjectWithMeta) => boolean;
   projectsOverride?: ProjectLike[];
   variant?: "card" | "embedded";
+  /** External view mode control (overrides internal state when provided) */
+  viewMode?: ViewMode;
+  /** External icon size control (overrides internal state when provided) */
+  iconSize?: IconSize;
 };
 
 const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
@@ -45,6 +84,8 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
   externalProjectFilter,
   projectsOverride,
   variant = "card",
+  viewMode: externalViewMode,
+  iconSize: externalIconSize,
 }) => {
   const reduceMotion = useReducedMotion();
   const {
@@ -72,6 +113,15 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
 
   const [imgError, setImgError] = useState<Record<string, boolean>>({});
   const [showPendingOnly, setShowPendingOnly] = useState(false);
+  const [internalViewMode, setInternalViewMode] = useState<ViewMode>(readViewMode);
+  const [internalIconSize, setInternalIconSize] = useState<IconSize>(readIconSize);
+
+  // Use external props if provided, otherwise use internal state
+  const viewMode = externalViewMode ?? internalViewMode;
+  const iconSize = externalIconSize ?? internalIconSize;
+  const setViewMode = externalViewMode === undefined ? setInternalViewMode : () => {};
+  const setIconSize = externalIconSize === undefined ? setInternalIconSize : () => {};
+
   const [pinnedOrder, setPinnedOrder] = useState<string[]>(() => {
     const fromProfile = (userData as unknown as { pinnedProjectOrder?: unknown } | null)?.pinnedProjectOrder;
     if (Array.isArray(fromProfile)) {
@@ -91,6 +141,18 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
   useEffect(() => {
     writePinnedOrder(pinnedOrder);
   }, [pinnedOrder]);
+
+  useEffect(() => {
+    if (externalViewMode === undefined) {
+      writeViewMode(internalViewMode);
+    }
+  }, [externalViewMode, internalViewMode]);
+
+  useEffect(() => {
+    if (externalIconSize === undefined) {
+      writeIconSize(internalIconSize);
+    }
+  }, [externalIconSize, internalIconSize]);
 
   const persistPinnedProjectOrder = useCallback(
     (nextOrder: string[]) => {
@@ -438,37 +500,91 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
                 wrapperClassName={mobileStyles.kpiScopeWrap}
                 triggerClassName={mobileStyles.kpiScopeTrigger}
               />
+
+              {/* View switcher */}
+              <div className={iconGridStyles.controls}>
+                <div className={iconGridStyles.viewSwitcher} role="group" aria-label="View mode">
+                  <button
+                    type="button"
+                    className={`${iconGridStyles.viewBtn} ${viewMode === "icon" ? iconGridStyles.viewBtnActive : ""}`}
+                    onClick={() => setViewMode("icon")}
+                    aria-pressed={viewMode === "icon"}
+                    title="Icon view"
+                  >
+                    <LayoutGrid size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`${iconGridStyles.viewBtn} ${viewMode === "list" ? iconGridStyles.viewBtnActive : ""}`}
+                    onClick={() => setViewMode("list")}
+                    aria-pressed={viewMode === "list"}
+                    title="List view"
+                  >
+                    <List size={14} />
+                  </button>
+                </div>
+
+                {/* Size control (only in icon view) */}
+                {viewMode === "icon" && (
+                  <div className={iconGridStyles.sizeControl} role="group" aria-label="Icon size">
+                    {(["S", "M", "L"] as const).map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className={`${iconGridStyles.sizeBtn} ${iconSize === s ? iconGridStyles.sizeBtnActive : ""}`}
+                        onClick={() => setIconSize(s)}
+                        aria-pressed={iconSize === s}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>
       ) : null}
 
       <div className={desktopStyles.content}>
-        <ProjectsTable
-          projects={externalFilteredProjects}
-          isLoading={isLoading}
-          projectsError={projectsError}
-          onOpenProject={handleOpen}
-          onImageError={handleImageError}
-          imgError={imgError}
-          usersById={usersById}
-          draggedProjectId={draggedProjectId}
-          dragOverProjectId={dragOverProjectId}
-          onPinToggle={toggleProjectPin}
-          onRowDragStart={handleRowDragStart}
-          onRowDragOver={handleRowDragOver}
-          onRowDragLeave={handleRowDragLeave}
-          onRowDrop={handleRowDrop}
-          onRowDragEnd={handleRowDragEnd}
-          onTableDragOver={handleTableDragOver}
-          onTableDrop={handleTableDrop}
-          allUsers={allUsers}
-          onUpdateProjectTeam={(projectId, userIds) =>
-            updateProjectFields(projectId, {
-              team: userIds.map((userId) => ({ userId })),
-            })
-          }
-        />
+        {viewMode === "list" ? (
+          <ProjectsTable
+            projects={externalFilteredProjects}
+            isLoading={isLoading}
+            projectsError={projectsError}
+            onOpenProject={handleOpen}
+            onImageError={handleImageError}
+            imgError={imgError}
+            usersById={usersById}
+            draggedProjectId={draggedProjectId}
+            dragOverProjectId={dragOverProjectId}
+            onPinToggle={toggleProjectPin}
+            onRowDragStart={handleRowDragStart}
+            onRowDragOver={handleRowDragOver}
+            onRowDragLeave={handleRowDragLeave}
+            onRowDrop={handleRowDrop}
+            onRowDragEnd={handleRowDragEnd}
+            onTableDragOver={handleTableDragOver}
+            onTableDrop={handleTableDrop}
+            allUsers={allUsers}
+            onUpdateProjectTeam={(projectId, userIds) =>
+              updateProjectFields(projectId, {
+                team: userIds.map((userId) => ({ userId })),
+              })
+            }
+          />
+        ) : (
+          <ProjectsIconGrid
+            projects={externalFilteredProjects}
+            isLoading={isLoading}
+            projectsError={projectsError}
+            onOpenProject={handleOpen}
+            onImageError={handleImageError}
+            imgError={imgError}
+            onPinToggle={toggleProjectPin}
+            size={iconSize}
+          />
+        )}
       </div>
 
      

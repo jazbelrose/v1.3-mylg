@@ -1,0 +1,337 @@
+/* ProjectsIconGrid - Icon/Tile view for projects panel */
+
+.grid {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  padding: 4px 2px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  flex: 1;
+}
+
+/* Size variants via CSS variables */
+.gridS {
+  --tile-w: 132px;
+  --icon-size: 72px;
+  --label-lines: 1;
+  --font-size: 11px;
+  --meta-visible: 0;
+}
+
+.gridM {
+  --tile-w: 160px;
+  --icon-size: 88px;
+  --label-lines: 2;
+  --font-size: 12px;
+  --meta-visible: 1;
+}
+
+.gridL {
+  --tile-w: 200px;
+  --icon-size: 104px;
+  --label-lines: 2;
+  --font-size: 13px;
+  --meta-visible: 1;
+}
+
+.grid {
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile-w, 160px), 1fr));
+}
+
+/* Individual tile */
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  text-align: center;
+  min-width: 0;
+}
+
+.tile:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.tile:focus-visible {
+  outline: 2px solid rgba(250, 51, 86, 0.5);
+  outline-offset: 2px;
+}
+
+.tileSelected {
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.tilePinned {
+  border-color: rgba(250, 51, 86, 0.25);
+}
+
+/* Icon container */
+.iconWrap {
+  position: relative;
+  width: var(--icon-size, 88px);
+  height: var(--icon-size, 88px);
+  flex-shrink: 0;
+}
+
+.icon {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.iconFallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 700;
+  font-size: calc(var(--icon-size, 88px) * 0.36);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Badges */
+.unreadBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: rgba(250, 51, 86, 0.9);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.atRiskDot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  background: rgba(251, 191, 36, 0.9);
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.overdueDot {
+  background: rgba(239, 68, 68, 0.9);
+}
+
+/* Label area */
+.labelWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--font-size, 12px);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: var(--label-lines, 2);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.meta {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: var(--meta-visible, 1);
+}
+
+.metaHidden {
+  display: none;
+}
+
+/* Hover actions */
+.hoverActions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.tile:hover .hoverActions,
+.tile:focus-within .hoverActions {
+  opacity: 1;
+}
+
+.actionBtn {
+  appearance: none;
+  border: 0;
+  background: rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.8);
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.actionBtn:hover {
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+}
+
+.actionBtnActive {
+  color: rgba(250, 51, 86, 0.9);
+}
+
+/* Pin indicator (always visible when pinned) */
+.pinIndicator {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(250, 51, 86, 0.7);
+}
+
+/* Empty state */
+.empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 24px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+}
+
+/* Loading skeleton */
+.skeleton {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 16px;
+  height: calc(var(--icon-size, 88px) + 60px);
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Size control */
+.sizeControl {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.sizeBtn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.sizeBtn:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.sizeBtnActive {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* View switcher */
+.viewSwitcher {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.viewBtn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  width: 28px;
+  height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.viewBtn:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.viewBtnActive {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* Controls row */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
