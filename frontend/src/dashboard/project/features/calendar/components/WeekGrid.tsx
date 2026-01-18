@@ -2954,6 +2954,7 @@ function WeekGrid({
         : entry.type === "taskStack"
         ? "week-grid__timeline-entry--task-stack"
         : "week-grid__timeline-entry--overlap-stack",
+      isTimeBlockTask ? "week-grid__timeline-entry--timeblock" : "",
       isFocusBlock || isGroupStack ? "week-grid__timeline-entry--focus-block" : "",
       isGroupStack ? "week-grid__timeline-entry--group-stack" : "",
       stacked ? "week-grid__timeline-entry--stacked" : "",
@@ -3004,6 +3005,7 @@ function WeekGrid({
             : entry.type === "taskStack"
             ? "week-grid__timeline-entry--task-stack"
             : "week-grid__timeline-entry--overlap-stack",
+          isTimeBlockTask ? "week-grid__timeline-entry--timeblock" : "",
           isFocusBlock || isGroupStack ? "week-grid__timeline-entry--focus-block" : "",
           isGroupStack ? "week-grid__timeline-entry--group-stack" : "",
           stacked ? "week-grid__timeline-entry--stacked" : "",
