@@ -35,6 +35,8 @@
 
 .main-content--welcome {
   gap: var(--space-5);
+  /* Ensure welcome view fills parent exactly */
+  height: 100%;
 }
 
 .main-content--welcome > * {

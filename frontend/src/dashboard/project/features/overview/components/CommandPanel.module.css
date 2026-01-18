@@ -292,9 +292,11 @@
 
 .content {
   flex: 1;
-  min-height: 0;
+  min-height: 0;             /* CRITICAL for flex scroll */
+  /* ✅ THIS IS THE SCROLL CONTAINER */
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;  /* Prevents scroll chaining */
   padding: 8px 0;
   scrollbar-gutter: stable;
   /* Position relative for sticky day headers */

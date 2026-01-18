@@ -190,9 +190,10 @@ const WelcomeScreen: React.FC = () => {
 
   const panelsRef = useRef<HTMLDivElement | null>(null);
   const PROJECTS_HEIGHT_PX_STORAGE_KEY = "dashboardProjects.split.projectsHeightPx";
-  const projectsMin = 260;
-  const tasksMin = 280;
-  const splitHandleHeight = 16;
+  // Reduced minimums to allow more flexibility and ensure both panels are visible
+  const projectsMin = 220;
+  const tasksMin = 200;
+  const splitHandleHeight = 14;
 
   const myUserId = userData?.userId ? String(userData.userId) : null;
 
@@ -247,7 +248,8 @@ const WelcomeScreen: React.FC = () => {
 
   const getDefaultProjectsHeight = useCallback(
     (containerHeight: number) => {
-      const raw = Math.round(containerHeight * 0.52);
+      // Default to ~48% of container for projects panel (smaller default)
+      const raw = Math.round(containerHeight * 0.48);
       return clampProjectsHeight(raw, containerHeight);
     },
     [clampProjectsHeight],
@@ -996,18 +998,17 @@ const WelcomeScreen: React.FC = () => {
                   className="projects-command-splitHandle"
                   role="separator"
                   aria-orientation="horizontal"
-                  aria-label="Resize projects and tasks panels"
+                  aria-label="Drag to resize projects and tasks panels"
                   aria-valuemin={projectsMin}
                   aria-valuemax={maxProjectsHeightPx}
                   aria-valuenow={effectiveProjectsHeightPx ?? undefined}
                   tabIndex={0}
                   onPointerDown={handleSplitHandlePointerDown}
                   onDoubleClick={handleSplitHandleDoubleClick}
-                  title="Drag to resize panels"
-                  style={{ height: splitHandleHeight }}
+                  title="Drag to resize • Double-click to reset"
                 >
-                  <div className="projects-command-splitHandleLine" aria-hidden />
-                  <div className="projects-command-splitHandleGrip" aria-hidden />
+                  <div className="projects-command-splitHandleLine" aria-hidden="true" />
+                  <div className="projects-command-splitHandleGrip" aria-hidden="true" />
                 </div>
 
                 <div className="projects-command-triage" style={{ flex: "1 1 auto" }}>
