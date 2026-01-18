@@ -6,7 +6,6 @@ import { UserLite } from "@/app/contexts/DataProvider";
 import { slugify } from "@/shared/utils/slug";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { prefetchBudgetData } from "@/dashboard/project/features/budget/context/useBudget";
-import AllProjects from "@/dashboard/home/components/AllProjects";
 import ProjectsPanelMobile from "@/dashboard/home/components/ProjectsPanelMobile";
 import NotificationsPage from "@/dashboard/home/components/NotificationsPage";
 import Messages from "@/dashboard/features/messages";
@@ -1345,11 +1344,11 @@ const WelcomeScreen: React.FC = () => {
   const renderActiveView = () => {
     switch (activeView) {
       case PROJECTS_OVERVIEW_VIEW:
-      case "welcome":
-        return renderWelcomeView();
       case PROJECTS_LIST_VIEW:
+      case "welcome":
       case "projects":
-        return <AllProjects />;
+        // PROJECTS_LIST_VIEW (allprojects) now redirects to the unified overview
+        return renderWelcomeView();
       case "notifications":
         return (
           <NotificationsPage

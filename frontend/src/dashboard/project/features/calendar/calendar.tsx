@@ -970,14 +970,14 @@ const CalendarPage: React.FC = () => {
     (deletedProjectId: string) => {
       setProjects((prev) => prev.filter((project) => project.projectId !== deletedProjectId));
       setSelectedProjects((prev) => prev.filter((id) => id !== deletedProjectId));
-      navigate("/dashboard/projects/allprojects");
+      navigate("/dashboard/projects");
     },
     [navigate, setProjects, setSelectedProjects],
   );
 
   const handleBack = useCallback(() => {
     if (!projectId) {
-      navigate("/dashboard/projects/allprojects");
+      navigate("/dashboard/projects");
       return;
     }
     const title = activeProject?.title;

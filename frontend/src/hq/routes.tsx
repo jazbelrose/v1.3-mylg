@@ -34,7 +34,7 @@ export const hqRoutes: HQRouteConfig[] = [
   { index: false, path: "hq/invoices", element: <InvoicesPage /> },
   // Legacy HQ routes (tasks/events/messages) have moved out of HQ.
   { index: false, path: "hq/tasks", element: <Navigate to="/dashboard/tasks" replace /> },
-  { index: false, path: "hq/events", element: <Navigate to="/dashboard/projects/allprojects" replace /> },
+  { index: false, path: "hq/events", element: <Navigate to="/dashboard/projects" replace /> },
   { index: false, path: "hq/messages", element: <Navigate to="/dashboard/messages" replace /> },
 ];
 

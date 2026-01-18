@@ -33,7 +33,7 @@ const mapLegacyDashboardPath = (fullPath: string): string => {
   ) {
     nextPath = "/dashboard/projects";
   } else if (pathOnly === "/dashboard/projects") {
-    nextPath = "/dashboard/projects/allprojects";
+    nextPath = "/dashboard/projects";
   } else if (pathOnly.startsWith("/hq")) {
     const suffix = pathOnly.replace(/^\/hq/, "");
     nextPath = buildDashboardHQPath(suffix);
@@ -54,7 +54,7 @@ const Dashboard: React.FC = () => {
     const path = location.pathname;
     if (
       path.startsWith("/dashboard/projects/") &&
-      !path.startsWith("/dashboard/projects/allprojects")
+      path !== "/dashboard/projects"
     ) {
       return "Dashboard - Project Details";
     }
@@ -64,8 +64,6 @@ const Dashboard: React.FC = () => {
       case "/dashboard/new":
         return "Dashboard - Start something";
       case "/dashboard/projects":
-        return "Dashboard - Project List";
-      case "/dashboard/projects/allprojects":
         return "Dashboard - Project List";
       case "/dashboard/tasks":
         return "Dashboard - Tasks";

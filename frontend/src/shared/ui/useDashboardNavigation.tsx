@@ -91,12 +91,11 @@ export function useDashboardNavigation({ setActiveView, onClose }: UseDashboardN
       let path: string;
       switch (view) {
         case PROJECTS_OVERVIEW_VIEW:
-        case "welcome":
-          path = `${base}/projects`;
-          break;
         case PROJECTS_LIST_VIEW:
+        case "welcome":
         case "projects":
-          path = `${base}/projects/allprojects`;
+          // All project views now go to the unified overview
+          path = `${base}/projects`;
           break;
         default:
           path = `${base}/${view}`;

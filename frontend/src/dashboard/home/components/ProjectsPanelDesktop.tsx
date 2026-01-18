@@ -218,7 +218,7 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
         return;
       }
 
-      navigate("/dashboard/projects/allprojects");
+      navigate("/dashboard/projects");
     },
     [onOpenProject, navigate, projects]
   );
@@ -402,7 +402,7 @@ const ProjectsPanelDesktop: React.FC<ProjectsPanelDesktopProps> = ({
     setScope("all");
     setQuery("");
     setStatusFilter("");
-    navigate("/dashboard/projects/allprojects");
+    navigate("/dashboard/projects");
   }, [navigate, setQuery, setScope, setStatusFilter]);
 
   const handleTogglePendingFilter = useCallback(() => {

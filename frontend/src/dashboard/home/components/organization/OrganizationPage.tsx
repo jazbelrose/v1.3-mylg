@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, MoreHorizontal, Plus, Search, Users } from "lucide-react";
+import { MoreHorizontal, Plus, Search, Users } from "lucide-react";
 
 import styles from "./organization.module.css";
 import type { MemberAccess, MemberRow, OrgRole, Project } from "./types";
@@ -455,26 +455,33 @@ export default function OrganizationPage() {
         <PageHeader
           sticky
           className={styles.orgPageHeader}
-          title="Organization"
+          title={
+            <span className={styles.orgTitleRow}>
+              <span>Organization</span>
+              <select
+                className={[styles.select, styles.orgTitleSelect].filter(Boolean).join(" ")}
+                value={activeOrgId ?? ""}
+                disabled={orgsLoading || orgs.length <= 1}
+                onChange={(e) => {
+                  const nextOrgId = e.target.value;
+                  setActiveOrgId(nextOrgId);
+                  const next = orgs.find((o) => o.orgId === nextOrgId);
+                  notify("info", `Switched to ${next?.name || "Organization"}.`);
+                }}
+                aria-label="Select organization"
+              >
+                {orgs.map((o) => (
+                  <option key={o.orgId} value={o.orgId}>
+                    {o.name?.trim() || o.orgId}
+                  </option>
+                ))}
+                {!orgs.length ? <option value="">{currentOrgName}</option> : null}
+              </select>
+            </span>
+          }
           subtitle="Who is in your org and what they can access"
           actions={
             <div className={styles.topActions}>
-              <button
-                type="button"
-                className={`${styles.pill} ${styles.pillButton}`}
-                onClick={() => {
-                  if (!orgs.length) return;
-                  const idx = orgs.findIndex((o) => o.orgId === activeOrgId);
-                  const next = orgs[(idx + 1) % orgs.length];
-                  if (!next?.orgId) return;
-                  setActiveOrgId(next.orgId);
-                  notify("info", `Switched to ${next.name || "Organization"}.`);
-                }}
-                disabled={orgsLoading || orgs.length <= 1}
-              >
-                {currentOrgName} <ChevronDown size={14} />
-              </button>
-
               {canManage ? (
                 <button type="button" className={styles.primaryButton} onClick={() => setIsInviteOpen(true)}>
                   <Plus size={16} /> Invite

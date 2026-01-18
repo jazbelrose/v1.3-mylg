@@ -645,7 +645,7 @@ export function useTasksOverview() {
   const navigateToProject = useCallback(
     (projectId?: string | null) => {
       if (!projectId) {
-        navigate("/dashboard/projects/allprojects");
+        navigate("/dashboard/projects");
         return;
       }
 

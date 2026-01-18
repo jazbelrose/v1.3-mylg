@@ -40,7 +40,7 @@ export const useProjectTabs = (
     () =>
       hasProject
         ? getProjectDashboardPath(projectId, projectTitle ?? undefined)
-        : "/dashboard/projects/allprojects",
+        : "/dashboard/projects",
     [hasProject, projectId, projectTitle]
   );
 
@@ -52,7 +52,7 @@ export const useProjectTabs = (
             projectTitle ?? undefined,
             "/budget"
           )
-        : "/dashboard/projects/allprojects",
+        : "/dashboard/projects",
     [hasProject, projectId, projectTitle]
   );
 
@@ -64,7 +64,7 @@ export const useProjectTabs = (
             projectTitle ?? undefined,
             "/calendar"
           )
-        : "/dashboard/projects/allprojects",
+        : "/dashboard/projects",
     [hasProject, projectId, projectTitle]
   );
 
@@ -76,7 +76,7 @@ export const useProjectTabs = (
             projectTitle ?? undefined,
             "/editor"
           )
-        : "/dashboard/projects/allprojects",
+        : "/dashboard/projects",
     [hasProject, projectId, projectTitle]
   );
 
@@ -88,7 +88,7 @@ export const useProjectTabs = (
             projectTitle ?? undefined,
             "/slides"
           )
-        : "/dashboard/projects/allprojects",
+        : "/dashboard/projects",
     [hasProject, projectId, projectTitle]
   );
 

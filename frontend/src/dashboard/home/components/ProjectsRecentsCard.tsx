@@ -94,7 +94,7 @@ const ProjectsRecentsCard: React.FC<Props> = ({ onOpenProject }) => {
   const handleOpen = (id: string) => {
     if (onOpenProject) return onOpenProject(id);
     // Fallback: route to projects list, then rely on default flow
-    navigate("/dashboard/projects/allprojects");
+    navigate("/dashboard/projects");
   };
 
   const handleKeyRow = (e: React.KeyboardEvent, id: string) => {

@@ -543,7 +543,7 @@ const ProjectsPanelMobile: React.FC<Props> = ({ onOpenProject }) => {
         <button
           type="button"
           className={styles.cta}
-          onClick={() => navigate("/dashboard/projects/allprojects")}
+          onClick={() => navigate("/dashboard/projects")}
         >
           See all projects
         </button>

@@ -108,6 +108,20 @@
   gap: 10px;
 }
 
+.orgTitleRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.orgTitleSelect {
+  height: 32px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 10px;
+}
+
 .headerControls {
   display: flex;
   align-items: center;

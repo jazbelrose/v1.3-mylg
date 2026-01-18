@@ -244,7 +244,7 @@ const SingleProject: React.FC = () => {
     (deletedProjectId: string) => {
       setProjects((prev) => prev.filter((p) => p.projectId !== deletedProjectId));
       setSelectedProjects((prev) => prev.filter((id: string) => id !== deletedProjectId));
-      navigate("/dashboard/projects/allprojects");
+      navigate("/dashboard/projects");
     },
     [navigate, setProjects, setSelectedProjects]
   );
