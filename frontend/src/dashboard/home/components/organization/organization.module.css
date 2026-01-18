@@ -112,7 +112,128 @@
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  min-width: 0;
+
+  /* Keep sizing consistent with HQ top-bar controls */
+  --org-control-h: 36px;
+}
+
+.orgTitleText {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orgDropdownTrigger {
+  height: var(--org-control-h);
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.orgDropdownTrigger:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.orgDropdownTrigger:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.orgDropdownTrigger:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.35);
+  outline-offset: 2px;
+}
+
+.orgDropdownValue {
+  color: rgba(255, 255, 255, 0.95);
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orgMenu {
+  z-index: 9999;
+  min-width: 280px;
+  max-width: min(420px, calc(100vw - 24px));
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(18, 19, 20, 0.98);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.orgMenuLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 4px 8px 8px;
+}
+
+.orgMenuSeparator {
+  height: 1px;
+  margin: 8px 0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.orgMenuHint {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.orgMenuRadioItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  user-select: none;
+}
+
+.orgMenuRadioItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.orgMenuRadioItem[data-highlighted] {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.orgMenuRadioItem[data-state="checked"] {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.orgMenuRadioLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orgMenuRadioIndicator {
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 700;
 }
 
 .orgTitleSelect {

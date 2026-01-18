@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MoreHorizontal, Plus, Search, Users } from "lucide-react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
 import styles from "./organization.module.css";
 import type { MemberAccess, MemberRow, OrgRole, Project } from "./types";
@@ -128,6 +129,12 @@ export default function OrganizationPage() {
     const match = orgs.find((o) => o.orgId === activeOrgId);
     return match?.name?.trim() || "Organization";
   }, [activeOrgId, orgs, orgsLoading]);
+
+  const activeOrgName = useMemo(() => {
+    if (orgsLoading) return "Loading…";
+    const match = orgs.find((o) => o.orgId === activeOrgId);
+    return match?.name?.trim() || match?.orgId || (orgs.length ? "Select…" : "No orgs");
+  }, [activeOrgId, orgs, orgs.length, orgsLoading]);
 
   const currentUserId = userData?.userId ?? null;
   const collaborators = useMemo(() => (Array.isArray(userData?.collaborators) ? userData!.collaborators! : []), [userData]);
@@ -457,26 +464,47 @@ export default function OrganizationPage() {
           className={styles.orgPageHeader}
           title={
             <span className={styles.orgTitleRow}>
-              <span>Organization</span>
-              <select
-                className={[styles.select, styles.orgTitleSelect].filter(Boolean).join(" ")}
-                value={activeOrgId ?? ""}
-                disabled={orgsLoading || orgs.length <= 1}
-                onChange={(e) => {
-                  const nextOrgId = e.target.value;
-                  setActiveOrgId(nextOrgId);
-                  const next = orgs.find((o) => o.orgId === nextOrgId);
-                  notify("info", `Switched to ${next?.name || "Organization"}.`);
-                }}
-                aria-label="Select organization"
-              >
-                {orgs.map((o) => (
-                  <option key={o.orgId} value={o.orgId}>
-                    {o.name?.trim() || o.orgId}
-                  </option>
-                ))}
-                {!orgs.length ? <option value="">{currentOrgName}</option> : null}
-              </select>
+              <span className={styles.orgTitleText}>Organization</span>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    className={[styles.orgDropdownTrigger].join(" ")}
+                    aria-haspopup="menu"
+                    aria-label="Switch organization"
+                    title="Switch org"
+                    disabled={orgsLoading || orgs.length <= 1}
+                  >
+                    <span className={styles.orgDropdownValue}>{activeOrgName}</span>
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content className={styles.orgMenu} sideOffset={8} align="start" collisionPadding={12}>
+                    <DropdownMenu.Label className={styles.orgMenuLabel}>Org</DropdownMenu.Label>
+                    <DropdownMenu.Separator className={styles.orgMenuSeparator} />
+
+                    {orgs.length ? (
+                      <DropdownMenu.RadioGroup
+                        value={activeOrgId ?? ""}
+                        onValueChange={(nextOrgId) => {
+                          setActiveOrgId(nextOrgId);
+                          const next = orgs.find((o) => o.orgId === nextOrgId);
+                          notify("info", `Switched to ${next?.name || next?.orgId || "Organization"}.`);
+                        }}
+                      >
+                        {orgs.map((o) => (
+                          <DropdownMenu.RadioItem key={o.orgId} value={o.orgId} className={styles.orgMenuRadioItem}>
+                            <span className={styles.orgMenuRadioLabel}>{o.name?.trim() || o.orgId}</span>
+                            <DropdownMenu.ItemIndicator className={styles.orgMenuRadioIndicator}>✓</DropdownMenu.ItemIndicator>
+                          </DropdownMenu.RadioItem>
+                        ))}
+                      </DropdownMenu.RadioGroup>
+                    ) : (
+                      <div className={styles.orgMenuHint}>{currentOrgName}</div>
+                    )}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
             </span>
           }
           subtitle="Who is in your org and what they can access"
