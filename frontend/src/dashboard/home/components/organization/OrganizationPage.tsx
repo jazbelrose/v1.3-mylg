@@ -600,7 +600,7 @@ export default function OrganizationPage() {
               <p className={styles.emptySubtitle}>Try clearing filters or searching a different term.</p>
             </div>
           ) : (
-            <div className={styles.list}>
+            <div className={styles.membersListStack}>
               {filteredMembers.map((m) => {
                 const isYou = Boolean(currentUserId && m.userId === currentUserId);
                 const accessGranted = m.status === "active";
@@ -635,7 +635,7 @@ export default function OrganizationPage() {
                 return (
                   <div
                     key={m.id}
-                    className={`${styles.row} ${!accessGranted ? styles.rowAccessRevoked : ""}`}
+                    className={`${styles.memberRowCard} ${!accessGranted ? styles.rowAccessRevoked : ""}`}
                     role="button"
                     tabIndex={0}
                     onClick={() => {

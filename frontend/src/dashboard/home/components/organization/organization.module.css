@@ -456,6 +456,14 @@
   flex-direction: column;
 }
 
+.membersListStack {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
 .membersHeaderRow {
   display: grid;
   grid-template-columns: 1fr var(--org-col-projects) var(--org-col-role) var(--org-col-access) var(--org-col-menu);
@@ -493,8 +501,40 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
   flex: none;
+}
+
+.memberRowCard {
+  width: 100%;
+  align-self: stretch;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  min-height: 56px;
+  cursor: pointer;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.memberRowCard:hover {
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 26px rgba(0, 0, 0, 0.28);
+}
+
+.memberRowCard:active {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.memberRowCard:focus,
+.memberRowCard:focus-visible {
+  outline: none;
 }
 
 .rowAccessRevoked {
@@ -1774,6 +1814,12 @@
     grid-template-columns: 1fr;
     gap: 10px;
     align-items: flex-start;
+  }
+
+  .memberRowCard {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
   }
 
   .colProjects,
