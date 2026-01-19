@@ -6,9 +6,11 @@
  * - If empty, shows "utility state" with chat highlights and actions
  * - Single panel with internal scroll
  * - Same height as left panel (Events & Tasks)
+ * - Gallery preview with lightbox carousel
  */
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   MessageCircle,
@@ -19,12 +21,16 @@ import {
   Pin,
   ListTodo,
   ChevronRight,
+  ChevronLeft,
   DollarSign,
   Presentation,
   Image as ImageIcon,
   Clock,
+  X,
+  FolderOpen,
 } from 'lucide-react';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
+import { getFileUrl } from '@/shared/utils/api';
 import { FileThumb } from '@/shared/ui/FileThumb';
 import styles from '../OverviewHud.module.css';
 
@@ -253,6 +259,122 @@ function ChatHighlight({ message, onPin, onCreateTask, onClick }: ChatHighlightP
 }
 
 // ============================================================================
+// FILES LIGHTBOX
+// ============================================================================
+
+interface FilesLightboxProps {
+  files: RecentFile[];
+  currentIndex: number;
+  onClose: () => void;
+  onNavigate: (index: number) => void;
+  onOpenFileManager: () => void;
+}
+
+function FilesLightbox({ files, currentIndex, onClose, onNavigate, onOpenFileManager }: FilesLightboxProps) {
+  const handlePrev = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onNavigate(currentIndex > 0 ? currentIndex - 1 : files.length - 1);
+  }, [currentIndex, files.length, onNavigate]);
+
+  const handleNext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onNavigate(currentIndex < files.length - 1 ? currentIndex + 1 : 0);
+  }, [currentIndex, files.length, onNavigate]);
+
+  // Keyboard navigation
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft') onNavigate(currentIndex > 0 ? currentIndex - 1 : files.length - 1);
+      if (e.key === 'ArrowRight') onNavigate(currentIndex < files.length - 1 ? currentIndex + 1 : 0);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentIndex, files.length, onClose, onNavigate]);
+
+  if (typeof document === 'undefined' || files.length === 0) return null;
+
+  const currentFile = files[currentIndex];
+  const imageUrl = currentFile?.thumbnailUrl ? getFileUrl(currentFile.thumbnailUrl) : '';
+
+  return createPortal(
+    <div className={styles.lightboxOverlay} onClick={onClose}>
+      <div className={styles.lightboxContent} onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className={styles.lightboxHeader}>
+          <span className={styles.lightboxCounter}>
+            {currentIndex + 1} / {files.length}
+          </span>
+          <div className={styles.lightboxActions}>
+            <button
+              type="button"
+              className={styles.lightboxBtn}
+              onClick={onOpenFileManager}
+              title="Open in File Manager"
+            >
+              <FolderOpen size={18} />
+              <span>Open Files</span>
+            </button>
+            <button
+              type="button"
+              className={styles.lightboxBtnClose}
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* File name */}
+        <div className={styles.lightboxFileName}>
+          {currentFile?.fileName || 'Unknown file'}
+        </div>
+
+        {/* Image */}
+        <div className={styles.lightboxImageWrapper}>
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={currentFile?.fileName || 'File preview'}
+              className={styles.lightboxImage}
+            />
+          ) : (
+            <div className={styles.lightboxPlaceholder}>
+              <FileUp size={48} />
+              <span>No preview available</span>
+            </div>
+          )}
+        </div>
+
+        {/* Navigation arrows */}
+        {files.length > 1 && (
+          <>
+            <button
+              type="button"
+              className={`${styles.lightboxNav} ${styles.lightboxNavPrev}`}
+              onClick={handlePrev}
+              aria-label="Previous"
+            >
+              <ChevronLeft size={24} />
+            </button>
+            <button
+              type="button"
+              className={`${styles.lightboxNav} ${styles.lightboxNavNext}`}
+              onClick={handleNext}
+              aria-label="Next"
+            >
+              <ChevronRight size={24} />
+            </button>
+          </>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -269,6 +391,67 @@ export function ActivityPanel({
   onCreateTaskFromMessage,
 }: ActivityPanelProps) {
   const navigate = useNavigate();
+  
+  // Lightbox state for file preview
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  // Resizable sections state
+  const [feedHeight, setFeedHeight] = useState<number | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef<{ startY: number; startHeight: number } | null>(null);
+
+  // Default feed height based on container
+  const getDefaultFeedHeight = useCallback((containerHeight: number) => {
+    return Math.round(containerHeight * 0.35); // 35% for feed
+  }, []);
+
+  const clampFeedHeight = useCallback((height: number, containerHeight: number) => {
+    const minFeed = 80;
+    const minUtility = 120;
+    const maxFeed = containerHeight - minUtility;
+    return Math.max(minFeed, Math.min(height, maxFeed));
+  }, []);
+
+  const handleResizePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+      const body = bodyRef.current;
+      if (!body) return;
+
+      const containerHeight = body.offsetHeight;
+      const currentFeedHeight = feedHeight ?? getDefaultFeedHeight(containerHeight);
+
+      draggingRef.current = { startY: event.clientY, startHeight: currentFeedHeight };
+      (event.currentTarget as HTMLDivElement).setPointerCapture(event.pointerId);
+
+      const onMove = (e: PointerEvent) => {
+        const state = draggingRef.current;
+        if (!state) return;
+        const dy = e.clientY - state.startY;
+        const next = clampFeedHeight(state.startHeight + dy, containerHeight);
+        setFeedHeight(next);
+      };
+
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        draggingRef.current = null;
+      };
+
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp, { once: true });
+      event.preventDefault();
+    },
+    [clampFeedHeight, feedHeight, getDefaultFeedHeight]
+  );
+
+  const handleResizeDoubleClick = useCallback(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    const containerHeight = body.offsetHeight;
+    setFeedHeight(getDefaultFeedHeight(containerHeight));
+  }, [getDefaultFeedHeight]);
 
   const { feedItems, feedCount } = useMemo(() => {
     const items: ActivityEvent[] = [];
@@ -373,8 +556,11 @@ export function ActivityPanel({
       </div>
 
       {/* Body */}
-      <div className={styles.apBody}>
-        <div className={styles.apFeedRegion}>
+      <div className={styles.apBody} ref={bodyRef}>
+        <div 
+          className={styles.apFeedRegion}
+          style={feedHeight != null ? { height: feedHeight, flex: 'none' } : undefined}
+        >
           <div className={styles.apFeedScroll}>
             {hasFeed ? (
               <div className={styles.apList}>
@@ -390,6 +576,18 @@ export function ActivityPanel({
               <div className={styles.apFeedEmpty}>No recent activity</div>
             )}
           </div>
+        </div>
+
+        {/* Resize Handle */}
+        <div
+          className={styles.apResizeHandle}
+          onPointerDown={handleResizePointerDown}
+          onDoubleClick={handleResizeDoubleClick}
+          role="separator"
+          aria-orientation="horizontal"
+          tabIndex={0}
+        >
+          <div className={styles.apResizeGrip} aria-hidden="true" />
         </div>
 
         <div className={styles.apUtility}>
@@ -434,19 +632,29 @@ export function ActivityPanel({
                 <button
                   type="button"
                   className={styles.apSectionLink}
-                  onClick={handleOpenFiles}
+                  onClick={() => {
+                    if (recentFiles.length > 0) {
+                      setLightboxIndex(0);
+                      setLightboxOpen(true);
+                    } else {
+                      handleOpenFiles();
+                    }
+                  }}
                 >
                   Gallery
                 </button>
               </div>
               {hasFiles ? (
                 <div className={styles.apFilesGrid}>
-                  {recentFiles.slice(0, 4).map(file => (
+                  {recentFiles.slice(0, 4).map((file, idx) => (
                     <div
                       key={file.fileId}
                       className={styles.apFileThumb}
                       title={file.fileName}
-                      onClick={handleOpenFiles}
+                      onClick={() => {
+                        setLightboxIndex(idx);
+                        setLightboxOpen(true);
+                      }}
                       role="button"
                       tabIndex={0}
                     >
@@ -492,6 +700,17 @@ export function ActivityPanel({
             </div>
         </div>
       </div>
+
+      {/* Files Lightbox */}
+      {lightboxOpen && recentFiles.length > 0 && (
+        <FilesLightbox
+          files={recentFiles}
+          currentIndex={lightboxIndex}
+          onClose={() => setLightboxOpen(false)}
+          onNavigate={(idx) => setLightboxIndex(idx)}
+          onOpenFileManager={handleOpenFiles}
+        />
+      )}
     </div>
   );
 }

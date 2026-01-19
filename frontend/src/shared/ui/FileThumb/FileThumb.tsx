@@ -105,16 +105,6 @@ export function FileThumb({
   maxFileNameLength = 20,
   cacheKey,
 }: FileThumbProps) {
-  // DEBUG: Log unconditionally for first 3 renders
-  if (typeof window !== 'undefined') {
-    const key = '__fileThumbCallCount';
-    const count = ((window as unknown as Record<string, number>)[key] || 0);
-    if (count < 3) {
-      (window as unknown as Record<string, number>)[key] = count + 1;
-      console.warn('[FileThumb] CALLED #' + (count + 1), { fileName, thumbnailUrl: thumbnailUrl?.slice(0, 80), url: url?.slice(0, 80) });
-    }
-  }
-  
   // Check if already loaded from cache (instant render, no loading state)
   const cachedLoaded = cacheKey ? isThumbLoaded(cacheKey) : false;
   
@@ -126,7 +116,6 @@ export function FileThumb({
   const handleImgError = useCallback(() => {
     // If we were trying thumbnail and it failed, try the original URL
     if (thumbnailUrl && !thumbFailed && url) {
-      console.log('[FileThumb] Thumbnail failed, falling back:', { fileName, thumbnailUrl: thumbnailUrl?.slice(0, 80) });
       setThumbFailed(true);
       // Don't set imgError yet - we'll try the fallback
       return;
@@ -137,7 +126,7 @@ export function FileThumb({
     if (cacheKey) {
       setThumbError(cacheKey);
     }
-  }, [cacheKey, thumbnailUrl, thumbFailed, url, fileName]);
+  }, [cacheKey, thumbnailUrl, thumbFailed, url]);
 
   const handleImgLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     setImgLoaded(true);
@@ -153,24 +142,6 @@ export function FileThumb({
   const hasThumbnail = !imgError && thumbnailUrl && !thumbFailed;
   // Use thumbnail if available and not failed, otherwise fall back to original URL
   const imageUrl = (hasThumbnail ? thumbnailUrl : url) || url;
-  
-  // Debug: Log EVERY image to trace what's happening
-  if (typeof window !== 'undefined' && shouldShowImage && thumbnailUrl) {
-    const logKey = '__fileThumbDebugCount';
-    const count = ((window as unknown as Record<string, number>)[logKey] || 0);
-    if (count < 5) {
-      (window as unknown as Record<string, number>)[logKey] = count + 1;
-      console.log('[FileThumb] Render #' + (count + 1) + ':', {
-        fileName,
-        hasThumbnail,
-        thumbFailed,
-        imgError,
-        thumbnailUrl: thumbnailUrl?.slice(0, 100),
-        actualImageUrl: imageUrl?.slice(0, 100),
-        usingThumbnail: imageUrl === thumbnailUrl
-      });
-    }
-  }
 
   const sizeClasses = {
     sm: styles.thumbSm,

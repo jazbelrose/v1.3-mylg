@@ -175,14 +175,6 @@ function OptimizedGridTileComponent({
           }
           
           // Render the actual thumbnail (will use browser cache if already loaded)
-          // Debug: log what's being passed to FileThumb
-          if (item.thumbnailUrl && !alreadyLoaded) {
-            console.log('[OptimizedGridTile] Passing to FileThumb:', { 
-              fileName: item.fileName, 
-              hasThumbnailUrl: !!item.thumbnailUrl,
-              thumbUrl: item.thumbnailUrl?.slice(0, 80)
-            });
-          }
           return (
             <FileThumb
               url={item.url}

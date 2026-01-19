@@ -2,12 +2,15 @@
  * AssetsPreview - Deck and Gallery previews for Overview HUD
  * 
  * Shows latest deck thumbnail with version and gallery previews.
+ * Gallery images can be clicked to open a preview carousel.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, FileText, Image } from 'lucide-react';
+import { ChevronRight, FileText, Image, X, FolderOpen, ChevronLeft as ArrowLeft, ChevronRight as ArrowRight } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
+import { getFileUrl } from '@/shared/utils/api';
 import { formatRelativeTime } from '../utils';
 import styles from '../OverviewHud.module.css';
 
@@ -105,6 +108,107 @@ function DeckPreviewSection({ projectId, projectTitle, deck }: DeckPreviewProps)
 }
 
 // ============================================================================
+// GALLERY LIGHTBOX
+// ============================================================================
+
+interface GalleryLightboxProps {
+  images: string[];
+  currentIndex: number;
+  onClose: () => void;
+  onNavigate: (index: number) => void;
+  onOpenFileManager: () => void;
+}
+
+function GalleryLightbox({ images, currentIndex, onClose, onNavigate, onOpenFileManager }: GalleryLightboxProps) {
+  const handlePrev = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onNavigate(currentIndex > 0 ? currentIndex - 1 : images.length - 1);
+  }, [currentIndex, images.length, onNavigate]);
+
+  const handleNext = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onNavigate(currentIndex < images.length - 1 ? currentIndex + 1 : 0);
+  }, [currentIndex, images.length, onNavigate]);
+
+  // Keyboard navigation
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft') onNavigate(currentIndex > 0 ? currentIndex - 1 : images.length - 1);
+      if (e.key === 'ArrowRight') onNavigate(currentIndex < images.length - 1 ? currentIndex + 1 : 0);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentIndex, images.length, onClose, onNavigate]);
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div className={styles.lightboxOverlay} onClick={onClose}>
+      <div className={styles.lightboxContent} onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className={styles.lightboxHeader}>
+          <span className={styles.lightboxCounter}>
+            {currentIndex + 1} / {images.length}
+          </span>
+          <div className={styles.lightboxActions}>
+            <button
+              type="button"
+              className={styles.lightboxBtn}
+              onClick={onOpenFileManager}
+              title="Open in File Manager"
+            >
+              <FolderOpen size={18} />
+              <span>Open Files</span>
+            </button>
+            <button
+              type="button"
+              className={styles.lightboxBtnClose}
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* Image */}
+        <div className={styles.lightboxImageWrapper}>
+          <img
+            src={getFileUrl(images[currentIndex])}
+            alt={`Gallery image ${currentIndex + 1}`}
+            className={styles.lightboxImage}
+          />
+        </div>
+
+        {/* Navigation arrows */}
+        {images.length > 1 && (
+          <>
+            <button
+              type="button"
+              className={`${styles.lightboxNav} ${styles.lightboxNavPrev}`}
+              onClick={handlePrev}
+              aria-label="Previous"
+            >
+              <ArrowLeft size={24} />
+            </button>
+            <button
+              type="button"
+              className={`${styles.lightboxNav} ${styles.lightboxNavNext}`}
+              onClick={handleNext}
+              aria-label="Next"
+            >
+              <ArrowRight size={24} />
+            </button>
+          </>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ============================================================================
 // GALLERY PREVIEW
 // ============================================================================
 
@@ -116,12 +220,30 @@ interface GalleryPreviewProps {
 
 function GalleryPreviewSection({ projectId, projectTitle, galleries }: GalleryPreviewProps) {
   const navigate = useNavigate();
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  const handleClick = () => {
+  const handleOpenFileManager = useCallback(() => {
+    setLightboxOpen(false);
     navigate(getProjectDashboardPath(projectId, projectTitle, '/gallery'));
-  };
+  }, [navigate, projectId, projectTitle]);
 
-  // Get up to 3 thumbnails from galleries
+  // Get ALL image URLs from galleries for the lightbox
+  const allImages = useMemo(() => {
+    const images: string[] = [];
+    for (const gallery of galleries) {
+      if (gallery.images) {
+        for (const img of gallery.images) {
+          if (img.url) {
+            images.push(img.url);
+          }
+        }
+      }
+    }
+    return images;
+  }, [galleries]);
+
+  // Get up to 4 thumbnails for preview grid
   const thumbnails = useMemo(() => {
     const thumbs: string[] = [];
     for (const gallery of galleries) {
@@ -132,10 +254,10 @@ function GalleryPreviewSection({ projectId, projectTitle, galleries }: GalleryPr
           if (img.thumbnailUrl || img.url) {
             thumbs.push(img.thumbnailUrl || img.url!);
           }
-          if (thumbs.length >= 3) break;
+          if (thumbs.length >= 4) break;
         }
       }
-      if (thumbs.length >= 3) break;
+      if (thumbs.length >= 4) break;
     }
     return thumbs;
   }, [galleries]);
@@ -144,6 +266,12 @@ function GalleryPreviewSection({ projectId, projectTitle, galleries }: GalleryPr
     return galleries.reduce((sum, g) => sum + (g.imageCount || g.images?.length || 0), 0);
   }, [galleries]);
 
+  const handleImageClick = useCallback((e: React.MouseEvent, idx: number) => {
+    e.stopPropagation();
+    setLightboxIndex(idx);
+    setLightboxOpen(true);
+  }, []);
+
   if (galleries.length === 0) {
     return (
       <div className={styles.assetsSection}>
@@ -151,7 +279,7 @@ function GalleryPreviewSection({ projectId, projectTitle, galleries }: GalleryPr
         <div className={styles.assetsEmpty}>
           No galleries created yet
         </div>
-        <span className={styles.healthTileCta} onClick={handleClick}>
+        <span className={styles.healthTileCta} onClick={handleOpenFileManager}>
           Open Gallery <ChevronRight size={12} />
         </span>
       </div>
@@ -163,35 +291,48 @@ function GalleryPreviewSection({ projectId, projectTitle, galleries }: GalleryPr
       <div className={styles.assetsSectionTitle}>
         Galleries ({galleries.length})
       </div>
-      <div
-        className={styles.galleryGrid}
-        onClick={handleClick}
-        role="button"
-        tabIndex={0}
-        style={{ cursor: 'pointer' }}
-      >
+      <div className={styles.galleryGrid}>
         {thumbnails.map((thumb, idx) => (
           <img
             key={idx}
-            src={thumb}
+            src={getFileUrl(thumb)}
             alt={`Gallery image ${idx + 1}`}
             className={styles.galleryThumb}
+            onClick={(e) => handleImageClick(e, idx)}
+            role="button"
+            tabIndex={0}
           />
         ))}
         {thumbnails.length === 0 && (
-          <div className={styles.galleryThumbMore}>
+          <div className={styles.galleryThumbMore} onClick={handleOpenFileManager}>
             <Image size={20} />
           </div>
         )}
-        {totalImages > 3 && (
-          <div className={styles.galleryThumbMore}>
-            +{totalImages - 3}
+        {totalImages > 4 && (
+          <div 
+            className={styles.galleryThumbMore}
+            onClick={(e) => handleImageClick(e, 4)}
+            role="button"
+            tabIndex={0}
+          >
+            +{totalImages - 4}
           </div>
         )}
       </div>
-      <span className={styles.healthTileCta} onClick={handleClick}>
+      <span className={styles.healthTileCta} onClick={handleOpenFileManager}>
         Open Galleries <ChevronRight size={12} />
       </span>
+
+      {/* Lightbox */}
+      {lightboxOpen && allImages.length > 0 && (
+        <GalleryLightbox
+          images={allImages}
+          currentIndex={lightboxIndex}
+          onClose={() => setLightboxOpen(false)}
+          onNavigate={setLightboxIndex}
+          onOpenFileManager={handleOpenFileManager}
+        />
+      )}
     </div>
   );
 }

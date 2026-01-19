@@ -643,16 +643,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 20px;
+  padding: 10px 16px;
+  height: 54px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  gap: 16px;
-  flex-wrap: wrap;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.2);
 }
 
 .toolbarLeft {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  min-width: 0;
+  flex-shrink: 0;
 }
 
 .toolbarCenter {
@@ -660,13 +663,72 @@
   align-items: center;
   gap: 8px;
   flex: 1;
-  max-width: 500px;
+  justify-content: center;
+  max-width: 400px;
+  margin: 0 auto;
 }
 
 .toolbarRight {
   display: flex;
   align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Project Context Chip - Premium feel */
+.projectChip {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  padding: 4px 10px 4px 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: default;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.projectChipAvatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.projectChipAvatarPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #fa3356, #ff6b6b);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.projectChipName {
+  font-weight: 500;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.projectChipSeparator {
+  color: rgba(255, 255, 255, 0.3);
+  font-weight: 300;
+  margin: 0 2px;
+}
+
+.projectChipSection {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 400;
 }
 
 /* Breadcrumb */
@@ -722,17 +784,18 @@
 .searchWrapper {
   position: relative;
   flex: 1;
-  max-width: 280px;
+  max-width: 320px;
+  min-width: 160px;
 }
 
 .searchInput {
   width: 100%;
-  padding: 8px 12px 8px 36px;
+  padding: 7px 12px 7px 34px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid transparent;
   border-radius: 8px;
   color: white;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   transition: all 0.15s ease;
 }
 
@@ -799,6 +862,49 @@
 .toolbarBtnPrimary:hover {
   background: #e52d4c;
   transform: translateY(-1px);
+}
+
+/* Upload button - toned down, premium feel */
+.toolbarBtnUpload {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: rgba(250, 51, 86, 0.15);
+  border: 1px solid rgba(250, 51, 86, 0.3);
+  border-radius: 8px;
+  color: #fa3356;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toolbarBtnUpload:hover {
+  background: rgba(250, 51, 86, 0.25);
+  border-color: rgba(250, 51, 86, 0.5);
+}
+
+/* Close button - subtle, doesn't compete */
+.toolbarBtnClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: 4px;
+}
+
+.toolbarBtnClose:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 /* ============================================================================

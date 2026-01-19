@@ -68,7 +68,7 @@ import { useFileMessenger } from '../Shared/hooks/useFileMessenger';
 import { useFileTransfers } from '../Shared/hooks/useFileTransfers';
 import type { Message } from '@/app/contexts/DataProvider';
 import type { FileManagerProps, FileManagerRef, FolderOption, FileItem, ViewMode } from './FileManagerTypes';
-import { apiFetch, EDIT_PROJECT_URL } from '@/shared/utils/api';
+import { apiFetch, EDIT_PROJECT_URL, getFileUrl } from '@/shared/utils/api';
 import { notify } from '@/shared/ui/ToastNotifications';
 import { getFileKind, getThumbnailUrl, hasGeneratedThumbnail } from './FileManagerUtils';
 import Dropdown from './Dropdown';
@@ -302,22 +302,6 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
           isFolder: false,
         };
       });
-      
-      // Debug: log first few items with thumbnails on first load
-      if (items.length > 0) {
-        const withThumbs = items.filter(i => i.thumbnailUrl);
-        if (withThumbs.length > 0) {
-          console.log('[FileManagerV2] Thumbnail URLs generated:', {
-            total: items.length,
-            withThumbnails: withThumbs.length,
-            sample: withThumbs.slice(0, 3).map(i => ({ 
-              fileName: i.fileName, 
-              originalUrl: i.url,
-              thumbUrl: i.thumbnailUrl 
-            }))
-          });
-        }
-      }
       
       return items;
     }, [displayedFiles, folderKey]);
@@ -1151,8 +1135,9 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
           closeTimeoutMS={300}
         >
           <div className={styles.fileManagerV2}>
-            {/* TOOLBAR */}
+            {/* TOOLBAR - Modern 3-zone layout */}
             <div className={styles.toolbar}>
+              {/* LEFT ZONE: Project context + Breadcrumb */}
               <div className={styles.toolbarLeft}>
                 {/* Sidebar toggle */}
                 <button
@@ -1164,16 +1149,40 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                   {sidebarCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
                 </button>
 
-                {/* Breadcrumb */}
-                <Breadcrumb
-                  segments={breadcrumbSegments}
-                  onNavigate={setFolderKey}
-                  rootLabel="Project Files"
-                />
+                {/* Project Context Chip */}
+                {activeProject && (
+                  <div className={styles.projectChip}>
+                    {(activeProject.thumbnails as string[])?.[0] ? (
+                      <img 
+                        src={getFileUrl((activeProject.thumbnails as string[])[0])} 
+                        alt="" 
+                        className={styles.projectChipAvatar}
+                      />
+                    ) : (
+                      <div className={styles.projectChipAvatarPlaceholder}>
+                        {((activeProject.title as string) || 'P').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span className={styles.projectChipName}>
+                      {(activeProject.title as string) || 'Project'}
+                    </span>
+                    <span className={styles.projectChipSeparator}>›</span>
+                    <span className={styles.projectChipSection}>Files</span>
+                  </div>
+                )}
+
+                {/* Breadcrumb (only show subfolders) */}
+                {breadcrumbSegments.length > 1 && (
+                  <Breadcrumb
+                    segments={breadcrumbSegments.slice(1)}
+                    onNavigate={setFolderKey}
+                    rootLabel=""
+                  />
+                )}
               </div>
 
+              {/* CENTER ZONE: Search */}
               <div className={styles.toolbarCenter}>
-                {/* Search */}
                 <div className={styles.searchWrapper}>
                   <Search size={14} className={styles.searchIcon} />
                   <input
@@ -1184,16 +1193,9 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                     className={styles.searchInput}
                   />
                 </div>
-
-                {/* Filter dropdown */}
-                <Dropdown
-                  label="Filter"
-                  options={filterOptionsList}
-                  value={filterOption}
-                  onChange={setFilterOption}
-                />
               </div>
 
+              {/* RIGHT ZONE: View toggle + Filter + Upload + Close */}
               <div className={styles.toolbarRight}>
                 {/* View toggle */}
                 <button
@@ -1205,6 +1207,14 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                   {viewMode === 'list' ? <List size={18} /> : <Grid size={18} />}
                 </button>
 
+                {/* Filter dropdown */}
+                <Dropdown
+                  label="Filter"
+                  options={filterOptionsList}
+                  value={filterOption}
+                  onChange={setFilterOption}
+                />
+
                 {/* Inspector toggle */}
                 <button
                   type="button"
@@ -1215,7 +1225,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                   {inspectorOpen ? <PanelRightClose size={18} /> : <PanelRight size={18} />}
                 </button>
 
-                {/* Upload button */}
+                {/* Upload button - toned down */}
                 {canUpload && (
                   <>
                     <input
@@ -1227,7 +1237,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                     />
                     <button
                       type="button"
-                      className={styles.toolbarBtnPrimary}
+                      className={styles.toolbarBtnUpload}
                       onClick={() => fileInputRef.current?.click()}
                     >
                       <Upload size={16} />
@@ -1239,7 +1249,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                 {/* Close button */}
                 <button
                   type="button"
-                  className={styles.toolbarBtn}
+                  className={styles.toolbarBtnClose}
                   onClick={closeFilesModal}
                   aria-label="Close"
                 >
