@@ -96,6 +96,12 @@ const OverviewHudWrapper: React.FC<OverviewHudWrapperProps> = ({
     handleTaskDrawerClose();
   }, [overviewData, handleTaskDrawerClose]);
 
+  // Handler to open the create task modal (new task, no pre-filled data)
+  const handleCreateTask = useCallback(() => {
+    setTaskDrawerTask(null);
+    setTaskDrawerOpen(true);
+  }, []);
+
   // Project list for the modal (just the current project)
   const taskProjects = useMemo(() => [{
     id: projectId,
@@ -125,6 +131,7 @@ const OverviewHudWrapper: React.FC<OverviewHudWrapperProps> = ({
         recentFiles={overviewData.recentFiles}
         recentLinks={overviewData.recentLinks}
         onQuickEditTask={handleQuickEditTask}
+        onCreateTask={handleCreateTask}
         onRefresh={overviewData.refresh}
       />
       

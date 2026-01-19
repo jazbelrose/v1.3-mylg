@@ -128,6 +128,8 @@ interface OverviewHudProps {
   onOpenMap?: () => void;
   /** Double-click quick edit for tasks */
   onQuickEditTask?: (task: TaskItem) => void;
+  /** Open create task modal */
+  onCreateTask?: () => void;
   /** Client mode: hides internal controls, shows only client-facing data */
   clientMode?: boolean;
   /** Called after a task/event is deleted or updated to refresh data */
@@ -158,6 +160,7 @@ export function OverviewHud({
   recentLinks,
   onOpenMap,
   onQuickEditTask,
+  onCreateTask,
   clientMode = false,
   onRefresh,
 }: OverviewHudProps) {
@@ -298,6 +301,7 @@ export function OverviewHud({
             teamMembers={teamMembers}
             onOpenMap={handleOpenMap}
             onRefresh={onRefresh}
+            onCreateTask={onCreateTask}
             onQuickEditTask={onQuickEditTask ? (task: TimelineTask) => {
               // Find the original task data to pass to parent
               const originalTask = tasks.find(t => (t.id || t.taskId) === task.id);

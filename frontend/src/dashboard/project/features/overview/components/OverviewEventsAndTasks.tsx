@@ -75,6 +75,8 @@ interface OverviewEventsAndTasksProps {
   onEditTask?: (task: TimelineTask) => void;
   onQuickEditTask?: (task: TimelineTask) => void;
   onOpenMap?: () => void;
+  /** Open create task modal */
+  onCreateTask?: () => void;
   /** Called after a task/event is deleted or updated to refresh data */
   onRefresh?: () => void;
 }
@@ -94,6 +96,7 @@ export function OverviewEventsAndTasks({
   onEditTask,
   onQuickEditTask,
   onOpenMap,
+  onCreateTask,
   onRefresh,
 }: OverviewEventsAndTasksProps) {
   const navigate = useNavigate();
@@ -268,8 +271,12 @@ export function OverviewEventsAndTasks({
   }, [navigate, onOpenMap, projectId, projectTitle]);
   
   const handleCreateTask = useCallback(() => {
+    if (onCreateTask) {
+      onCreateTask();
+      return;
+    }
     navigate(getProjectDashboardPath(projectId, projectTitle, '/tasks'));
-  }, [navigate, projectId, projectTitle]);
+  }, [navigate, onCreateTask, projectId, projectTitle]);
   
   const handleCreateEvent = useCallback(() => {
     navigate(getProjectDashboardPath(projectId, projectTitle, '/calendar'));
