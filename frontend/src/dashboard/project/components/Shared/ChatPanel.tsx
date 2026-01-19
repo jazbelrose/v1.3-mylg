@@ -49,14 +49,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   );
 
   const [size, setSize] = useState<Size>(() => {
-    if (typeof window === "undefined") return { width: 320, height: 400 };
+    if (typeof window === "undefined") return { width: 380, height: 450 };
     try {
       const stored = localStorage.getItem("chatPanelSize");
       if (stored) return JSON.parse(stored) as Size;
     } catch {
       /* ignore */
     }
-    return { width: 320, height: 400 };
+    return { width: 380, height: 450 };
   });
 
   const [position, setPosition] = useState<Pos>(() => {
@@ -67,8 +67,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     } catch {
       /* ignore */
     }
-    const panelWidth = 320;
-    const panelHeight = 400;
+    const panelWidth = 380;
+    const panelHeight = 450;
     return {
       x: window.innerWidth - panelWidth - 32,
       y: window.innerHeight - panelHeight - 32,
@@ -245,10 +245,24 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   }, [openSignal, handleSetOpen, flashPanel]);
 
   const startDrag = (e: React.MouseEvent) => {
-    if (!floating) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    
+    const rect = panel.getBoundingClientRect();
+    
+    // If not floating, undock by setting floating to true
+    if (!floating) {
+      // Set initial position and size based on current panel position
+      setPosition({ x: rect.left, y: rect.top });
+      setSize({ width: rect.width, height: rect.height });
+      handleSetFloating(true);
+      handleSetOpen(true);
+    }
+    
     draggingRef.current = true;
     hasDraggedRef.current = false;
-    dragOffsetRef.current = { x: e.clientX - position.x, y: e.clientY - position.y };
+    // Calculate offset from the current rect position (not state which may be stale)
+    dragOffsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     document.addEventListener("mousemove", onDrag);
     document.addEventListener("mouseup", endDrag);
   };

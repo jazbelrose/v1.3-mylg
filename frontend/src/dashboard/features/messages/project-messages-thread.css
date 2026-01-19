@@ -457,22 +457,22 @@
 .message-input-footer {
   display: flex;
   flex-direction: column;
-  padding: 0 8px 12px;
+  padding: 0 6px 8px;
   margin-top: auto;
 }
 
 .message-input-divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.12);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .message-input-container {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
-  border-radius: 24px;
-  padding: 6px 8px;
+  border-radius: 20px;
+  padding: 4px 6px;
   position: relative;
   background-color: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -481,52 +481,58 @@
 .message-input-inner {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   position: relative;
   flex: 1;
 }
 
 /* ============================================================================
-   Header - Title Row with Project Name
+   Drag Bar - Grabbable area at top of floating window
+   ============================================================================ */
+
+.thread-drag-bar {
+  height: 16px;
+  cursor: grab;
+  user-select: none;
+  background: transparent;
+  position: relative;
+}
+
+.thread-drag-bar::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.thread-drag-bar:hover::after {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.thread-drag-bar:active {
+  cursor: grabbing;
+}
+
+/* ============================================================================
+   Header - Single Row with Search, Move/Dock, and Close
    ============================================================================ */
 
 .thread-panel-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 12px 8px;
-  cursor: grab;
-  user-select: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 6px;
+  padding: 6px 6px 6px 8px;
+  margin-bottom: 8px;
 }
 
-.thread-panel-header:active {
-  cursor: grabbing;
-}
-
-.thread-header-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex: 1;
-}
-
-.thread-header-project-icon {
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
-  border: 1.5px solid rgba(255, 255, 255, 0.7);
-  flex-shrink: 0;
-}
-
-.thread-header-project-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.thread-panel-header.floating {
+  padding: 12px 6px  0px;
+  margin-bottom: 8px;
 }
 
 .thread-header-actions {
@@ -536,7 +542,7 @@
   gap: 4px;
 }
 
-.thread-close-btn {
+.thread-header-actions .icon-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -550,39 +556,36 @@
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.thread-close-btn:hover {
+.thread-header-actions .icon-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
 
 /* ============================================================================
-   Header - Search Row (below title)
+   Header - Search (inline in header row)
    ============================================================================ */
-
-.thread-header-search-row {
-  padding: 8px 12px;
-}
 
 .thread-header-search {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
-  width: 100%;
-  padding: 0 12px;
+  height: 28px;
+  flex: 1;
+  min-width: 80px;
+  padding: 0 10px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(0, 0, 0, 0.15);
 }
 
 .thread-header-search-icon {
-  flex: 0 0 auto;
+  flex: 0 0 14px;
   opacity: 0.7;
 }
 
 .thread-header-search-input {
   flex: 1;
-  min-width: 0;
+  min-width: 40px;
   border: none;
   outline: none;
   background: transparent;
@@ -684,11 +687,12 @@
 
 .message-input {
   flex-grow: 1;
-  padding: 8px 16px;
-  border-radius: 20px;
+  padding: 6px 12px;
+  border-radius: 16px;
   border: 1px solid #444;
   background: #262626;
   color: #fff;
+  font-size: 13px;
   z-index: 1;
 }
 
@@ -700,8 +704,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5px;
-  margin: 0 6px;
+  padding: 4px;
+  margin: 0 2px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 50px;
   transition: background-color 0.2s ease;
@@ -756,7 +760,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 6px;
+  padding: 6px 4px;
   background: transparent;
   border: none;
   border-radius: 6px;

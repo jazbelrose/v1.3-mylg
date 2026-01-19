@@ -17,7 +17,9 @@ import { normalizeMessage } from "@/shared/utils/websocketUtils";
 import {
   ChevronDown,
   ChevronUp,
+  Dock,
   FileText,
+  Move,
   Paperclip,
   Plus,
   Search,
@@ -1276,117 +1278,120 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
         {isLoading && <SpinnerOverlay />}
         {errorMessage && <div className="error-message">{errorMessage}</div>}
 
+        {/* Draggable top bar - when floating */}
+        {floating && (
+          <div
+            className="thread-drag-bar"
+            onMouseDown={startDrag}
+            aria-label="Drag to move window"
+          />
+        )}
+
         <div
-          className="thread-panel-header chat-panel-header"
-          onMouseDown={startDrag}
+          className={`thread-panel-header chat-panel-header ${floating ? "floating" : ""}`}
           aria-label={`Message thread controls for ${projectName}`}
         >
-          <div className="thread-header-title-row">
-            <div className="thread-header-project-icon" aria-hidden="true" />
-            <span className="thread-header-project-name">{projectName}</span>
+          <div
+            className="thread-header-search"
+            role="search"
+            aria-label="Search messages"
+          >
+            <Search
+              size={14}
+              aria-hidden="true"
+              className="thread-header-search-icon"
+            />
+            <input
+              ref={searchInputRef}
+              className="thread-header-search-input"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search…"
+              aria-label="Search in this thread"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setSearchQuery("");
+                  setActiveSearchKey(null);
+                  (e.currentTarget as HTMLInputElement).blur();
+                  return;
+                }
+
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  jumpSearch(e.shiftKey ? -1 : 1);
+                }
+              }}
+            />
+
+            <div
+              className={`thread-header-search-controls ${
+                normalizedSearchQuery ? "" : "is-hidden"
+              }`}
+              aria-hidden={!normalizedSearchQuery}
+            >
+              <span className="thread-header-search-count" aria-live="polite">
+                {searchMatches.length > 0 && activeSearchIndex >= 0
+                  ? `${activeSearchIndex + 1}/${searchMatches.length}`
+                  : `0/${searchMatches.length}`}
+              </span>
+
+              <button
+                type="button"
+                className="thread-header-search-btn"
+                onClick={() => jumpSearch(-1)}
+                disabled={searchMatches.length === 0}
+                aria-label="Previous match"
+                title="Previous match (Shift+Enter)"
+              >
+                <ChevronUp size={14} />
+              </button>
+              <button
+                type="button"
+                className="thread-header-search-btn"
+                onClick={() => jumpSearch(1)}
+                disabled={searchMatches.length === 0}
+                aria-label="Next match"
+                title="Next match (Enter)"
+              >
+                <ChevronDown size={14} />
+              </button>
+              <button
+                type="button"
+                className="thread-header-search-btn"
+                onClick={() => {
+                  setSearchQuery("");
+                  setActiveSearchKey(null);
+                  searchInputRef.current?.focus();
+                }}
+                disabled={!normalizedSearchQuery}
+                aria-label="Clear search"
+                title="Clear search (Esc)"
+              >
+                <X size={14} />
+              </button>
+            </div>
           </div>
+
           <div className="thread-header-actions">
+            <button
+              className="icon-btn"
+              onClick={() => setFloating((f) => !f)}
+              aria-label={floating ? "Dock" : "Undock"}
+              title={floating ? "Dock" : "Undock"}
+            >
+              {floating ? <Dock size={20} /> : <Move size={20} />}
+            </button>
             <button
               className="icon-btn thread-close-btn"
               onClick={() => onCloseChat?.()}
               aria-label="Close chat"
               title="Close chat"
             >
-              <X size={18} />
+              <X size={22} />
             </button>
           </div>
         </div>
-
-        {open && (
-          <div
-            className="thread-header-search-row"
-            onMouseDown={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="thread-header-search"
-              role="search"
-              aria-label="Search messages"
-            >
-              <Search
-                size={14}
-                aria-hidden="true"
-                className="thread-header-search-icon"
-              />
-              <input
-                ref={searchInputRef}
-                className="thread-header-search-input"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search…"
-                aria-label="Search in this thread"
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    e.preventDefault();
-                    setSearchQuery("");
-                    setActiveSearchKey(null);
-                    (e.currentTarget as HTMLInputElement).blur();
-                    return;
-                  }
-
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    jumpSearch(e.shiftKey ? -1 : 1);
-                  }
-                }}
-              />
-
-              <div
-                className={`thread-header-search-controls ${
-                  normalizedSearchQuery ? "" : "is-hidden"
-                }`}
-                aria-hidden={!normalizedSearchQuery}
-              >
-                <span className="thread-header-search-count" aria-live="polite">
-                  {searchMatches.length > 0 && activeSearchIndex >= 0
-                    ? `${activeSearchIndex + 1}/${searchMatches.length}`
-                    : `0/${searchMatches.length}`}
-                </span>
-
-                <button
-                  type="button"
-                  className="thread-header-search-btn"
-                  onClick={() => jumpSearch(-1)}
-                  disabled={searchMatches.length === 0}
-                  aria-label="Previous match"
-                  title="Previous match (Shift+Enter)"
-                >
-                  <ChevronUp size={14} />
-                </button>
-                <button
-                  type="button"
-                  className="thread-header-search-btn"
-                  onClick={() => jumpSearch(1)}
-                  disabled={searchMatches.length === 0}
-                  aria-label="Next match"
-                  title="Next match (Enter)"
-                >
-                  <ChevronDown size={14} />
-                </button>
-                <button
-                  type="button"
-                  className="thread-header-search-btn"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setActiveSearchKey(null);
-                    searchInputRef.current?.focus();
-                  }}
-                  disabled={!normalizedSearchQuery}
-                  aria-label="Clear search"
-                  title="Clear search (Esc)"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {open && (
           <div
@@ -1462,7 +1467,7 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
                     aria-haspopup="true"
                     aria-expanded={showActionMenu}
                   >
-                    <Plus size={18} />
+                    <Plus size={16} />
                   </button>
                 {showActionMenu && (
                   <div
@@ -1535,7 +1540,7 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
                 className="send-button"
                 aria-label="Send message"
               >
-                <Send size={18} />
+                <Send size={16} />
               </button>
               <input
                 ref={fileInputRef}

@@ -387,8 +387,9 @@ const ProjectPageLayout: React.FC<ProjectPageLayoutProps> = ({
                 }}
                 floating={false}
                 setFloating={setFloatingThread}
-                startDrag={(event) => {
-                  void event;
+                startDrag={() => {
+                  // Dragging from docked mode triggers undock (floating mode)
+                  setFloatingThread(true);
                 }}
                 headerOffset={headerHeights.global + headerHeights.project}
                 onCloseChat={handleHideChat}
