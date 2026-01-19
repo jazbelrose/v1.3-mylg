@@ -4,9 +4,9 @@ import { Sparkles, X } from "lucide-react";
 import styles from "./budget-spellbook-modal.module.css";
 import {
   buildBudgetSpellbookVariants,
-  computeBudgetSpellbookTotals,
   parseBudgetSpellbookInput,
   type BudgetSpellbookApplyMode,
+  type BudgetSpellbookConfidenceSummary,
   type BudgetSpellbookCrewModel,
   type BudgetSpellbookEventType,
   type BudgetSpellbookGeneratorOptions,
@@ -14,13 +14,9 @@ import {
   type BudgetSpellbookVariant,
   type BudgetSpellbookVariantId,
 } from "../lib/budgetSpellbook";
-import {
-  buildPlanDraft,
-  defaultPlanDraftAssumptions,
-  type PlanDraft,
-  type PlanDraftAssumptions,
-  type PlanDraftOutputs,
-} from "../lib/planDraft";
+import { defaultPlanDraftAssumptions, type PlanDraftAssumptions, type PlanDraftOutputs } from "../lib/planDraft";
+import { buildRfpProposalPackMarkdownFromDraft } from "../lib/rfpPack";
+import { buildSpellbookDraftEnvelope, type SpellbookDraftEnvelope } from "../lib/spellbookDraft";
 import { FOCUS_BLOCK_WINDOWS } from "@/shared/utils/focusBlockWindows";
 
 if (typeof document !== "undefined") {
@@ -35,6 +31,7 @@ export type BudgetSpellbookApplyRequest = {
   options: BudgetSpellbookGeneratorOptions;
   outputs: PlanDraftOutputs;
   planAssumptions: PlanDraftAssumptions;
+  draft: SpellbookDraftEnvelope;
 };
 
 export type BudgetSpellbookModalProps = {
@@ -87,6 +84,7 @@ export default function BudgetSpellbookModal({
 
   const [applyMode, setApplyMode] = useState<BudgetSpellbookApplyMode>("add");
   const [isApplying, setIsApplying] = useState(false);
+  const [copiedAt, setCopiedAt] = useState(0);
 
   const [activeTab, setActiveTab] = useState<"budget" | "plan" | "assumptions">(initialTab);
 
@@ -165,15 +163,32 @@ export default function BudgetSpellbookModal({
     }
   }, [variantId, variants]);
 
-  const totals = useMemo(() => computeBudgetSpellbookTotals(selectedVariant.lines), [selectedVariant.lines]);
+  const draft = useMemo(
+    () =>
+      buildSpellbookDraftEnvelope({
+        parsed: parseResult,
+        options,
+        outputs,
+        variants,
+        selectedVariantId: selectedVariant.id,
+        planAssumptions,
+        assumptionConfidence,
+      }),
+    [assumptionConfidence, options, outputs, parseResult, planAssumptions, selectedVariant.id, variants],
+  );
 
-  const planDraft: PlanDraft = useMemo(() => {
-    return buildPlanDraft({
-      budgetLines: selectedVariant.lines,
-      assumptions: planAssumptions,
-      confidence: assumptionConfidence,
-    });
-  }, [assumptionConfidence, planAssumptions, selectedVariant.lines]);
+  const selectedSummary = useMemo(
+    () => draft.variants.find((v) => v.id === draft.selectedVariantId) ?? draft.variants[0],
+    [draft.selectedVariantId, draft.variants],
+  );
+
+  const totals = selectedSummary?.totals ?? { budgeted: 0, final: 0, finalRange: { low: 0, likely: 0, high: 0 }, effectiveMarkup: 0, byCategory: {} };
+  const confidenceSummary: BudgetSpellbookConfidenceSummary = selectedSummary?.confidence ?? {
+    score: 0.55,
+    readiness: "sendable_with_caveats",
+    requiredAnchors: [],
+  };
+  const planDraft = draft.planDraft;
 
   const [conjurePhase, setConjurePhase] = useState<0 | 1 | 2>(0);
   useEffect(() => {
@@ -220,13 +235,36 @@ export default function BudgetSpellbookModal({
         options,
         outputs,
         planAssumptions,
+        draft,
       });
       onRequestClose();
       setText("");
     } finally {
       setIsApplying(false);
     }
-  }, [applyMode, canSubmit, onApply, onRequestClose, options, outputs, parseResult, planAssumptions, selectedVariant]);
+  }, [applyMode, canSubmit, draft, onApply, onRequestClose, options, outputs, parseResult, planAssumptions, selectedVariant]);
+
+  useEffect(() => {
+    if (!copiedAt) return;
+    const timer = window.setTimeout(() => setCopiedAt(0), 1400);
+    return () => window.clearTimeout(timer);
+  }, [copiedAt]);
+
+  const canCopyRfp = isMeaningfulText(text) && selectedVariant.lines.length > 0 && !isApplying;
+  const copyLabel = copiedAt ? "Copied" : "Copy RFP pack";
+
+  const handleCopyRfp = useCallback(async () => {
+    if (!canCopyRfp) return;
+    const markdown = buildRfpProposalPackMarkdownFromDraft(draft);
+
+    try {
+      await navigator.clipboard.writeText(markdown);
+      setCopiedAt(Date.now());
+    } catch {
+      // Clipboard may be blocked; fall back to a prompt so the user can copy manually.
+      window.prompt("Copy proposal text:", markdown);
+    }
+  }, [canCopyRfp, draft]);
 
   if (!isOpen) return null;
 
@@ -287,7 +325,12 @@ export default function BudgetSpellbookModal({
             <button
               type="button"
               className={`${styles.outputToggle} ${outputs.budget ? styles.outputToggleOn : ""}`}
-              onClick={() => setOutputs((prev) => ({ ...prev, budget: !prev.budget }))}
+              onClick={() =>
+                setOutputs((prev) => {
+                  const budget = !prev.budget;
+                  return { ...prev, budget, links: budget ? prev.links : false };
+                })
+              }
             >
               <span className={styles.outputToggleCheck} aria-hidden>
                 {outputs.budget ? "✓" : ""}
@@ -307,7 +350,12 @@ export default function BudgetSpellbookModal({
             <button
               type="button"
               className={`${styles.outputToggle} ${outputs.links ? styles.outputToggleOn : ""}`}
-              onClick={() => setOutputs((prev) => ({ ...prev, links: !prev.links }))}
+              onClick={() =>
+                setOutputs((prev) => {
+                  const links = !prev.links;
+                  return { ...prev, links, budget: links ? true : prev.budget };
+                })
+              }
             >
               <span className={styles.outputToggleCheck} aria-hidden>
                 {outputs.links ? "✓" : ""}
@@ -369,13 +417,42 @@ export default function BudgetSpellbookModal({
                     <div className={styles.totalValue}>{formatMoney(totals.budgeted)}</div>
                   </div>
                   <div className={styles.totalCard}>
-                    <div className={styles.totalLabel}>Final</div>
-                    <div className={styles.totalValue}>{formatMoney(totals.final)}</div>
+                    <div className={styles.totalLabel}>Final (range)</div>
+                    <div className={styles.totalValue}>{formatMoney(totals.finalRange.likely)}</div>
+                    <div className={styles.totalSubValue}>
+                      {formatMoney(totals.finalRange.low)}–{formatMoney(totals.finalRange.high)}
+                    </div>
                   </div>
                   <div className={styles.totalCard}>
                     <div className={styles.totalLabel}>Effective markup</div>
                     <div className={styles.totalValue}>{percentLabel(totals.effectiveMarkup)}</div>
                   </div>
+                </div>
+
+                <div className={styles.readiness}>
+                  <span
+                    className={styles.readinessDot}
+                    style={{ opacity: confidenceSummary.score }}
+                    title={`Project confidence: ${Math.round(confidenceSummary.score * 100)}%`}
+                    aria-hidden
+                  />
+                  <span className={styles.readinessLabel}>
+                    RFP readiness:{" "}
+                    {confidenceSummary.readiness === "ready_to_send"
+                      ? "Ready to send"
+                      : confidenceSummary.readiness === "sendable_with_caveats"
+                        ? "Sendable with caveats"
+                        : "Needs answers"}
+                  </span>
+                  {confidenceSummary.requiredAnchors?.some((a) => a.status === "unknown") ? (
+                    <span className={styles.readinessMeta}>
+                      Missing:{" "}
+                      {confidenceSummary.requiredAnchors
+                        .filter((a) => a.status === "unknown")
+                        .map((a) => a.key)
+                        .join(", ")}
+                    </span>
+                  ) : null}
                 </div>
 
                 <div className={styles.breakdown}>
@@ -406,7 +483,19 @@ export default function BudgetSpellbookModal({
                     {selectedVariant.lines.map((line) => (
                       <div key={line.id} className={styles.lineRow} role="row">
                         <div className={styles.lineMeta} role="cell">
-                          <div className={styles.lineCategory}>{line.category}</div>
+                          <div className={styles.lineCategory}>
+                            <span
+                              className={styles.lineConfidenceDot}
+                              style={{ opacity: line.meta?.confidence ?? 0.55 }}
+                              title={(() => {
+                                const confidencePct = Math.round((line.meta?.confidence ?? 0.55) * 100);
+                                const reasons = line.estimateRange?.reasonCodes?.length ? ` • ${line.estimateRange.reasonCodes.join(", ")}` : "";
+                                return `Confidence: ${confidencePct}%${reasons}`;
+                              })()}
+                              aria-hidden
+                            />
+                            <span>{line.category}</span>
+                          </div>
                           <div className={styles.lineDesc}>{line.description}</div>
                           <div className={styles.lineGroups}>
                             <span>{line.areaGroup}</span>
@@ -427,6 +516,11 @@ export default function BudgetSpellbookModal({
                           <div className={styles.lineQtyBottom}>
                             {formatMoney(line.itemBudgetedCost)} • {percentLabel(line.itemMarkUp)}
                           </div>
+                          {line.estimateRange ? (
+                            <div className={styles.lineRange}>
+                              {formatMoney(line.estimateRange.low)}–{formatMoney(line.estimateRange.high)}
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     ))}
@@ -700,6 +794,9 @@ export default function BudgetSpellbookModal({
           <button type="button" className={styles.cancel} onClick={onRequestClose}>
             Cancel
           </button>
+          <button type="button" className={styles.copy} onClick={handleCopyRfp} disabled={!canCopyRfp}>
+            {copyLabel}
+          </button>
           <button
             type="button"
             className={styles.apply}
@@ -714,4 +811,3 @@ export default function BudgetSpellbookModal({
     </Modal>
   );
 }
-

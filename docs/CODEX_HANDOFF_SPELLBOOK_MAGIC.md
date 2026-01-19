@@ -103,6 +103,11 @@ Do not progressively create partial state. Generate a single draft → preview �
 - `links[]` (task ↔ budget with linkType)
 - `assumptions[]`, `warnings[]`
 
+### Draft envelope (implementation)
+Spellbook generation output is now treated as a single immutable envelope (no preview/apply drift):
+- `SpellbookDraftEnvelope` contains `schemaVersion`, `engineVersion`, `defaultsVersion`, `requiredAnchors[]`, all `variants[]` (+ totals/confidence), and the selected variant’s `planDraft` (focus blocks + tasks).
+- Apply consumes the envelope directly, so the preview is exactly what gets created.
+
 ### Apply flow (atomic)
 1) Create budget items
 2) Create tasks

@@ -32,6 +32,7 @@ export type PlanDraftBlockKey = "prepro" | "build" | "pack" | "show" | "strike";
 export type PlanDraftFocusBlock = {
   key: PlanDraftBlockKey;
   draftId: string;
+  fingerprint: string;
   title: string;
   dateIso: string; // YYYY-MM-DD
   startLocalTime: string; // HH:MM
@@ -42,6 +43,8 @@ export type PlanDraftFocusBlock = {
 
 export type PlanDraftTaskItem = {
   id: string;
+  fingerprint: string;
+  stepKey: string;
   title: string;
   dateIso: string; // YYYY-MM-DD
   focusBlockDraftId: string;
@@ -58,7 +61,14 @@ export type PlanDraft = {
   tasks: PlanDraftTaskItem[];
 };
 
-const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+const hashFNV1a = (input: string): string => {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+};
 
 const isoAddDays = (iso: string, deltaDays: number): string => {
   const [y, m, d] = iso.split("-").map((n) => Number(n));
@@ -86,18 +96,6 @@ const normalizeTime = (value: string, fallback: string): string => {
   return v;
 };
 
-const minutesFromHHMM = (hhmm: string): number => {
-  const [hh, mm] = hhmm.split(":").map((n) => Number(n));
-  return clamp(hh * 60 + mm, 0, 24 * 60);
-};
-
-const hhmmFromMinutes = (minutes: number): string => {
-  const m = clamp(Math.round(minutes), 0, 24 * 60);
-  const hh = String(Math.floor(m / 60)).padStart(2, "0");
-  const mm = String(m % 60).padStart(2, "0");
-  return `${hh}:${mm}`;
-};
-
 const classifyLifecycle = (
   category: BudgetSpellbookLineDraft["category"],
 ): "rentals-av" | "scenic" | "graphics" | "none" => {
@@ -106,6 +104,56 @@ const classifyLifecycle = (
   if (category === "GRAPHICS") return "graphics";
   if (category === "CONTINGENCY-MISC") return "none";
   return "none";
+};
+
+const taskSpecsForLine = (
+  line: BudgetSpellbookLineDraft,
+  dates: { preproDate: string; buildDate: string; packDate: string; showDate: string; strikeDate: string },
+): Array<{ stepKey: string; title: string; dateIso: string; focusBlockDraftId: PlanDraftBlockKey; linkType: BudgetTaskLinkType }> => {
+  const template = line.meta?.coverageTemplate ?? "NONE";
+
+  if (template === "RENTAL_AV") {
+    return [
+      { stepKey: "quote", title: `Quote: ${line.description}`, dateIso: dates.preproDate, focusBlockDraftId: "prepro", linkType: "quote" },
+      { stepKey: "procure", title: `Procure: ${line.description}`, dateIso: dates.preproDate, focusBlockDraftId: "prepro", linkType: "procure" },
+      { stepKey: "install", title: `Install: ${line.description}`, dateIso: dates.showDate, focusBlockDraftId: "show", linkType: "install" },
+      { stepKey: "strike", title: `Strike: ${line.description}`, dateIso: dates.strikeDate, focusBlockDraftId: "strike", linkType: "strike" },
+      { stepKey: "invoice", title: `Invoice: ${line.description}`, dateIso: dates.strikeDate, focusBlockDraftId: "strike", linkType: "invoice" },
+    ];
+  }
+
+  if (template === "SCENIC") {
+    return [
+      { stepKey: "build", title: `Build: ${line.description}`, dateIso: dates.buildDate, focusBlockDraftId: "build", linkType: "build" },
+      { stepKey: "install", title: `Install: ${line.description}`, dateIso: dates.showDate, focusBlockDraftId: "show", linkType: "install" },
+      { stepKey: "strike", title: `Strike: ${line.description}`, dateIso: dates.strikeDate, focusBlockDraftId: "strike", linkType: "strike" },
+      { stepKey: "invoice", title: `Invoice: ${line.description}`, dateIso: dates.strikeDate, focusBlockDraftId: "strike", linkType: "invoice" },
+    ];
+  }
+
+  if (template === "PRINT") {
+    return [
+      { stepKey: "quote", title: `Quote: ${line.description}`, dateIso: dates.preproDate, focusBlockDraftId: "prepro", linkType: "quote" },
+      { stepKey: "build", title: `Build/Print: ${line.description}`, dateIso: dates.buildDate, focusBlockDraftId: "build", linkType: "build" },
+      { stepKey: "pack", title: `Pack + Confirmations: ${line.description}`, dateIso: dates.packDate, focusBlockDraftId: "pack", linkType: "build" },
+      { stepKey: "install", title: `Install: ${line.description}`, dateIso: dates.showDate, focusBlockDraftId: "show", linkType: "install" },
+      { stepKey: "invoice", title: `Invoice: ${line.description}`, dateIso: dates.strikeDate, focusBlockDraftId: "strike", linkType: "invoice" },
+    ];
+  }
+
+  if (template === "PERMITS") {
+    return [
+      { stepKey: "procure", title: `Procure: ${line.description}`, dateIso: dates.preproDate, focusBlockDraftId: "prepro", linkType: "procure" },
+      { stepKey: "invoice", title: `Invoice: ${line.description}`, dateIso: dates.strikeDate, focusBlockDraftId: "strike", linkType: "invoice" },
+    ];
+  }
+
+  // Back-compat fallback.
+  const lifecycle = classifyLifecycle(line.category);
+  if (lifecycle === "rentals-av") return taskSpecsForLine({ ...line, meta: { ...(line.meta ?? {}), coverageTemplate: "RENTAL_AV" } }, dates);
+  if (lifecycle === "scenic") return taskSpecsForLine({ ...line, meta: { ...(line.meta ?? {}), coverageTemplate: "SCENIC" } }, dates);
+  if (lifecycle === "graphics") return taskSpecsForLine({ ...line, meta: { ...(line.meta ?? {}), coverageTemplate: "PRINT" } }, dates);
+  return [];
 };
 
 export function defaultPlanDraftAssumptions(input: {
@@ -192,6 +240,7 @@ export function buildPlanDraft(params: {
     {
       key: "prepro",
       draftId: "prepro",
+      fingerprint: `fb_${hashFNV1a(`prepro|${preproDate}|${startLocalTime}|${endLocalTime}`)}`,
       title: "Pre-Pro Sprint",
       dateIso: preproDate,
       startLocalTime,
@@ -202,6 +251,7 @@ export function buildPlanDraft(params: {
     {
       key: "build",
       draftId: "build",
+      fingerprint: `fb_${hashFNV1a(`build|${buildDate}|${startLocalTime}|${endLocalTime}`)}`,
       title: "Build/Print Sprint",
       dateIso: buildDate,
       startLocalTime,
@@ -212,6 +262,7 @@ export function buildPlanDraft(params: {
     {
       key: "pack",
       draftId: "pack",
+      fingerprint: `fb_${hashFNV1a(`pack|${packDate}|${startLocalTime}|${endLocalTime}`)}`,
       title: "Packing Sprint",
       dateIso: packDate,
       startLocalTime,
@@ -222,6 +273,7 @@ export function buildPlanDraft(params: {
     {
       key: "show",
       draftId: "show",
+      fingerprint: `fb_${hashFNV1a(`show|${showDate}|${startLocalTime}|${endLocalTime}`)}`,
       title: "Show Day",
       dateIso: showDate,
       startLocalTime,
@@ -232,6 +284,7 @@ export function buildPlanDraft(params: {
     {
       key: "strike",
       draftId: "strike",
+      fingerprint: `fb_${hashFNV1a(`strike|${strikeDate}|${startLocalTime}|${endLocalTime}`)}`,
       title: "Strike/Returns",
       dateIso: strikeDate,
       startLocalTime,
@@ -242,41 +295,26 @@ export function buildPlanDraft(params: {
   ];
 
   const tasks: PlanDraftTaskItem[] = [];
-  let seq = 0;
 
-  const push = (args: Omit<PlanDraftTaskItem, "id">) => {
-    tasks.push({ ...args, id: `draft-task-${seq++}` });
+  const push = (args: Omit<PlanDraftTaskItem, "id" | "fingerprint">) => {
+    const id = `task_${hashFNV1a([args.budgetLineDraftId, args.stepKey, args.focusBlockDraftId].join("|"))}`;
+    const fingerprint = `tfp_${hashFNV1a([args.budgetLineDraftId, args.stepKey, args.title.toLowerCase()].join("|"))}`;
+    tasks.push({ ...args, id, fingerprint });
   };
 
   params.budgetLines.forEach((line) => {
-    const lifecycle = classifyLifecycle(line.category);
-    if (lifecycle === "none") return;
-
-    if (lifecycle === "rentals-av") {
-      push({ title: `Quote: ${line.description}`, dateIso: preproDate, focusBlockDraftId: "prepro", order: 0, budgetLineDraftId: line.id, linkType: "quote" });
-      push({ title: `Procure: ${line.description}`, dateIso: preproDate, focusBlockDraftId: "prepro", order: 0, budgetLineDraftId: line.id, linkType: "procure" });
-      push({ title: `Install: ${line.description}`, dateIso: showDate, focusBlockDraftId: "show", order: 0, budgetLineDraftId: line.id, linkType: "install" });
-      push({ title: `Strike: ${line.description}`, dateIso: strikeDate, focusBlockDraftId: "strike", order: 0, budgetLineDraftId: line.id, linkType: "strike" });
-      push({ title: `Invoice: ${line.description}`, dateIso: strikeDate, focusBlockDraftId: "strike", order: 0, budgetLineDraftId: line.id, linkType: "invoice" });
-      return;
-    }
-
-    if (lifecycle === "scenic") {
-      push({ title: `Build: ${line.description}`, dateIso: buildDate, focusBlockDraftId: "build", order: 0, budgetLineDraftId: line.id, linkType: "build" });
-      push({ title: `Install: ${line.description}`, dateIso: showDate, focusBlockDraftId: "show", order: 0, budgetLineDraftId: line.id, linkType: "install" });
-      push({ title: `Strike: ${line.description}`, dateIso: strikeDate, focusBlockDraftId: "strike", order: 0, budgetLineDraftId: line.id, linkType: "strike" });
-      push({ title: `Invoice: ${line.description}`, dateIso: strikeDate, focusBlockDraftId: "strike", order: 0, budgetLineDraftId: line.id, linkType: "invoice" });
-      return;
-    }
-
-    if (lifecycle === "graphics") {
-      push({ title: `Quote: ${line.description}`, dateIso: preproDate, focusBlockDraftId: "prepro", order: 0, budgetLineDraftId: line.id, linkType: "quote" });
-      push({ title: `Build/Print: ${line.description}`, dateIso: buildDate, focusBlockDraftId: "build", order: 0, budgetLineDraftId: line.id, linkType: "build" });
-      push({ title: `Pack + Confirmations: ${line.description}`, dateIso: packDate, focusBlockDraftId: "pack", order: 0, budgetLineDraftId: line.id, linkType: "build" });
-      push({ title: `Install: ${line.description}`, dateIso: showDate, focusBlockDraftId: "show", order: 0, budgetLineDraftId: line.id, linkType: "install" });
-      push({ title: `Invoice: ${line.description}`, dateIso: strikeDate, focusBlockDraftId: "strike", order: 0, budgetLineDraftId: line.id, linkType: "invoice" });
-      return;
-    }
+    const specs = taskSpecsForLine(line, { preproDate, buildDate, packDate, showDate, strikeDate });
+    specs.forEach((spec) => {
+      push({
+        stepKey: spec.stepKey,
+        title: spec.title,
+        dateIso: spec.dateIso,
+        focusBlockDraftId: spec.focusBlockDraftId,
+        order: 0,
+        budgetLineDraftId: line.id,
+        linkType: spec.linkType,
+      });
+    });
   });
 
   // Pack tasks into their focus block containers (no absolute task start/end).
@@ -303,7 +341,7 @@ export function buildPlanDraft(params: {
         mergeKey: (task) => {
           const original = byOriginalId.get(task.draftId);
           if (!original) return null;
-          return `${original.budgetLineDraftId}::${original.linkType}`;
+          return `${original.budgetLineDraftId}::${original.linkType}::${original.stepKey}`;
         },
       },
     );
@@ -316,7 +354,9 @@ export function buildPlanDraft(params: {
       if (!first) return;
 
       packedTasks.push({
-        id: `packed-${block.draftId}-${pt.order}-${pt.draftId}`,
+        id: `packed_${hashFNV1a([block.draftId, pt.draftId, pt.title.toLowerCase()].join("|"))}`,
+        fingerprint: `pfp_${hashFNV1a([first.budgetLineDraftId, first.stepKey, pt.title.toLowerCase()].join("|"))}`,
+        stepKey: first.stepKey,
         title: pt.title,
         dateIso: block.dateIso,
         focusBlockDraftId: block.draftId,

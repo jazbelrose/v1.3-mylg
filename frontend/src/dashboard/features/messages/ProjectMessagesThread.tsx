@@ -17,9 +17,7 @@ import { normalizeMessage } from "@/shared/utils/websocketUtils";
 import {
   ChevronDown,
   ChevronUp,
-  Dock,
   FileText,
-  Move,
   Paperclip,
   Plus,
   Search,
@@ -1283,17 +1281,33 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
           onMouseDown={startDrag}
           aria-label={`Message thread controls for ${projectName}`}
         >
-          <div className="thread-header-spacer">
-            {floating && (
-              <div className="thread-header-drag-handle" aria-hidden="true" />
-            )}
+          <div className="thread-header-title-row">
+            <div className="thread-header-project-icon" aria-hidden="true" />
+            <span className="thread-header-project-name">{projectName}</span>
+          </div>
+          <div className="thread-header-actions">
+            <button
+              className="icon-btn thread-close-btn"
+              onClick={() => onCloseChat?.()}
+              aria-label="Close chat"
+              title="Close chat"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {open && (
+          <div
+            className="thread-header-search-row"
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div
               className="thread-header-search"
               role="search"
               aria-label="Search messages"
-              onMouseDown={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
             >
               <Search
                 size={14}
@@ -1372,37 +1386,7 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
               </div>
             </div>
           </div>
-          <div className="thread-header-actions">
-            {floating && (
-              <button
-                className="icon-btn"
-                onClick={() => setOpen((o) => !o)}
-                aria-label={open ? "Collapse" : "Expand"}
-                title={open ? "Collapse" : "Expand"}
-              >
-                {open ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-              </button>
-            )}
-            <button
-              className="icon-btn"
-              onClick={() => setFloating((f) => !f)}
-              aria-label={floating ? "Dock" : "Float"}
-              title={floating ? "Dock" : "Float"}
-            >
-              {floating ? <Dock size={16} /> : <Move size={16} />}
-            </button>
-            {!!onCloseChat && (
-              <button
-                className="icon-btn"
-                onClick={() => onCloseChat?.()}
-                aria-label="Close chat"
-                title="Close chat"
-              >
-                <FontAwesomeIcon icon={faTimes} />
-              </button>
-            )}
-          </div>
-        </div>
+        )}
 
         {open && (
           <div
@@ -1462,22 +1446,24 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
         )}
 
         {open && (
-          <div className="message-input-container">
-            <div className="message-input-inner">
-              <div
-                className="message-action-wrapper"
-                ref={actionMenuRef}
-              >
-                <button
-                  type="button"
-                  className="message-icon-button"
-                  onClick={toggleActionMenu}
-                  aria-label="Open message actions"
-                  aria-haspopup="true"
-                  aria-expanded={showActionMenu}
+          <div className="message-input-footer">
+            <div className="message-input-divider" />
+            <div className="message-input-container">
+              <div className="message-input-inner">
+                <div
+                  className="message-action-wrapper"
+                  ref={actionMenuRef}
                 >
-                  <Plus size={18} />
-                </button>
+                  <button
+                    type="button"
+                    className="message-icon-button"
+                    onClick={toggleActionMenu}
+                    aria-label="Open message actions"
+                    aria-haspopup="true"
+                    aria-expanded={showActionMenu}
+                  >
+                    <Plus size={18} />
+                  </button>
                 {showActionMenu && (
                   <div
                     className="message-action-menu"
@@ -1542,22 +1528,23 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
                 }}
                 className="message-input"
               />
+              </div>
+              <button
+                type="button"
+                onClick={sendMessage}
+                className="send-button"
+                aria-label="Send message"
+              >
+                <Send size={18} />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="message-file-input"
+                onChange={handleFileInputChange}
+                multiple
+              />
             </div>
-            <button
-              type="button"
-              onClick={sendMessage}
-              className="send-button"
-              aria-label="Send message"
-            >
-              <Send size={18} />
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="message-file-input"
-              onChange={handleFileInputChange}
-              multiple
-            />
           </div>
         )}
 

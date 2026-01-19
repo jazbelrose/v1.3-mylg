@@ -646,9 +646,21 @@ const BudgetPageContent = () => {
       if (!activeProject?.projectId) return;
       const projectId = activeProject.projectId;
 
-      // Conjure Plan can be invoked before a budget header exists.
+      const envelope = request.draft;
+      const outputs = envelope?.outputs ?? request.outputs;
+      const shouldApplyBudget = Boolean(outputs?.budget ?? true);
+      const shouldApplyCalendar = Boolean(outputs?.calendarPlan);
+      const shouldApplyLinks = Boolean(outputs?.links) && shouldApplyBudget;
+
+      const selectedVariant =
+        envelope?.variants.find((v) => v.id === envelope.selectedVariantId) ?? envelope?.variants[0] ?? request.variant;
+      const draftLines = selectedVariant.lines;
+
+      const draftIdToBudgetItemId = new Map<string, string>();
+
+      // Conjure Plan can be invoked before a budget header exists (only needed if writing budget/links).
       let effectiveHeader = budgetHeader as any;
-      if (!effectiveHeader?.budgetId) {
+      if ((shouldApplyBudget || shouldApplyLinks) && !effectiveHeader?.budgetId) {
         const createdHeader = await handleCreateInitialBudget(0);
         if (!createdHeader) {
           notify("error", "Create a budget before conjuring a plan.");
@@ -657,23 +669,27 @@ const BudgetPageContent = () => {
         effectiveHeader = createdHeader as any;
       }
 
-      const budgetId = String(effectiveHeader.budgetId);
-      const revision = Number(effectiveHeader.revision ?? 1);
+      const budgetId = effectiveHeader?.budgetId ? String(effectiveHeader.budgetId) : "";
+      const revision = Number(effectiveHeader?.revision ?? 1);
 
-      const linesOnly = budgetItems.filter(
-        (it) => typeof it?.budgetItemId === "string" && String(it.budgetItemId).startsWith("LINE-"),
-      );
+      const linesOnly = shouldApplyBudget
+        ? budgetItems.filter((it) => typeof it?.budgetItemId === "string" && String(it.budgetItemId).startsWith("LINE-"))
+        : [];
 
       (stateManager as { pushHistory?: () => void }).pushHistory?.();
 
       try {
-        if (request.applyMode === "replace") {
-          await Promise.all(linesOnly.map((it) => deleteBudgetItem(projectId, String(it.budgetItemId))));
-        }
+        let createdItems: unknown[] = [];
+        let updatedItems: unknown[] = [];
 
-        const remaining = request.applyMode === "replace" ? [] : [...linesOnly];
-        const toUpdate: Array<{ existing: Record<string, unknown>; draft: Record<string, unknown>; draftId: string }> = [];
-        const toCreate: Array<{ draftId: string; payload: Record<string, unknown> }> = [];
+        if (shouldApplyBudget) {
+          if (request.applyMode === "replace") {
+            await Promise.all(linesOnly.map((it) => deleteBudgetItem(projectId, String(it.budgetItemId))));
+          }
+
+          const remaining = request.applyMode === "replace" ? [] : [...linesOnly];
+          const toUpdate: Array<{ existing: Record<string, unknown>; draft: Record<string, unknown>; draftId: string }> = [];
+          const toCreate: Array<{ draftId: string; payload: Record<string, unknown> }> = [];
 
         const normalizedExisting = remaining.map((item) => ({
           item,
@@ -681,10 +697,10 @@ const BudgetPageContent = () => {
           descTokens: tokenSet(normalizeMatchText((item as Record<string, unknown>)?.description ?? "")),
         }));
 
-        request.variant.lines.forEach((draft) => {
-          const normalizedDraftDesc = normalizeMatchText(draft.description);
-          const draftTokens = tokenSet(normalizedDraftDesc);
-          const draftCategory = String(draft.category);
+          draftLines.forEach((draft) => {
+            const normalizedDraftDesc = normalizeMatchText(draft.description);
+            const draftTokens = tokenSet(normalizedDraftDesc);
+            const draftCategory = String(draft.category);
 
           if (request.applyMode === "merge") {
             let bestIdx = -1;
@@ -739,12 +755,10 @@ const BudgetPageContent = () => {
           });
         });
 
-        const elementKeys = allocateElementKeySequence(toCreate.length);
-        const elementIds = allocateElementIds(toCreate.map((d) => String(d.payload.category)));
+          const elementKeys = allocateElementKeySequence(toCreate.length);
+          const elementIds = allocateElementIds(toCreate.map((d) => String(d.payload.category)));
 
-        const draftIdToBudgetItemId = new Map<string, string>();
-
-        const createdItems = await Promise.all(
+          createdItems = await Promise.all(
           toCreate.map((entry, idx) =>
             createBudgetItem(projectId, budgetId, {
               ...entry.payload,
@@ -762,7 +776,7 @@ const BudgetPageContent = () => {
           if (draftId && budgetItemId) draftIdToBudgetItemId.set(draftId, budgetItemId);
         });
 
-        const updatedItems = await Promise.all(
+          updatedItems = await Promise.all(
           toUpdate.map(({ existing, draft, draftId }) => {
             const existingId = String((existing as any)?.budgetItemId ?? "");
             if (draftId && existingId) draftIdToBudgetItemId.set(draftId, existingId);
@@ -787,17 +801,20 @@ const BudgetPageContent = () => {
           return Array.from(byId.values());
         })();
 
-        setBudgetItems(nextLines as any);
-        computeGroupsAndClients(nextLines as any, budgetHeader as any);
-        await (stateManager as { syncHeaderTotals?: (items: unknown[]) => Promise<void> }).syncHeaderTotals?.(nextLines);
-        emitBudgetUpdate();
+          setBudgetItems(nextLines as any);
+          computeGroupsAndClients(nextLines as any, budgetHeader as any);
+          await (stateManager as { syncHeaderTotals?: (items: unknown[]) => Promise<void> }).syncHeaderTotals?.(nextLines);
+          emitBudgetUpdate();
+        }
 
         // Calendar Plan + Links (PlanDraft apply)
-        if (request.outputs?.calendarPlan) {
-          const plan = buildPlanDraft({
-            budgetLines: request.variant.lines,
-            assumptions: request.planAssumptions as PlanDraftAssumptions,
-          });
+        if (shouldApplyCalendar) {
+          const plan =
+            envelope?.planDraft ??
+            buildPlanDraft({
+              budgetLines: draftLines,
+              assumptions: request.planAssumptions as PlanDraftAssumptions,
+            });
 
           const buildIsoLocal = (dateIso: string, timeHHMM: string) => `${dateIso}T${timeHHMM}:00`;
 
@@ -831,7 +848,7 @@ const BudgetPageContent = () => {
 
           plan.tasks.forEach((t) => {
             const budgetItemId = draftIdToBudgetItemId.get(t.budgetLineDraftId) ?? null;
-            const shouldLink = Boolean(request.outputs?.links) && Boolean(budgetItemId);
+            const shouldLink = shouldApplyLinks && Boolean(budgetItemId);
 
             const focus = blocksByDraftId.get(t.focusBlockDraftId) ?? null;
 
@@ -885,7 +902,12 @@ const BudgetPageContent = () => {
           setProjectTasks(refreshed);
         }
 
-        notify("success", `Spellbook applied (${createdItems.length} added${updatedItems.length ? `, ${updatedItems.length} updated` : ""}).`);
+        notify(
+          "success",
+          shouldApplyBudget
+            ? `Spellbook applied (${createdItems.length} added${updatedItems.length ? `, ${updatedItems.length} updated` : ""}).`
+            : "Spellbook applied (plan only).",
+        );
       } catch (err) {
         console.error("Failed to apply budget spellbook", err);
         notify("error", "Failed to apply Spellbook.");

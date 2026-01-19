@@ -12,6 +12,7 @@ type ModalWithStackProps = Omit<ComponentProps<typeof Modal>, 'className' | 'ove
   className?: string | ClassState;
   overlayClassName?: string | ClassState;
   closeTimeoutMS?: number;
+  portalClassName?: string;
 };
 
 type ModalWithStackComponent = React.FC<ModalWithStackProps> & {

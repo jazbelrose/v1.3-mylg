@@ -548,6 +548,38 @@
   letter-spacing: 0.01em;
 }
 
+.totalSubValue {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+}
+
+.readiness {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0 4px;
+  font-size: 0.82rem;
+  color: color-mix(in srgb, var(--text) 78%, transparent);
+}
+
+.readinessDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 70%, var(--text) 30%);
+}
+
+.readinessLabel {
+  font-weight: 650;
+  color: color-mix(in srgb, var(--text) 86%, transparent);
+}
+
+.readinessMeta {
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+}
+
 .breakdownTitle {
   font-weight: 650;
   font-size: 0.85rem;
@@ -640,10 +672,20 @@
 }
 
 .lineCategory {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 0.72rem;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--text) 62%, transparent);
+}
+
+.lineConfidenceDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 65%, var(--text) 35%);
 }
 
 .lineDesc {
@@ -675,6 +717,12 @@
   margin-top: 6px;
   font-size: 0.78rem;
   color: color-mix(in srgb, var(--text) 62%, transparent);
+}
+
+.lineRange {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--text) 74%, transparent);
 }
 
 .footer {
@@ -741,6 +789,21 @@
   cursor: pointer;
 }
 
+.copy {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  background: color-mix(in srgb, var(--bg3) 78%, transparent);
+  color: color-mix(in srgb, var(--text) 88%, transparent);
+  cursor: pointer;
+}
+
+.copy:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .apply {
   height: 38px;
   padding: 0 14px;
@@ -774,4 +837,3 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-

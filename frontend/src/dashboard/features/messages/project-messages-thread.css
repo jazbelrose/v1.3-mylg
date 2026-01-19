@@ -450,15 +450,32 @@
   opacity: 1;
 }
 
+/* ============================================================================
+   Footer / Message Input Area
+   ============================================================================ */
+
+.message-input-footer {
+  display: flex;
+  flex-direction: column;
+  padding: 0 8px 12px;
+  margin-top: auto;
+}
+
+.message-input-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  margin-bottom: 12px;
+}
+
 .message-input-container {
   display: flex;
   gap: 6px;
   align-items: center;
-  margin-top: 10px;
-  border-radius: 30px;
-  padding: 8px;
+  border-radius: 24px;
+  padding: 6px 8px;
   position: relative;
-  background-color: transparent;
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .message-input-inner {
@@ -469,54 +486,93 @@
   flex: 1;
 }
 
-.thread-header-spacer {
-  flex: 1;
-  min-height: 24px;
+/* ============================================================================
+   Header - Title Row with Project Name
+   ============================================================================ */
+
+.thread-panel-header {
   display: flex;
   align-items: center;
-  padding-right: 8px;
-  min-width: 0;
-  gap: 10px;
-}
-
-.thread-header-drag-handle {
-  width: 18px;
-  height: 28px;
-  margin-right: 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background:
-    radial-gradient(circle at 4px 6px, rgba(255, 255, 255, 0.55) 1px, transparent 2px) 0 0 / 8px 8px,
-    radial-gradient(circle at 4px 6px, rgba(255, 255, 255, 0.55) 1px, transparent 2px) 4px 0 / 8px 8px;
-  opacity: 0.65;
+  justify-content: space-between;
+  padding: 12px 12px 8px;
   cursor: grab;
-  flex: 0 0 auto;
+  user-select: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.thread-panel-header:active .thread-header-drag-handle {
+.thread-panel-header:active {
   cursor: grabbing;
 }
 
-.thread-header-drag-handle:hover {
-  opacity: 0.9;
+.thread-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.thread-header-project-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1.5px solid rgba(255, 255, 255, 0.7);
+  flex-shrink: 0;
+}
+
+.thread-header-project-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.thread-header-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.thread-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.thread-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* ============================================================================
+   Header - Search Row (below title)
+   ============================================================================ */
+
+.thread-header-search-row {
+  padding: 8px 12px;
 }
 
 .thread-header-search {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 30px;
-  width: auto;
-  flex: 1 1 auto;
-  max-width: 360px;
-  padding: 0 10px;
+  height: 32px;
+  width: 100%;
+  padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(0, 0, 0, 0.18);
-}
-
-.thread-header-actions {
-  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.15);
 }
 
 .thread-header-search-icon {
@@ -709,10 +765,6 @@
   z-index: 1;
   white-space: nowrap;
 }
-.thread-header-actions {
-  display: flex;
-  gap: 6px;
-}
 
 @media (max-width: 767px) {
   .message-input-container {
@@ -726,6 +778,14 @@
 
   .send-button {
     padding: 7px 10px;
+  }
+
+  .thread-panel-header {
+    padding: 10px 10px 6px;
+  }
+
+  .thread-header-search-row {
+    padding: 6px 10px;
   }
 }
 
