@@ -11,7 +11,7 @@
  * - Non-previewable files show type tile + metadata
  */
 
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -27,11 +27,27 @@ import {
 } from 'lucide-react';
 import { FileThumb } from '@/shared/ui/FileThumb';
 import { getFileUrl, fileUrlsToKeys } from '@/shared/utils/api';
-import PDFPreview from '../Shared/PDFPreview';
+import EnhancedPDFViewer from '../Shared/EnhancedPDFViewer';
 import NoteEditorModal from '@/dashboard/features/messages/components/NoteEditorModal';
 import type { FileItem } from './FileManagerTypes';
 import { isPreviewableImage, getFilePreviewIcon } from './FileManagerUtils';
 import styles from './file-manager-v2.module.css';
+
+// Lazy load 3D viewer (optional dependency)
+const ModelViewer3D = lazy(() => import('../Shared/ModelViewer3D'));
+
+// File type categorization helpers
+const is3DModel = (ext: string): boolean => {
+  return ['obj', 'glb', 'gltf', 'fbx', 'stl', 'dae', '3ds', 'c4d'].includes(ext);
+};
+
+const isVectorFile = (ext: string): boolean => {
+  return ['eps', 'ai', 'afdesign', 'afphoto', 'psd', 'indd'].includes(ext);
+};
+
+const isCADFile = (ext: string): boolean => {
+  return ['dwg', 'dxf', 'vwx', 'skp'].includes(ext);
+};
 
 export interface QuickLookModalProps {
   /** Whether modal is visible */
@@ -99,6 +115,9 @@ export function QuickLookModal({
   const isImage = currentFile ? isPreviewableImage(currentFile) : false;
   const isPdf = extension === 'pdf';
   const isTextLike = ['txt', 'md', 'markdown', 'json', 'log', 'csv'].includes(extension);
+  const is3D = is3DModel(extension);
+  const isVector = isVectorFile(extension);
+  const isCAD = isCADFile(extension);
 
   // Reset zoom when file changes
   useEffect(() => {
@@ -384,11 +403,70 @@ export function QuickLookModal({
     if (isPdf) {
       return (
         <div className={styles.quickLookPdfContainer}>
-          <PDFPreview
+          <EnhancedPDFViewer
             url={currentFile.url}
             className={styles.quickLookPdf}
             title={currentFile.fileName}
+            showThumbnails={false}
+            onDownload={() => onDownload(currentFile)}
           />
+        </div>
+      );
+    }
+
+    // 3D Model preview
+    if (is3D) {
+      return (
+        <Suspense
+          fallback={
+            <div className={styles.quickLookPlaceholder}>
+              <div className={styles.quickLookPlaceholderIcon}>
+                {getFilePreviewIcon(extension)}
+              </div>
+              <div className={styles.quickLookPlaceholderName}>Loading 3D viewer...</div>
+            </div>
+          }
+        >
+          <div className={styles.quickLook3DContainer}>
+            <ModelViewer3D
+              url={currentFile.url}
+              fileName={currentFile.fileName}
+              onDownload={() => onDownload(currentFile)}
+              autoRotate={true}
+              showControls={true}
+            />
+          </div>
+        </Suspense>
+      );
+    }
+
+    // Vector/Design files (EPS, AI, PSD, etc.) - show rich placeholder
+    if (isVector || isCAD) {
+      const fileTypeLabel = isVector ? 'Vector/Design' : 'CAD';
+      const softwareHint = isVector
+        ? 'Adobe Illustrator, Affinity Designer, or similar'
+        : 'AutoCAD, SketchUp, or similar';
+      
+      return (
+        <div className={styles.quickLookPlaceholder}>
+          <div className={styles.quickLookPlaceholderIcon}>
+            {getFilePreviewIcon(extension)}
+          </div>
+          <div className={styles.quickLookPlaceholderName}>{currentFile.fileName}</div>
+          <div className={styles.quickLookPlaceholderMeta}>
+            {extension.toUpperCase()} • {fileTypeLabel} file
+          </div>
+          <div className={styles.quickLookPlaceholderHint}>
+            Open with {softwareHint}
+          </div>
+          <button
+            type="button"
+            className={styles.quickLookPlaceholderDownload}
+            onClick={() => onDownload(currentFile)}
+          >
+            <Download size={16} />
+            <span>Download to view</span>
+          </button>
         </div>
       );
     }

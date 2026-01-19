@@ -3997,6 +3997,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       <>
         {modalContent}
         {previewModal}
+        {descriptionEditorModal}
         {projectFilesPicker}
         <ConfirmModal
           isOpen={showConfirmClose}

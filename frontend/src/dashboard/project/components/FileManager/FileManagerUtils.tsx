@@ -97,15 +97,22 @@ export const getFilePreviewIcon = (extension: string | undefined) => {
   if (["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(ext)) {
     return null;
   }
-  if (ext === "pdf") return <FaFilePdf size={50} color="red" />;
-  if (ext === "svg") return <SiSvg size={50} color="purple" />;
-  if (ext === "html") return <SiHtml5 size={50} color="orange" />;
-  if (ext === "txt") return <FaFileAlt size={50} color="gray" />;
-  if (["xls", "xlsx", "csv"].includes(ext)) return <FaFileExcel size={50} color="green" />;
-  if (["dwg", "vwx"].includes(ext)) return <FaDraftingCompass size={50} color="brown" />;
-  if (["c4d", "obj"].includes(ext)) return <FaCube size={50} color="purple" />;
-  if (["ai", "afdesign"].includes(ext)) return <SiAdobe size={50} color="orange" />;
-  return <FaFileAlt size={50} color="blue" />;
+  if (ext === "pdf") return <FaFilePdf size={50} color="#FA3356" />;
+  if (ext === "svg") return <SiSvg size={50} color="#FFB13B" />;
+  if (ext === "html" || ext === "htm") return <SiHtml5 size={50} color="#E34F26" />;
+  if (ext === "txt" || ext === "md" || ext === "markdown") return <FaFileAlt size={50} color="#8B9DC3" />;
+  if (["xls", "xlsx", "csv"].includes(ext)) return <FaFileExcel size={50} color="#217346" />;
+  // CAD files
+  if (["dwg", "dxf", "vwx", "skp"].includes(ext)) return <FaDraftingCompass size={50} color="#8B4513" />;
+  // 3D model files
+  if (["c4d", "obj", "fbx", "glb", "gltf", "stl", "dae", "3ds"].includes(ext)) return <FaCube size={50} color="#9B59B6" />;
+  // Vector/Design files (Adobe, Affinity, etc.)
+  if (["ai", "eps", "afdesign", "afphoto", "afpub"].includes(ext)) return <SiAdobe size={50} color="#FF9A00" />;
+  // Photoshop/Image editing
+  if (["psd", "psb", "xcf"].includes(ext)) return <SiAdobe size={50} color="#31A8FF" />;
+  // InDesign/Publishing
+  if (["indd", "idml"].includes(ext)) return <SiAdobe size={50} color="#FF3366" />;
+  return <FaFileAlt size={50} color="#4A9EFF" />;
 };
 
 
