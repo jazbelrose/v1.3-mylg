@@ -584,8 +584,11 @@ export function useTasksOverview() {
           })),
       }));
 
+    // Filter out done and legacy archived tasks
+    const isCompletedStatus = (status: string) => status === "done" || status === "archived";
+
     const sortedByUrgency = tasks
-      .filter((task) => task.dueDate && task.status !== "done")
+      .filter((task) => task.dueDate && !isCompletedStatus(task.status))
       .sort((a, b) => {
         if (!a.dueDate || !b.dueDate) return 0;
         return a.dueDate.getTime() - b.dueDate.getTime();
@@ -596,7 +599,7 @@ export function useTasksOverview() {
     const openTasks = sortedByUrgency.map(toListItem);
 
     const undatedTasks = tasks
-      .filter((task) => !task.dueDate && task.status !== "done")
+      .filter((task) => !task.dueDate && !isCompletedStatus(task.status))
       .map(toListItem);
 
     const completedTasks = doneTasks

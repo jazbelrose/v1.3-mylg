@@ -3144,8 +3144,6 @@ export {
   requestTaskReview,
   approveTaskReview,
   requestTaskChanges,
-  archiveTask,
-  unarchiveTask,
   reviewTransition,
 };
 

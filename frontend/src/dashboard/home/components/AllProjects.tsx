@@ -707,31 +707,36 @@ const AllProjects: React.FC = () => {
       return true;
     });
 
+    // Only count tasks on their due date if it's today or in the future.
+    // Overdue tasks (due before today) are counted on today instead.
+    const todayStart = startOfDay(new Date());
+    const todayKey = dateKey(todayStart);
+    let overdueCount = 0;
+
     for (const task of tasksForScope) {
       const due = task.dueDate;
       if (!due) continue;
       const key = dateKey(due);
-      if (!keysSet.has(key)) continue;
-      const bucket = getBucket(key, task.projectId);
-      if (!bucket) continue;
-      bucket.tasksCount += 1;
-      taskCounts.set(key, (taskCounts.get(key) || 0) + 1);
-    }
-
-    // Optional (v1): overdue open tasks count only on today.
-    const todayStart = startOfDay(new Date());
-    const todayKey = dateKey(todayStart);
-    let overdueCount = 0;
-    if (keysSet.has(todayKey)) {
-      for (const task of tasksForScope) {
-        const due = task.dueDate;
-        if (!due) continue;
-        if (due.getTime() >= todayStart.getTime()) continue;
-        overdueCount += 1;
-        const bucket = getBucket(todayKey, task.projectId);
-        if (bucket) bucket.tasksCount += 1;
+      
+      // Check if task is overdue (due before today)
+      const isOverdue = due.getTime() < todayStart.getTime();
+      
+      if (isOverdue) {
+        // Overdue tasks count on today's bucket instead of their original due date
+        if (keysSet.has(todayKey)) {
+          overdueCount += 1;
+          const bucket = getBucket(todayKey, task.projectId);
+          if (bucket) bucket.tasksCount += 1;
+          taskCounts.set(todayKey, (taskCounts.get(todayKey) || 0) + 1);
+        }
+      } else {
+        // Future/current tasks count on their due date
+        if (!keysSet.has(key)) continue;
+        const bucket = getBucket(key, task.projectId);
+        if (!bucket) continue;
+        bucket.tasksCount += 1;
+        taskCounts.set(key, (taskCounts.get(key) || 0) + 1);
       }
-      if (overdueCount > 0) taskCounts.set(todayKey, (taskCounts.get(todayKey) || 0) + overdueCount);
     }
 
     for (const p of outlookProjects) {
