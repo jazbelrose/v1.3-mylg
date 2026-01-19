@@ -109,7 +109,7 @@ body.chat-panel-docked {
 .chat-panel-resizer {
   position: absolute;
   width: 36px;
-  height: 18px;
+  height: 12px;
   left: 50%;
   transform: translateX(-50%);
   bottom: 6px;
