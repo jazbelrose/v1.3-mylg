@@ -197,6 +197,15 @@
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+.message-row--search-hit .message-bubble {
+  border-color: rgba(250, 51, 86, 0.55);
+}
+
+.message-row--search-current .message-bubble {
+  border-color: rgba(250, 51, 86, 0.9);
+  box-shadow: 0 0 0 2px rgba(250, 51, 86, 0.28);
+}
+
 .reactions {
   margin-top: 4px;
 }
@@ -463,6 +472,119 @@
 .thread-header-spacer {
   flex: 1;
   min-height: 24px;
+  display: flex;
+  align-items: center;
+  padding-right: 8px;
+  min-width: 0;
+  gap: 10px;
+}
+
+.thread-header-drag-handle {
+  width: 18px;
+  height: 28px;
+  margin-right: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(circle at 4px 6px, rgba(255, 255, 255, 0.55) 1px, transparent 2px) 0 0 / 8px 8px,
+    radial-gradient(circle at 4px 6px, rgba(255, 255, 255, 0.55) 1px, transparent 2px) 4px 0 / 8px 8px;
+  opacity: 0.65;
+  cursor: grab;
+  flex: 0 0 auto;
+}
+
+.thread-panel-header:active .thread-header-drag-handle {
+  cursor: grabbing;
+}
+
+.thread-header-drag-handle:hover {
+  opacity: 0.9;
+}
+
+.thread-header-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  width: auto;
+  flex: 1 1 auto;
+  max-width: 360px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.thread-header-actions {
+  flex: 0 0 auto;
+}
+
+.thread-header-search-icon {
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+
+.thread-header-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #fff;
+  font-size: 12.5px;
+  line-height: 1;
+}
+
+.thread-header-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.thread-header-search-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+
+.thread-header-search-controls.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.thread-header-search-count {
+  min-width: 50px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.thread-header-search-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.thread-header-search-btn:hover,
+.thread-header-search-btn:focus {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.thread-header-search-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .message-action-wrapper {

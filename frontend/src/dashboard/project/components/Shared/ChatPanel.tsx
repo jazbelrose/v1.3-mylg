@@ -245,7 +245,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   }, [openSignal, handleSetOpen, flashPanel]);
 
   const startDrag = (e: React.MouseEvent) => {
-    if (!floating || isMobile) return;
+    if (!floating) return;
     draggingRef.current = true;
     hasDraggedRef.current = false;
     dragOffsetRef.current = { x: e.clientX - position.x, y: e.clientY - position.y };

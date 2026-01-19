@@ -210,6 +210,12 @@ interface MessageItemProps {
   onDelete?: (msg: ChatMessage) => void;
   onEditRequest?: (msg: ChatMessage) => void;
   onReact?: (messageId: string, emoji: Emoji) => void;
+  /** Stable key used for DOM lookup when searching */
+  messageDomKey?: string;
+  /** True if this message matches current search query */
+  isSearchHit?: boolean;
+  /** True if this message is the active search match */
+  isSearchCurrent?: boolean;
   /** True if this is the first message in a sender group */
   isFirstInGroup?: boolean;
   /** True if this is the last message in a sender group */
@@ -233,6 +239,9 @@ const MessageItem: React.FC<MessageItemProps> = ({
   onDelete,
   onEditRequest,
   onReact,
+  messageDomKey,
+  isSearchHit = false,
+  isSearchCurrent = false,
   isFirstInGroup = false,
   isLastInGroup = false,
   isLastOutgoingInGroup = false,
@@ -660,7 +669,8 @@ const MessageItem: React.FC<MessageItemProps> = ({
       )}
 
       <div
-        className={`message-row ${isCurrentUser ? "current-user message-row--outgoing" : "message-row--incoming"} ${isGroupedWithPrev && !showTimeSeparator ? "message-row--grouped" : ""} ${isFirstInGroup ? "message-row--first-in-group" : ""} ${isLastInGroup ? "message-row--last-in-group" : ""} ${menuOpen || showReactions ? "message-row--active" : ""}`}
+        data-pm-message-key={messageDomKey || messageKey}
+        className={`message-row ${isCurrentUser ? "current-user message-row--outgoing" : "message-row--incoming"} ${isGroupedWithPrev && !showTimeSeparator ? "message-row--grouped" : ""} ${isFirstInGroup ? "message-row--first-in-group" : ""} ${isLastInGroup ? "message-row--last-in-group" : ""} ${menuOpen || showReactions ? "message-row--active" : ""} ${isSearchHit ? "message-row--search-hit" : ""} ${isSearchCurrent ? "message-row--search-current" : ""}`}
       >
         {(showIncomingAuthorRow || showOutgoingAuthorRow) && (
           <div className="message-author-row">

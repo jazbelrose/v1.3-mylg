@@ -3,6 +3,7 @@ import React, {
   useEffect,
   useRef,
   useMemo,
+  useCallback,
   DragEvent,
   KeyboardEvent,
   ChangeEvent,
@@ -21,8 +22,10 @@ import {
   Move,
   Paperclip,
   Plus,
+  Search,
   Send,
   Smile,
+  X,
 } from "lucide-react";
 import { uploadData } from "aws-amplify/storage";
 import MessageItem, { ChatMessage } from "./MessageItem";
@@ -320,6 +323,10 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
     return window.innerWidth <= 768;
   });
 
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [activeSearchKey, setActiveSearchKey] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
   // File preview modal
   const [isPreviewModalOpen, setPreviewModalOpen] = useState(false);
   const [selectedPreviewFile, setSelectedPreviewFile] =
@@ -334,6 +341,108 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
 
   // Folder for S3 uploads
   const folderKey = "chat_uploads";
+
+  const getMessageKey = useCallback((msg: Message) => {
+    return (msg.messageId || msg.optimisticId || String(msg.timestamp)) as string;
+  }, []);
+
+  const normalizedSearchQuery = useMemo(
+    () => searchQuery.trim().toLowerCase(),
+    [searchQuery]
+  );
+
+  const searchMatches = useMemo(() => {
+    if (!normalizedSearchQuery) return [];
+
+    const matches: Array<{ key: string; index: number }> = [];
+
+    displayMessages.forEach((msg, index) => {
+      const key = getMessageKey(msg as Message);
+      const text = String((msg as Message).text ?? "");
+      const fileName = String((msg as any)?.file?.fileName ?? "");
+      const noteTitle = String((msg as any)?.noteTitle ?? "");
+      const haystack = `${text} ${fileName} ${noteTitle}`.toLowerCase();
+      if (haystack.includes(normalizedSearchQuery)) {
+        matches.push({ key, index });
+      }
+    });
+
+    return matches;
+  }, [displayMessages, getMessageKey, normalizedSearchQuery]);
+
+  const searchHitKeys = useMemo(() => {
+    const set = new Set<string>();
+    searchMatches.forEach((m) => set.add(m.key));
+    return set;
+  }, [searchMatches]);
+
+  const activeSearchIndex = useMemo(() => {
+    if (!activeSearchKey) return -1;
+    return searchMatches.findIndex((m) => m.key === activeSearchKey);
+  }, [activeSearchKey, searchMatches]);
+
+  useEffect(() => {
+    if (!normalizedSearchQuery || searchMatches.length === 0) {
+      if (activeSearchKey !== null) setActiveSearchKey(null);
+      return;
+    }
+
+    if (activeSearchKey && searchHitKeys.has(activeSearchKey)) return;
+    setActiveSearchKey(searchMatches[0]?.key ?? null);
+  }, [activeSearchKey, normalizedSearchQuery, searchHitKeys, searchMatches]);
+
+  const scrollToMessageKey = useCallback(
+    (key: string, behavior: ScrollBehavior = "smooth") => {
+      if (typeof window === "undefined") return;
+      const container = messagesContainerRef.current;
+      if (!container) return;
+
+      const escape = (value: string) => {
+        const css = (globalThis as any).CSS as { escape?: (s: string) => string } | undefined;
+        if (css?.escape) return css.escape(value);
+        return value.replace(/["\\]/g, "\\$&");
+      };
+
+      const selector = `[data-pm-message-key="${escape(key)}"] .message-bubble`;
+      const bubble = container.querySelector(selector) as HTMLElement | null;
+      if (!bubble) return;
+
+      bubble.scrollIntoView({ behavior, block: "center" });
+      bubble.classList.add("message-highlight");
+      window.setTimeout(() => bubble.classList.remove("message-highlight"), 1400);
+      bubble.focus();
+    },
+    []
+  );
+
+  const jumpSearch = useCallback(
+    (direction: 1 | -1) => {
+      if (!normalizedSearchQuery || searchMatches.length === 0) return;
+
+      if (activeSearchIndex < 0) {
+        const initialIndex = direction === 1 ? 0 : searchMatches.length - 1;
+        const initialKey = searchMatches[initialIndex]?.key;
+        if (!initialKey) return;
+        setActiveSearchKey(initialKey);
+        scrollToMessageKey(initialKey, "smooth");
+        return;
+      }
+
+      const nextIndex =
+        (activeSearchIndex + direction + searchMatches.length) % searchMatches.length;
+      const nextKey = searchMatches[nextIndex]?.key;
+      if (!nextKey) return;
+
+      setActiveSearchKey(nextKey);
+      scrollToMessageKey(nextKey, "smooth");
+    },
+    [
+      activeSearchIndex,
+      normalizedSearchQuery,
+      scrollToMessageKey,
+      searchMatches,
+    ]
+  );
 
   const sanitizeFileStem = (raw: string) => {
     const cleaned = String(raw || "")
@@ -1103,6 +1212,32 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
   }, []);
 
   useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!open) return;
+
+    const onKeyDown = (e: globalThis.KeyboardEvent) => {
+      const isCmdOrCtrl = e.ctrlKey || e.metaKey;
+
+      if (isCmdOrCtrl && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      if (!normalizedSearchQuery) return;
+
+      if (isCmdOrCtrl && e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        jumpSearch(e.shiftKey ? -1 : 1);
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [jumpSearch, normalizedSearchQuery, open]);
+
+  useEffect(() => {
     if (!open) {
       setShowEmojiPicker(false);
     }
@@ -1148,7 +1283,95 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
           onMouseDown={startDrag}
           aria-label={`Message thread controls for ${projectName}`}
         >
-          <div className="thread-header-spacer" aria-hidden="true" />
+          <div className="thread-header-spacer">
+            {floating && (
+              <div className="thread-header-drag-handle" aria-hidden="true" />
+            )}
+            <div
+              className="thread-header-search"
+              role="search"
+              aria-label="Search messages"
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Search
+                size={14}
+                aria-hidden="true"
+                className="thread-header-search-icon"
+              />
+              <input
+                ref={searchInputRef}
+                className="thread-header-search-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search…"
+                aria-label="Search in this thread"
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setSearchQuery("");
+                    setActiveSearchKey(null);
+                    (e.currentTarget as HTMLInputElement).blur();
+                    return;
+                  }
+
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    jumpSearch(e.shiftKey ? -1 : 1);
+                  }
+                }}
+              />
+
+              <div
+                className={`thread-header-search-controls ${
+                  normalizedSearchQuery ? "" : "is-hidden"
+                }`}
+                aria-hidden={!normalizedSearchQuery}
+              >
+                <span className="thread-header-search-count" aria-live="polite">
+                  {searchMatches.length > 0 && activeSearchIndex >= 0
+                    ? `${activeSearchIndex + 1}/${searchMatches.length}`
+                    : `0/${searchMatches.length}`}
+                </span>
+
+                <button
+                  type="button"
+                  className="thread-header-search-btn"
+                  onClick={() => jumpSearch(-1)}
+                  disabled={searchMatches.length === 0}
+                  aria-label="Previous match"
+                  title="Previous match (Shift+Enter)"
+                >
+                  <ChevronUp size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="thread-header-search-btn"
+                  onClick={() => jumpSearch(1)}
+                  disabled={searchMatches.length === 0}
+                  aria-label="Next match"
+                  title="Next match (Enter)"
+                >
+                  <ChevronDown size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="thread-header-search-btn"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setActiveSearchKey(null);
+                    searchInputRef.current?.focus();
+                  }}
+                  disabled={!normalizedSearchQuery}
+                  aria-label="Clear search"
+                  title="Clear search (Esc)"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
           <div className="thread-header-actions">
             {floating && (
               <button
@@ -1160,17 +1383,15 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
                 {open ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
               </button>
             )}
-            {!isMobile && (
-              <button
-                className="icon-btn"
-                onClick={() => setFloating((f) => !f)}
-                aria-label={floating ? "Dock" : "Float"}
-                title={floating ? "Dock" : "Float"}
-              >
-                {floating ? <Dock size={16} /> : <Move size={16} />}
-              </button>
-            )}
-            {!isMobile && (
+            <button
+              className="icon-btn"
+              onClick={() => setFloating((f) => !f)}
+              aria-label={floating ? "Dock" : "Float"}
+              title={floating ? "Dock" : "Float"}
+            >
+              {floating ? <Dock size={16} /> : <Move size={16} />}
+            </button>
+            {!!onCloseChat && (
               <button
                 className="icon-btn"
                 onClick={() => onCloseChat?.()}
@@ -1191,7 +1412,7 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
               flexGrow: 1,
               overflowY: "auto",
               padding: "4px 4px 8px",
-              borderRadius: "5px",
+              borderRadius: "20px",
               marginBottom: "10px",
               display: "flex",
               flexDirection: "column",
@@ -1209,9 +1430,10 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
             ) : (
               displayMessages.map((msg, index) => {
                 const pos = groupPositions[index] || { isFirstInGroup: true, isLastInGroup: true, isLastOutgoingInGroup: false };
+                const key = getMessageKey(msg as Message);
                 return (
                   <MessageItem
-                    key={msg.messageId || msg.optimisticId || String(msg.timestamp)}
+                    key={key}
                     msg={msg as ChatMessage}
                     prevMsg={(index > 0 ? displayMessages[index - 1] : null) as ChatMessage | null}
                     nextMsg={(index < displayMessages.length - 1 ? displayMessages[index + 1] : null) as ChatMessage | null}
@@ -1228,6 +1450,9 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
                     isLastInGroup={pos.isLastInGroup}
                     isLastOutgoingInGroup={pos.isLastOutgoingInGroup}
                     projectColor={activeProject?.color as string | undefined}
+                    messageDomKey={key}
+                    isSearchHit={searchHitKeys.has(key)}
+                    isSearchCurrent={activeSearchKey != null && key === activeSearchKey}
                   />
                 );
               })

@@ -122,7 +122,7 @@
   padding: 14px 16px;
   background: var(--card-bg, rgba(255, 255, 255, 0.03));
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
-  border-radius: 12px;
+  border-radius: 20px;
   min-height: 0;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -264,7 +264,7 @@
   max-height: 100%; /* Constrain to parent */
   background: var(--card-bg, rgba(255, 255, 255, 0.03));
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
-  border-radius: 14px;
+  border-radius: 20px;
   overflow: hidden;
 }
 
@@ -481,7 +481,7 @@
   min-height: 0;
   background: var(--card-bg, rgba(255, 255, 255, 0.03));
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
-  border-radius: 14px;
+  border-radius: 20px;
   overflow: hidden;
 }
 
@@ -570,7 +570,7 @@
   gap: 12px;
   background: var(--card-bg, rgba(255, 255, 255, 0.03));
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
-  border-radius: 14px;
+  border-radius: 20px;
   padding: 14px 16px;
 }
 
@@ -875,7 +875,7 @@
   min-height: 0;
   background: var(--card-bg, rgba(255, 255, 255, 0.03));
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
-  border-radius: 14px;
+  border-radius: 20px;
   overflow: hidden;
   /* Stronger presence than right panel */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -1301,7 +1301,7 @@
   min-height: 0;
   background: var(--card-bg, rgba(255, 255, 255, 0.02));
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
-  border-radius: 12px;
+  border-radius: 20px;
   overflow: hidden;
 }
 
@@ -1310,17 +1310,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 18px 14px;
   flex-shrink: 0;
-  /* No border-bottom - lighter feel */
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
 }
 
 .apTitle {
-  font-size: 12px;
+  font-size: 0.9rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted, rgba(255, 255, 255, 0.5));
+  letter-spacing: -0.01em;
+  color: var(--text-primary, #fff);
   margin: 0;
 }
 
@@ -2329,7 +2328,7 @@
   padding: 12px;
   min-height: calc(var(--hero-map-size) + 24px);
   max-height: 280px;
-  border-radius: 12px;
+  border-radius: 20px;
   overflow: hidden;
   background: var(--card-bg, rgba(255, 255, 255, 0.03));
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
