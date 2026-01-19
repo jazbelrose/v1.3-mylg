@@ -1099,6 +1099,43 @@
   max-width: 100%;
 }
 
+/* =============================================================================
+   SCROLL PERFORMANCE OPTIMIZATIONS
+   Lightweight styles during scroll to reduce paint cost
+   ============================================================================ */
+
+/* Scroll placeholder - shown instead of real thumbnails during scroll */
+.scrollPlaceholder {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Tile optimizations during scroll */
+.gridItemScrolling {
+  /* Disable expensive effects during scroll */
+  transition: none !important;
+}
+
+.gridItemScrolling:hover {
+  /* No hover effects during scroll */
+  transform: none;
+  background: transparent;
+}
+
+.gridItemScrolling .gridItemCheckbox,
+.gridItemScrolling .gridItemActions {
+  /* Hide overlays during scroll */
+  opacity: 0 !important;
+  pointer-events: none;
+  backdrop-filter: none !important;
+}
+
 /* Grid item actions button (visible "...") */
 .gridItemActions {
   position: absolute;
@@ -1149,6 +1186,9 @@
   /* Remove default scrollbar styles for better appearance */
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  /* GPU compositing hints for smoother scroll */
+  will-change: scroll-position;
+  contain: strict;
 }
 
 .virtualizedGrid::-webkit-scrollbar {

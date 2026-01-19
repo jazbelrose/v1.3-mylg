@@ -3,16 +3,29 @@
  * 
  * Shows real-time performance metrics in a floating panel.
  * Toggle with Ctrl+Shift+P or via localStorage.setItem('showFilesPerf', 'true')
+ * 
+ * Uses a React portal to render outside any modal/stacking context hierarchies.
  */
 
 import { memo, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import { filesPerf } from '../hooks/useFilesPerf';
+import { useIsScrolling } from '../contexts/ScrollingContext';
+import { getLoadedThumbCount } from '../utils/thumbnailCache';
 
 const IS_DEV = import.meta.env.DEV;
 
 // External store for visibility toggle
-let isVisible = localStorage.getItem('showFilesPerf') === 'true';
+let isVisible = false;
+// Initialize from localStorage safely
+try {
+  isVisible = typeof localStorage !== 'undefined' && localStorage.getItem('showFilesPerf') === 'true';
+} catch {
+  // localStorage not available
+}
+
 const listeners = new Set<() => void>();
+let keyboardListenerRegistered = false;
 
 function subscribe(callback: () => void) {
   listeners.add(callback);
@@ -25,19 +38,33 @@ function getSnapshot() {
 
 function toggleVisibility() {
   isVisible = !isVisible;
-  localStorage.setItem('showFilesPerf', isVisible ? 'true' : 'false');
+  try {
+    localStorage.setItem('showFilesPerf', isVisible ? 'true' : 'false');
+  } catch {
+    // localStorage not available
+  }
   listeners.forEach(l => l());
+  console.log('[PerfHUD] Visibility:', isVisible ? 'ON' : 'OFF');
 }
 
-// Keyboard shortcut
-if (IS_DEV && typeof window !== 'undefined') {
+// Register keyboard shortcut once
+function registerKeyboardShortcut() {
+  if (keyboardListenerRegistered || typeof window === 'undefined') return;
+  keyboardListenerRegistered = true;
+  
   window.addEventListener('keydown', (e) => {
-    // Ctrl+Shift+P
-    if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+    // Ctrl+Shift+P (check both uppercase and lowercase for cross-browser compatibility)
+    if (e.ctrlKey && e.shiftKey && (e.key === 'P' || e.key === 'p' || e.code === 'KeyP')) {
       e.preventDefault();
       toggleVisibility();
     }
   });
+  console.log('[PerfHUD] Keyboard shortcut registered (Ctrl+Shift+P)');
+}
+
+// Register on module load in dev mode
+if (IS_DEV) {
+  registerKeyboardShortcut();
 }
 
 interface PerfHUDProps {
@@ -55,6 +82,12 @@ export const PerfHUD = memo(function PerfHUD({
 }: PerfHUDProps) {
   const visible = useSyncExternalStore(subscribe, getSnapshot);
   const [stats, setStats] = useState({ filterSortStats: { avgDuration: 0 }, thumbnailStats: { loaded: 0, loading: 0 } });
+  const isScrolling = useIsScrolling();
+  
+  // Ensure keyboard shortcut is registered when component mounts
+  useEffect(() => {
+    registerKeyboardShortcut();
+  }, []);
   
   // Update stats periodically
   useEffect(() => {
@@ -82,25 +115,29 @@ export const PerfHUD = memo(function PerfHUD({
 
   const { filterSortStats, thumbnailStats } = stats;
 
-  return (
+  // Use a portal to render outside any stacking context (modals, etc.)
+  const content = (
     <div
       style={{
         position: 'fixed',
         top: 8,
         right: 8,
-        background: 'rgba(0, 0, 0, 0.85)',
+        background: '#000',
         color: '#0f0',
         fontFamily: 'monospace',
         fontSize: 11,
         padding: 8,
         borderRadius: 4,
-        zIndex: 99999,
+        zIndex: 2147483647, // Max z-index to ensure it's always on top
         minWidth: 180,
         userSelect: 'none',
+        pointerEvents: 'auto',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(0,255,0,0.3)',
+        isolation: 'isolate', // Create new stacking context
       }}
     >
       <div style={{ marginBottom: 4, fontWeight: 'bold', borderBottom: '1px solid #333', paddingBottom: 4 }}>
-        📊 FileManager Perf
+        📊 FileManager Perf {isScrolling && <span style={{ color: '#ff0' }}>⚡ SCROLL</span>}
       </div>
       
       <div style={{ marginBottom: 4 }}>
@@ -127,9 +164,8 @@ export const PerfHUD = memo(function PerfHUD({
       </div>
       
       <div style={{ marginBottom: 8 }}>
-        <span style={{ color: '#888' }}>Thumbs:</span>{' '}
-        {thumbnailStats.loaded}
-        {thumbnailStats.loading > 0 && <span style={{ color: '#ff0' }}> (+{thumbnailStats.loading})</span>}
+        <span style={{ color: '#888' }}>Thumbs cached:</span>{' '}
+        <span style={{ color: '#0f0' }}>{getLoadedThumbCount()}</span>
       </div>
       
       <div style={{ display: 'flex', gap: 4 }}>
@@ -168,9 +204,18 @@ export const PerfHUD = memo(function PerfHUD({
       </div>
     </div>
   );
+
+  // Render via portal to escape any modal/stacking context hierarchies
+  return createPortal(content, document.body);
 });
 
 // Export only the component - toggleVisibility can be accessed via window.__toggleFilesPerf
 if (IS_DEV && typeof window !== 'undefined') {
   (window as unknown as { __toggleFilesPerf: typeof toggleVisibility }).__toggleFilesPerf = toggleVisibility;
+  (window as unknown as { __showFilesPerf: () => void }).__showFilesPerf = () => {
+    if (!isVisible) {
+      toggleVisibility();
+    }
+    console.log('[PerfHUD] Now visible. Open FileManager to see the HUD.');
+  };
 }

@@ -143,12 +143,30 @@ if (typeof document !== "undefined") {
   Modal.setAppElement("#root");
 }
 
-// Use "chat_uploads" folder key for previews
-const getThumbnailUrl = (url: string, folderKey = "chat_uploads") =>
-  url.replace(`/${folderKey}/`, `/${folderKey}_thumbnails/`);
+/**
+ * Get thumbnail URL for an image file.
+ * Auto-detects folder from URL path.
+ * Thumbnails are WebP format stored in {folderKey}_thumbnails/
+ */
+const getThumbnailUrl = (url: string): string => {
+  if (!url || url.startsWith("blob:")) return url;
+  
+  // Parse the URL to extract path components
+  const parts = url.split('/');
+  if (parts.length < 3) return url;
+  
+  const fileName = parts.pop()!;
+  const actualFolderKey = parts.pop()!;
+  
+  // Skip if already in a _thumbnails folder
+  if (actualFolderKey.endsWith('_thumbnails')) return url;
+  
+  // Build thumbnail path: prefix/{folderKey}_thumbnails/{fileName}.webp
+  return `${parts.join('/')}/${actualFolderKey}_thumbnails/${fileName}.webp`;
+};
 
 // Custom preview renderer for files
-const renderFilePreview = (file: FileObj, folderKey = "chat_uploads") => {
+const renderFilePreview = (file: FileObj) => {
   const extension = file.fileName.split(".").pop()?.toLowerCase() || "";
   const extLabel = extension ? extension.toUpperCase() : "FILE";
   const card = (icon: React.ReactNode) => (
@@ -161,9 +179,9 @@ const renderFilePreview = (file: FileObj, folderKey = "chat_uploads") => {
     </div>
   );
 
-  if (["jpg", "jpeg", "png"].includes(extension)) {
+  if (["jpg", "jpeg", "png", "gif", "webp"].includes(extension)) {
     const normalizedUrl = normalizeFileUrl(file.url);
-    const thumbnailUrl = getThumbnailUrl(normalizedUrl, folderKey);
+    const thumbnailUrl = getThumbnailUrl(normalizedUrl);
     const finalUrl = normalizeFileUrl(file.finalUrl || file.url);
     return (
       <div className="chat-attachment-image">
@@ -1357,7 +1375,7 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
                   />
                 );
               } else {
-                return renderFilePreview(selectedPreviewFile, folderKey);
+                return renderFilePreview(selectedPreviewFile);
               }
             })()}
 

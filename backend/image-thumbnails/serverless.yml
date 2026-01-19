@@ -1,0 +1,102 @@
+service: image-thumbnails
+
+frameworkVersion: '3'
+
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  architecture: x86_64  # Use x86_64 for broader compatibility with sharp
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-west-2'}
+  memorySize: 1024
+  timeout: 30
+  environment:
+    FILE_BUCKET: ${env:S3_BUCKET_NAME, 'mylg-files-v12'}
+    THUMBNAIL_MAX_SIZE: 400  # Max dimension in pixels
+    THUMBNAIL_QUALITY: 80    # WebP quality (0-100)
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:HeadObject
+            - s3:DeleteObject
+          Resource: 
+            - arn:aws:s3:::${env:S3_BUCKET_NAME, 'mylg-files-v12'}/*
+        - Effect: Allow
+          Action:
+            - s3:ListBucket
+          Resource:
+            - arn:aws:s3:::${env:S3_BUCKET_NAME, 'mylg-files-v12'}
+
+package:
+  individually: true
+
+custom:
+  # S3 bucket configuration
+  fileBucket: ${env:S3_BUCKET_NAME, 'mylg-files-v12'}
+
+functions:
+  # Main thumbnail generator - triggered by S3 events
+  # NOTE: For S3 trigger to work on existing bucket, you need to manually add 
+  # the Lambda permission and S3 notification configuration via AWS Console or CLI.
+  # See README.md for instructions.
+  generateThumbnail:
+    handler: index.generateThumbnail
+    layers:
+      - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
+    # S3 events - these work for new buckets but may need manual setup for existing ones
+    # Uncomment if you want Serverless to try to configure the triggers:
+    # events:
+    #   - s3:
+    #       bucket: ${self:custom.fileBucket}
+    #       event: s3:ObjectCreated:*
+    #       rules:
+    #         - suffix: .jpg
+    #       existing: true
+
+  # HTTP endpoint to manually regenerate thumbnails (always works)
+  regenerateThumbnail:
+    handler: index.regenerateThumbnail
+    layers:
+      - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
+    events:
+      - http:
+          path: /thumbnails/regenerate
+          method: post
+          cors:
+            origins:
+              - 'https://beta.mylg.studio'
+              - 'https://mylg.studio'
+              - 'http://localhost:3000'
+              - 'http://localhost:5173'
+            headers:
+              - Content-Type
+              - Authorization
+            allowCredentials: false
+
+  # Batch process endpoint for bulk thumbnail generation
+  batchGenerateThumbnails:
+    handler: index.regenerateThumbnail
+    layers:
+      - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
+    timeout: 300  # 5 minutes for batch processing
+    memorySize: 2048  # More memory for parallel processing
+    events:
+      - http:
+          path: /thumbnails/batch
+          method: post
+          cors:
+            origins:
+              - 'https://beta.mylg.studio'
+              - 'https://mylg.studio'
+              - 'http://localhost:3000'
+              - 'http://localhost:5173'
+            headers:
+              - Content-Type
+              - Authorization
+            allowCredentials: false

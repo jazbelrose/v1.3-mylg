@@ -7,11 +7,19 @@
  * - Handles onError fallback gracefully
  * - Supports thumbnails for PDFs/videos if provided
  * - Memoized for performance with virtualized lists
+ * - Integrates with thumbnail cache to prevent reload flash
  */
 
 import React, { useState, useCallback, memo } from 'react';
 import { FileIconByType, getFileTypeInfo } from './FileIconByType';
 import styles from './file-thumb.module.css';
+
+// Direct import of thumbnail cache (no lazy loading - was causing issues)
+import {
+  isThumbLoaded,
+  setThumbLoaded,
+  setThumbError,
+} from '@/dashboard/project/components/FileManager/utils/thumbnailCache';
 
 export interface FileThumbProps {
   /** URL of the file (for images, this is the image src) */
@@ -36,6 +44,8 @@ export interface FileThumbProps {
   showFileName?: boolean;
   /** Maximum file name length before truncation */
   maxFileNameLength?: number;
+  /** Cache key for thumbnail status (if provided, integrates with thumb cache) */
+  cacheKey?: string;
 }
 
 // Extensions that can be rendered as images
@@ -93,22 +103,74 @@ export function FileThumb({
   onClick,
   showFileName = false,
   maxFileNameLength = 20,
+  cacheKey,
 }: FileThumbProps) {
+  // DEBUG: Log unconditionally for first 3 renders
+  if (typeof window !== 'undefined') {
+    const key = '__fileThumbCallCount';
+    const count = ((window as unknown as Record<string, number>)[key] || 0);
+    if (count < 3) {
+      (window as unknown as Record<string, number>)[key] = count + 1;
+      console.warn('[FileThumb] CALLED #' + (count + 1), { fileName, thumbnailUrl: thumbnailUrl?.slice(0, 80), url: url?.slice(0, 80) });
+    }
+  }
+  
+  // Check if already loaded from cache (instant render, no loading state)
+  const cachedLoaded = cacheKey ? isThumbLoaded(cacheKey) : false;
+  
   const [imgError, setImgError] = useState(false);
-  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(cachedLoaded);
+  // Track if thumbnail failed so we can fall back to original
+  const [thumbFailed, setThumbFailed] = useState(false);
 
   const handleImgError = useCallback(() => {
+    // If we were trying thumbnail and it failed, try the original URL
+    if (thumbnailUrl && !thumbFailed && url) {
+      console.log('[FileThumb] Thumbnail failed, falling back:', { fileName, thumbnailUrl: thumbnailUrl?.slice(0, 80) });
+      setThumbFailed(true);
+      // Don't set imgError yet - we'll try the fallback
+      return;
+    }
+    
     setImgError(true);
-  }, []);
+    // Update cache
+    if (cacheKey) {
+      setThumbError(cacheKey);
+    }
+  }, [cacheKey, thumbnailUrl, thumbFailed, url, fileName]);
 
-  const handleImgLoad = useCallback(() => {
+  const handleImgLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     setImgLoaded(true);
-  }, []);
+    // Update cache with dimensions
+    if (cacheKey) {
+      const img = e.currentTarget;
+      setThumbLoaded(cacheKey, img.naturalWidth, img.naturalHeight);
+    }
+  }, [cacheKey]);
 
   const ext = getExtension(fileName, extension);
   const shouldShowImage = !imgError && isPreviewableImage(fileName, mimeType);
-  const hasThumbnail = !imgError && thumbnailUrl;
-  const imageUrl = thumbnailUrl || url;
+  const hasThumbnail = !imgError && thumbnailUrl && !thumbFailed;
+  // Use thumbnail if available and not failed, otherwise fall back to original URL
+  const imageUrl = (hasThumbnail ? thumbnailUrl : url) || url;
+  
+  // Debug: Log EVERY image to trace what's happening
+  if (typeof window !== 'undefined' && shouldShowImage && thumbnailUrl) {
+    const logKey = '__fileThumbDebugCount';
+    const count = ((window as unknown as Record<string, number>)[logKey] || 0);
+    if (count < 5) {
+      (window as unknown as Record<string, number>)[logKey] = count + 1;
+      console.log('[FileThumb] Render #' + (count + 1) + ':', {
+        fileName,
+        hasThumbnail,
+        thumbFailed,
+        imgError,
+        thumbnailUrl: thumbnailUrl?.slice(0, 100),
+        actualImageUrl: imageUrl?.slice(0, 100),
+        usingThumbnail: imageUrl === thumbnailUrl
+      });
+    }
+  }
 
   const sizeClasses = {
     sm: styles.thumbSm,
@@ -129,6 +191,10 @@ export function FileThumb({
             onLoad={handleImgLoad}
             loading="lazy"
             decoding="async"
+            // @ts-expect-error - fetchpriority is valid but not in React types yet
+            fetchpriority="low"
+            width={size === 'sm' ? 48 : size === 'md' ? 80 : 120}
+            height={size === 'sm' ? 48 : size === 'md' ? 80 : 120}
           />
         </div>
       );
@@ -146,6 +212,10 @@ export function FileThumb({
             onLoad={handleImgLoad}
             loading="lazy"
             decoding="async"
+            // @ts-expect-error - fetchpriority is valid but not in React types yet
+            fetchpriority="low"
+            width={size === 'sm' ? 48 : size === 'md' ? 80 : 120}
+            height={size === 'sm' ? 48 : size === 'md' ? 80 : 120}
           />
           {/* Extension badge overlay for non-images */}
           <span
@@ -196,7 +266,8 @@ function arePropsEqual(prev: FileThumbProps, next: FileThumbProps): boolean {
     prev.extension === next.extension &&
     prev.size === next.size &&
     prev.className === next.className &&
-    prev.showFileName === next.showFileName
+    prev.showFileName === next.showFileName &&
+    prev.cacheKey === next.cacheKey
   );
 }
 

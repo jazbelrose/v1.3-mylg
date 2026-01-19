@@ -9,3 +9,6 @@ export { useFilesPerf, filesPerf } from './useFilesPerf';
 export type { FilesPerf, PerfEntry } from './useFilesPerf';
 
 export { useFileListCache } from './useFileListCache';
+
+export { useScrollState } from './useScrollState';
+export type { ScrollState, UseScrollStateOptions } from './useScrollState';

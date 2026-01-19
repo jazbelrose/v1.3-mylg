@@ -71,6 +71,27 @@ export const useFileManagerState = ({
   const lastClickedIndexRef = useRef<number | null>(null);
   const [folderKey, setFolderKey] = useState<string>(folder);
   const [selectedFiles, setSelectedFiles] = useState<FileItem[]>([]);
+  // Version key for stable memoization - changes when files actually change
+  const filesVersionRef = useRef(0);
+  const prevFilesRef = useRef<{ length: number; firstUrl: string | undefined }>({ length: 0, firstUrl: undefined });
+  
+  // Derive a stable version key - only changes when files meaningfully change
+  const filesVersionKey = useMemo(() => {
+    const currentFirstUrl = selectedFiles.length > 0 ? selectedFiles[0]?.url : undefined;
+    const prev = prevFilesRef.current;
+    
+    // Check if files have meaningfully changed
+    if (
+      selectedFiles.length !== prev.length ||
+      currentFirstUrl !== prev.firstUrl
+    ) {
+      filesVersionRef.current += 1;
+      prevFilesRef.current = { length: selectedFiles.length, firstUrl: currentFirstUrl };
+    }
+    
+    return filesVersionRef.current;
+  }, [selectedFiles]);
+  
   // Defer file list updates to prevent UI blocking when many files are discovered
   const deferredSelectedFiles = useDeferredValue(selectedFiles);
   const [isFilesModalOpen, setFilesModalOpen] = useState<boolean>(Boolean(isOpen));
@@ -193,9 +214,12 @@ export const useFileManagerState = ({
   );
 
   const displayedFiles = useMemo(() => {
+    const startTime = performance.now();
+    const searchLower = deferredSearchTerm.toLowerCase();
+    
     let filtered = deferredSelectedFiles.filter(
       (f) =>
-        f.fileName.toLowerCase().includes(deferredSearchTerm.toLowerCase()) &&
+        f.fileName.toLowerCase().includes(searchLower) &&
         (filterOption === "all" || f.kind === filterOption)
     );
     
@@ -207,8 +231,19 @@ export const useFileManagerState = ({
       });
     }
     
-    return sortFiles(filtered);
-  }, [deferredSelectedFiles, deferredSearchTerm, filterOption, sortFiles, isSelectionEnabled, fileTypeFilter]);
+    const result = sortFiles(filtered);
+    
+    // Dev-only perf tracking
+    if (import.meta.env.DEV && typeof window !== 'undefined') {
+      const duration = performance.now() - startTime;
+      const perf = (window as unknown as { __filesPerf?: { trackFilterSort: (a: number, b: number, c: number) => void } }).__filesPerf;
+      perf?.trackFilterSort(deferredSelectedFiles.length, result.length, duration);
+    }
+    
+    return result;
+    // Use filesVersionKey instead of deferredSelectedFiles for more stable memoization
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filesVersionKey, deferredSearchTerm, filterOption, sortFiles, isSelectionEnabled, fileTypeFilter]);
 
   const toggleViewMode = useCallback(() => {
     const newMode: ViewMode = viewMode === "grid" ? "list" : "grid";

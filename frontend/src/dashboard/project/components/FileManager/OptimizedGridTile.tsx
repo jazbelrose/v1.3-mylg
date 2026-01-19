@@ -6,14 +6,19 @@
  * - Parent doesn't re-render when selection changes
  * - Only the affected tile re-renders
  * - Much better performance for large grids
+ * 
+ * Also subscribes to scroll state to show placeholders during scroll
+ * (reduces paint cost for smoother scrolling).
  */
 
 import React, { memo, useCallback, useRef, useEffect } from 'react';
-import { Check, Folder, MoreHorizontal } from 'lucide-react';
+import { Check, Folder, MoreHorizontal, Image } from 'lucide-react';
 import { FileThumb } from '@/shared/ui/FileThumb';
 import type { SelectionStore } from './hooks/useSelectionStore';
 import { useIsSelected } from './hooks/useSelectionStore';
+import { useIsScrolling } from './contexts/ScrollingContext';
 import { filesPerf } from './hooks/useFilesPerf';
+import { isThumbLoaded, getStableCacheKey } from './utils/thumbnailCache';
 import styles from './file-manager-v2.module.css';
 
 const IS_DEV = import.meta.env.DEV;
@@ -66,6 +71,9 @@ function OptimizedGridTileComponent({
   // Subscribe to this item's selection state only
   // This component will ONLY re-render when THIS item's selection changes
   const isSelected = useIsSelected(selectionStore, item.url);
+  
+  // Subscribe to scroll state to show placeholders during scroll
+  const isScrolling = useIsScrolling();
   
   const lastClickRef = useRef<number>(0);
 
@@ -126,7 +134,7 @@ function OptimizedGridTileComponent({
   return (
     <div
       style={style}
-      className={`${styles.gridItem} ${isSelected ? styles.gridItemSelected : ''}`}
+      className={`${styles.gridItem} ${isSelected ? styles.gridItemSelected : ''} ${isScrolling ? styles.gridItemScrolling : ''}`}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       tabIndex={0}
@@ -151,15 +159,41 @@ function OptimizedGridTileComponent({
           <div className={styles.gridFolderIcon}>
             <Folder size={32} />
           </div>
-        ) : (
-          <FileThumb
-            url={item.url}
-            thumbnailUrl={item.thumbnailUrl}
-            fileName={item.fileName}
-            mimeType={item.mimeType}
-            size="md"
-          />
-        )}
+        ) : (() => {
+          // Check if this thumbnail is already loaded (from cache)
+          const cacheKey = getStableCacheKey(item.url, item.id);
+          const alreadyLoaded = isThumbLoaded(cacheKey);
+          
+          // Only show placeholder during scroll if the image hasn't loaded yet
+          // This prevents the "reloading" flash for already-seen images
+          if (isScrolling && !alreadyLoaded) {
+            return (
+              <div className={styles.scrollPlaceholder}>
+                <Image size={24} />
+              </div>
+            );
+          }
+          
+          // Render the actual thumbnail (will use browser cache if already loaded)
+          // Debug: log what's being passed to FileThumb
+          if (item.thumbnailUrl && !alreadyLoaded) {
+            console.log('[OptimizedGridTile] Passing to FileThumb:', { 
+              fileName: item.fileName, 
+              hasThumbnailUrl: !!item.thumbnailUrl,
+              thumbUrl: item.thumbnailUrl?.slice(0, 80)
+            });
+          }
+          return (
+            <FileThumb
+              url={item.url}
+              thumbnailUrl={item.thumbnailUrl}
+              fileName={item.fileName}
+              mimeType={item.mimeType}
+              size="md"
+              cacheKey={cacheKey}
+            />
+          );
+        })()}
       </div>
 
       <div className={styles.gridItemName} title={item.fileName}>

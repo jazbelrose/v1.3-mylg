@@ -6,12 +6,14 @@
  * - Each tile subscribes to its own selection state via useSyncExternalStore
  * - Stable callback refs prevent cellProps recreation
  * - Memoized column/row calculations
+ * - Scroll state tracked to show placeholders during scroll (reduces paint cost)
  */
 
-import React, { memo, useMemo, useRef, useEffect, type CSSProperties, type ReactElement } from 'react';
+import React, { memo, useMemo, useRef, useEffect, useCallback, type CSSProperties, type ReactElement } from 'react';
 import { Grid } from 'react-window';
 import { OptimizedGridTile, type OptimizedGridTileItem } from './OptimizedGridTile';
 import type { SelectionStore } from './hooks/useSelectionStore';
+import { setScrolling } from './contexts/ScrollingContext';
 import styles from './file-manager-v2.module.css';
 
 export interface OptimizedFileGridProps {
@@ -198,6 +200,40 @@ function OptimizedFileGridComponent({
     selectionMode,
   ]);
 
+  // Track scroll state for paint optimization
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isScrollingRef = useRef(false);
+  
+  const handleScroll = useCallback(() => {
+    // Set scrolling immediately
+    if (!isScrollingRef.current) {
+      isScrollingRef.current = true;
+      setScrolling(true);
+    }
+    
+    // Clear existing timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    
+    // Set scrolling to false after debounce
+    scrollTimeoutRef.current = setTimeout(() => {
+      isScrollingRef.current = false;
+      setScrolling(false);
+      scrollTimeoutRef.current = null;
+    }, 150);
+  }, []);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      setScrolling(false);
+    };
+  }, []);
+
   if (items.length === 0) {
     return (
       <div className={styles.listEmpty}>
@@ -216,7 +252,8 @@ function OptimizedFileGridComponent({
       rowHeight={TILE_HEIGHT + GAP}
       cellComponent={CellRenderer}
       cellProps={cellProps}
-      overscanCount={2}
+      overscanCount={1}
+      onScroll={handleScroll}
     />
   );
 }

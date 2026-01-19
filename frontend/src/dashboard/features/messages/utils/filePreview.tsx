@@ -19,29 +19,47 @@ import {
 // Cache for thumbnail URLs to avoid recalculation
 const thumbnailUrlCache = new Map<string, string>();
 
-export const getThumbnailUrl = (url: string, folderKey = "chat_uploads"): string => {
+/**
+ * Get thumbnail URL for an image file.
+ * Auto-detects folder from URL path.
+ * Thumbnails are WebP format stored in {folderKey}_thumbnails/
+ */
+export const getThumbnailUrl = (url: string, _folderKey = "chat_uploads"): string => {
   if (!url || url.startsWith("blob:")) return url;
 
   const normalizedUrl = normalizeFileUrl(url);
-  const cacheKey = `${normalizedUrl}:${folderKey}`;
-  if (thumbnailUrlCache.has(cacheKey)) {
-    return thumbnailUrlCache.get(cacheKey)!;
+  if (thumbnailUrlCache.has(normalizedUrl)) {
+    return thumbnailUrlCache.get(normalizedUrl)!;
   }
 
   const [decodedKey] = fileUrlsToKeys([normalizedUrl]);
   if (!decodedKey) {
-    thumbnailUrlCache.set(cacheKey, normalizedUrl);
+    thumbnailUrlCache.set(normalizedUrl, normalizedUrl);
     return normalizedUrl;
   }
 
-  const thumbnailKey = decodedKey.replace(`/${folderKey}/`, `/${folderKey}_thumbnails/`);
-  if (thumbnailKey === decodedKey) {
-    thumbnailUrlCache.set(cacheKey, normalizedUrl);
+  // Auto-detect folder from path: prefix/{folderKey}/filename
+  const parts = decodedKey.split('/');
+  if (parts.length < 3) {
+    thumbnailUrlCache.set(normalizedUrl, normalizedUrl);
     return normalizedUrl;
   }
 
+  const fileName = parts.pop()!;
+  const actualFolderKey = parts.pop()!;
+  
+  // Skip if already in a _thumbnails folder
+  if (actualFolderKey.endsWith('_thumbnails')) {
+    thumbnailUrlCache.set(normalizedUrl, normalizedUrl);
+    return normalizedUrl;
+  }
+
+  // Build thumbnail path: prefix/{folderKey}_thumbnails/{fileName}.webp
+  const prefix = parts.join('/');
+  const thumbnailKey = `${prefix}/${actualFolderKey}_thumbnails/${fileName}.webp`;
   const finalUrl = normalizeFileUrl(getFileUrl(thumbnailKey));
-  thumbnailUrlCache.set(cacheKey, finalUrl);
+  
+  thumbnailUrlCache.set(normalizedUrl, finalUrl);
   return finalUrl;
 };
 
@@ -49,7 +67,7 @@ export const renderFilePreview = (file: DMFile, folderKey = "chat_uploads"): Rea
   const extension = file.fileName.split(".").pop()?.toLowerCase() || "";
   const extLabel = extension ? extension.toUpperCase() : "FILE";
 
-  if (["jpg", "jpeg", "png"].includes(extension)) {
+  if (["jpg", "jpeg", "png", "gif", "webp"].includes(extension)) {
     const normalizedUrl = normalizeFileUrl(file.url);
     const thumbnailUrl = getThumbnailUrl(normalizedUrl, folderKey);
     const finalUrl = normalizeFileUrl(file.finalUrl || file.url);

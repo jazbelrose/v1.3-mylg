@@ -1,0 +1,108 @@
+{
+  "LambdaFunctionConfigurations": [
+    {
+      "Id": "image-thumbnail-jpg",
+      "LambdaFunctionArn": "arn:aws:lambda:us-west-2:221025630675:function:image-thumbnails-dev-generateThumbnail",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {"Name": "prefix", "Value": "public/projects/"},
+            {"Name": "suffix", "Value": ".jpg"}
+          ]
+        }
+      }
+    },
+    {
+      "Id": "image-thumbnail-jpeg",
+      "LambdaFunctionArn": "arn:aws:lambda:us-west-2:221025630675:function:image-thumbnails-dev-generateThumbnail",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {"Name": "prefix", "Value": "public/projects/"},
+            {"Name": "suffix", "Value": ".jpeg"}
+          ]
+        }
+      }
+    },
+    {
+      "Id": "image-thumbnail-png",
+      "LambdaFunctionArn": "arn:aws:lambda:us-west-2:221025630675:function:image-thumbnails-dev-generateThumbnail",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {"Name": "prefix", "Value": "public/projects/"},
+            {"Name": "suffix", "Value": ".png"}
+          ]
+        }
+      }
+    },
+    {
+      "Id": "image-thumbnail-webp",
+      "LambdaFunctionArn": "arn:aws:lambda:us-west-2:221025630675:function:image-thumbnails-dev-generateThumbnail",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {"Name": "prefix", "Value": "public/projects/"},
+            {"Name": "suffix", "Value": ".webp"}
+          ]
+        }
+      }
+    },
+    {
+      "Id": "image-thumbnail-gif",
+      "LambdaFunctionArn": "arn:aws:lambda:us-west-2:221025630675:function:image-thumbnails-dev-generateThumbnail",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {"Name": "prefix", "Value": "public/projects/"},
+            {"Name": "suffix", "Value": ".gif"}
+          ]
+        }
+      }
+    },
+    {
+      "Id": "image-thumbnail-JPG",
+      "LambdaFunctionArn": "arn:aws:lambda:us-west-2:221025630675:function:image-thumbnails-dev-generateThumbnail",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {"Name": "prefix", "Value": "public/projects/"},
+            {"Name": "suffix", "Value": ".JPG"}
+          ]
+        }
+      }
+    },
+    {
+      "Id": "image-thumbnail-JPEG",
+      "LambdaFunctionArn": "arn:aws:lambda:us-west-2:221025630675:function:image-thumbnails-dev-generateThumbnail",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {"Name": "prefix", "Value": "public/projects/"},
+            {"Name": "suffix", "Value": ".JPEG"}
+          ]
+        }
+      }
+    },
+    {
+      "Id": "image-thumbnail-PNG",
+      "LambdaFunctionArn": "arn:aws:lambda:us-west-2:221025630675:function:image-thumbnails-dev-generateThumbnail",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {"Name": "prefix", "Value": "public/projects/"},
+            {"Name": "suffix", "Value": ".PNG"}
+          ]
+        }
+      }
+    }
+  ]
+}

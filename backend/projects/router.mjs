@@ -1571,13 +1571,40 @@ const deleteEvent = async (_e, C, { projectId, eventId }) => {
 };
 
 /* ---------- Project file management ---------- */
+
+// Helper to get thumbnail key for a file key
+// Example: public/projects/abc123/uploads/photo.jpg -> public/projects/abc123/uploads_thumbnails/photo.jpg.webp
+const getThumbnailKey = (sourceKey) => {
+  if (!sourceKey || sourceKey.includes('_thumbnails/')) return null;
+  
+  const parts = sourceKey.split('/');
+  if (parts.length < 2) return null;
+  
+  const fileName = parts.pop();
+  const parentFolder = parts.pop();
+  const prefix = parts.length > 0 ? parts.join('/') + '/' : '';
+  
+  return `${prefix}${parentFolder}_thumbnails/${fileName}.webp`;
+};
+
 const deleteProjectFiles = async (e, C, { projectId }) => {
   const body = B(e);
   const keys = Array.isArray(body.fileKeys) ? body.fileKeys.filter(Boolean) : [];
   if (!projectId) return json(400, C, { error: "projectId is required" });
   if (!keys.length) return json(400, C, { error: "fileKeys must be a non-empty array" });
 
-  const objects = [...new Set(keys)].map((Key) => ({ Key }));
+  // Build list of objects to delete: original files + their thumbnails
+  const uniqueKeys = [...new Set(keys)];
+  const objects = [];
+  
+  for (const key of uniqueKeys) {
+    objects.push({ Key: key });
+    // Also delete the corresponding thumbnail if it exists
+    const thumbKey = getThumbnailKey(key);
+    if (thumbKey) {
+      objects.push({ Key: thumbKey });
+    }
+  }
 
   try {
     const result = await s3.send(

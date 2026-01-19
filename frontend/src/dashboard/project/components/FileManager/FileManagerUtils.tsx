@@ -24,20 +24,56 @@ export const getFileKind = (fileName: string | undefined): string => {
   return ext;
 };
 
-export const getThumbnailUrl = (url: string, key: string) => {
-  if (!url || url.startsWith("blob:")) return url;
+/**
+ * Get the thumbnail URL for an image file.
+ * Thumbnails are stored in a parallel `_thumbnails/` folder structure as WebP.
+ * 
+ * Example:
+ *   Original:  public/projects/abc123/uploads/photo.jpg
+ *   Thumbnail: public/projects/abc123/uploads_thumbnails/photo.jpg.webp
+ * 
+ * @param url - The original file URL
+ * @param _folderKey - Deprecated, folder is now auto-detected from URL
+ * @returns The thumbnail URL, or undefined if no thumbnail path can be derived
+ */
+export const getThumbnailUrl = (url: string, _folderKey?: string): string | undefined => {
+  if (!url || url.startsWith("blob:")) return undefined;
 
   const [decodedKey] = fileUrlsToKeys([url]);
   if (!decodedKey) {
-    return normalizeFileUrl(url);
+    return undefined;
   }
 
-  const thumbnailKey = decodedKey.replace(`/${key}/`, `/${key}_thumbnails/`);
-  if (thumbnailKey === decodedKey) {
-    return normalizeFileUrl(url);
+  // Auto-detect the folder from the path
+  // Pattern: public/projects/{projectId}/{folderKey}/filename
+  // Or: projects/{projectId}/{folderKey}/filename
+  const parts = decodedKey.split('/');
+  if (parts.length < 3) {
+    return undefined;
   }
 
+  // Find the folder that contains the file (second-to-last segment)
+  const fileName = parts.pop()!;
+  const actualFolderKey = parts.pop()!;
+  
+  // Skip if already in a _thumbnails folder
+  if (actualFolderKey.endsWith('_thumbnails')) {
+    return undefined;
+  }
+
+  // Build thumbnail path: prefix/{folderKey}_thumbnails/{fileName}.webp
+  const prefix = parts.join('/');
+  const thumbnailKey = `${prefix}/${actualFolderKey}_thumbnails/${fileName}.webp`;
+  
   return normalizeFileUrl(getFileUrl(thumbnailKey));
+};
+
+/**
+ * Check if a file is an image that would have a generated thumbnail
+ */
+export const hasGeneratedThumbnail = (fileName: string): boolean => {
+  const ext = fileName.split(".").pop()?.toLowerCase() || "";
+  return ["jpg", "jpeg", "png", "gif", "webp"].includes(ext);
 };
 
 export const truncateFileName = (fileName?: string, maxLength = 12) => {
