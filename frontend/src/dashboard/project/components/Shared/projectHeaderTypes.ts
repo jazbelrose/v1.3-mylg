@@ -159,4 +159,5 @@ export interface ProjectHeaderState {
   teamModal: TeamModalState;
   getFileUrlForThumbnail: (thumbnail: string) => string;
   isAdmin: boolean;
+  handleProjectUpdate: (updates: Partial<Project>) => void;
 }

@@ -449,6 +449,36 @@ export function useProjectHeaderState(props: ProjectHeaderProps): ProjectHeaderS
     close: closeSettings,
   };
 
+  // Update local project state (for modal saves)
+  const handleProjectUpdate = useCallback(
+    (updates: Partial<Project>) => {
+      const updatedProject = { ...localProject, ...updates };
+      setLocalProject(updatedProject);
+      onActiveProjectChange?.(updatedProject);
+      setActiveProject(updatedProject);
+      // Also update the projects list
+      setProjects((prev: Project[]) =>
+        Array.isArray(prev)
+          ? prev.map((p) =>
+              p.projectId === updatedProject.projectId
+                ? { ...p, ...updates }
+                : p
+            )
+          : prev
+      );
+      setUserProjects((prev: Project[]) =>
+        Array.isArray(prev)
+          ? prev.map((p) =>
+              p.projectId === updatedProject.projectId
+                ? { ...p, ...updates }
+                : p
+            )
+          : prev
+      );
+    },
+    [localProject, setLocalProject, onActiveProjectChange, setActiveProject, setProjects, setUserProjects]
+  );
+
   const teamModal: TeamModalState = {
     isOpen: isTeamModalOpen,
     members: teamMembers,
@@ -487,5 +517,6 @@ export function useProjectHeaderState(props: ProjectHeaderProps): ProjectHeaderS
     teamModal,
     getFileUrlForThumbnail: getFileUrl,
     isAdmin,
+    handleProjectUpdate,
   };
 }

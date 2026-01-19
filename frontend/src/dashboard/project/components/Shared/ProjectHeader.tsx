@@ -44,6 +44,7 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = (props) => {
     teamModal,
     getFileUrlForThumbnail,
     isAdmin,
+    handleProjectUpdate,
   } = state;
 
   const thumbnailKey = localActiveProject?.thumbnails?.[0] as string | undefined;
@@ -129,6 +130,7 @@ const ProjectHeader: React.FC<ProjectHeaderProps> = (props) => {
         invoiceInfoModal={invoiceInfoModal}
         deleteModal={deleteConfirmationModal}
         isAdmin={isAdmin}
+        onProjectUpdate={handleProjectUpdate}
       />
       <DeleteConfirmationModal modal={deleteConfirmationModal} />
 

@@ -28,7 +28,7 @@ import {
 import { FileThumb } from '@/shared/ui/FileThumb';
 import { getFileUrl, fileUrlsToKeys } from '@/shared/utils/api';
 import PDFPreview from '../Shared/PDFPreview';
-import TextFileViewer from '@/shared/ui/TextFileViewer';
+import NoteEditorModal from '@/dashboard/features/messages/components/NoteEditorModal';
 import type { FileItem } from './FileManagerTypes';
 import { isPreviewableImage, getFilePreviewIcon } from './FileManagerUtils';
 import styles from './file-manager-v2.module.css';
@@ -76,6 +76,7 @@ export function QuickLookModal({
   const [isPanning, setIsPanning] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isActionsOpen, setIsActionsOpen] = useState(false);
+  const [textEditorOpen, setTextEditorOpen] = useState(false);
   
   const imageRef = useRef<HTMLDivElement>(null);
   const panStartRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
@@ -103,7 +104,15 @@ export function QuickLookModal({
   useEffect(() => {
     setZoom(FIT_ZOOM);
     setPanOffset({ x: 0, y: 0 });
+    setTextEditorOpen(false);
   }, [currentIndex]);
+
+  // Auto-open text editor for text files
+  useEffect(() => {
+    if (isOpen && isTextLike && projectId) {
+      setTextEditorOpen(true);
+    }
+  }, [isOpen, isTextLike, projectId, currentIndex]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -386,16 +395,36 @@ export function QuickLookModal({
 
     if (isTextLike && projectId) {
       return (
-        <div className={styles.quickLookTextContainer}>
-          <TextFileViewer
+        <>
+          <div className={styles.quickLookPlaceholder}>
+            <div className={styles.quickLookPlaceholderIcon}>
+              {getFilePreviewIcon(extension)}
+            </div>
+            <div className={styles.quickLookPlaceholderName}>{currentFile.fileName}</div>
+            <div className={styles.quickLookPlaceholderMeta}>
+              {extension.toUpperCase()} file
+            </div>
+            <button
+              type="button"
+              className={styles.quickLookPlaceholderDownload}
+              onClick={() => setTextEditorOpen(true)}
+            >
+              <Maximize2 size={16} />
+              <span>Open in editor</span>
+            </button>
+          </div>
+          <NoteEditorModal
+            isOpen={textEditorOpen}
+            mode="open"
             projectId={projectId}
-            fileUrl={currentFile.url}
-            fileName={currentFile.fileName}
             canEdit={canEdit}
-            showTitle={false}
-            showDownloadLink={false}
+            openFile={{
+              fileUrl: currentFile.url,
+              fileName: currentFile.fileName,
+            }}
+            onRequestClose={() => setTextEditorOpen(false)}
           />
-        </div>
+        </>
       );
     }
 

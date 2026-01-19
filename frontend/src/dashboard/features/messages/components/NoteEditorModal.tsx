@@ -28,12 +28,17 @@ const VIEW_FULL_THRESHOLD_BYTES = 512 * 1024;
 const CHUNK_BYTES = 256 * 1024;
 const MAX_EDIT_BYTES = 2 * 1024 * 1024;
 
-type Mode = "create" | "open";
+type Mode = "create" | "open" | "edit";
 
 type OpenFile = {
   fileUrl: string;
   fileName: string;
   initialTitle?: string | null;
+};
+
+type EditContent = {
+  title: string;
+  initialContent: string;
 };
 
 type FileViewInfo = {
@@ -156,8 +161,10 @@ export type NoteEditorModalProps = {
   projectId: string;
   canEdit: boolean;
   openFile?: OpenFile;
+  editContent?: EditContent;
   onRequestClose: () => void;
   onCreate?: (input: { title: string; markdown: string }) => Promise<void>;
+  onSave?: (content: string) => void;
 };
 
 export default function NoteEditorModal({
@@ -166,8 +173,10 @@ export default function NoteEditorModal({
   projectId,
   canEdit,
   openFile,
+  editContent,
   onRequestClose,
   onCreate,
+  onSave,
 }: NoteEditorModalProps) {
   const [title, setTitle] = useState("");
   const [markdown, setMarkdown] = useState("");
@@ -203,8 +212,11 @@ export default function NoteEditorModal({
       const seeded = openFile?.initialTitle?.trim() || stripMdExtension(openFile?.fileName || "");
       return seeded || "Note";
     }
+    if (mode === "edit") {
+      return editContent?.title || "Edit Text";
+    }
     return title.trim() || defaultNoteTitle();
-  }, [mode, openFile?.fileName, openFile?.initialTitle, title]);
+  }, [mode, openFile?.fileName, openFile?.initialTitle, title, editContent?.title]);
 
   const isReadOnly = useMemo(() => {
     const sizeBytes = viewInfo?.sizeBytes;
@@ -220,7 +232,7 @@ export default function NoteEditorModal({
     if (!isLoaded) return false;
     if (isSaving) return false;
     if (!isDirty) return false;
-    if (mode === "create") return true;
+    if (mode === "create" || mode === "edit") return true;
     return !isReadOnly;
   }, [isDirty, isLoaded, isReadOnly, isSaving, mode]);
 
@@ -348,8 +360,22 @@ export default function NoteEditorModal({
       setFindIndex(0);
       return;
     }
+    if (mode === "edit" && editContent) {
+      setTitle(editContent.title);
+      setMarkdown(editContent.initialContent);
+      setInitialMarkdown(editContent.initialContent);
+      setIsLoaded(true);
+      setIsLoading(false);
+      setError(null);
+      setViewInfo(null);
+      setLoadedBytes(editContent.initialContent.length);
+      setFindOpen(false);
+      setFindQuery("");
+      setFindIndex(0);
+      return;
+    }
     void loadOpenFile();
-  }, [isOpen, loadOpenFile, mode]);
+  }, [isOpen, loadOpenFile, mode, editContent]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -422,7 +448,7 @@ export default function NoteEditorModal({
     setTimeout(() => URL.revokeObjectURL(a.href), 0);
   }, [downloadableUrl, effectiveTitle, markdown]);
 
-  const onSave = useCallback(async () => {
+  const handleSave = useCallback(async () => {
     if (!canSave) return;
     setIsSaving(true);
     setError(null);
@@ -430,6 +456,19 @@ export default function NoteEditorModal({
       if (mode === "create") {
         if (!onCreate) throw new Error("Create handler not configured.");
         await onCreate({ title: effectiveTitle, markdown });
+        onRequestClose();
+        return;
+      }
+
+      if (mode === "edit") {
+        // For inline edit mode, just call the onSave callback with the plain text content
+        if (onSave) {
+          const plainText = editor?.getEditorState().read(() => {
+            const root = editor.getEditorState()._nodeMap.get("root");
+            return root ? (root as unknown as { __cachedText?: string }).__cachedText || markdown : markdown;
+          }) || markdown;
+          onSave(plainText);
+        }
         onRequestClose();
         return;
       }
@@ -469,7 +508,7 @@ export default function NoteEditorModal({
     } finally {
       setIsSaving(false);
     }
-  }, [canSave, effectiveTitle, loadOpenFile, markdown, mode, onCreate, onRequestClose, openFile?.fileName, openFile?.fileUrl, projectId, viewInfo?.contentType, viewInfo?.etag]);
+  }, [canSave, editor, effectiveTitle, loadOpenFile, markdown, mode, onCreate, onRequestClose, onSave, openFile?.fileName, openFile?.fileUrl, projectId, viewInfo?.contentType, viewInfo?.etag]);
 
   const editorConfig = useMemo(
     () => ({
@@ -692,13 +731,13 @@ export default function NoteEditorModal({
 
       <div className={styles.footer}>
         <div className={styles.footerLeft}>
-          {mode === "open" ? (fileName ? `File: ${fileName}` : "") : "Markdown note"}
+          {mode === "open" ? (fileName ? `File: ${fileName}` : "") : mode === "edit" ? (editContent?.title || "Edit text") : "Markdown note"}
         </div>
         <div className={styles.footerActions}>
           <button type="button" className="modal-button secondary" onClick={onRequestClose} disabled={isSaving}>
             Cancel
           </button>
-          <button type="button" className="modal-button primary" onClick={() => void onSave()} disabled={!canSave}>
+          <button type="button" className="modal-button primary" onClick={() => void handleSave()} disabled={!canSave}>
             {isSaving ? "Saving…" : mode === "create" ? "Save note" : "Save"}
           </button>
         </div>

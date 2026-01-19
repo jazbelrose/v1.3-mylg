@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { DollarSign, FileText, Folder, Upload } from "lucide-react";
+import { DollarSign, FileText, Folder, Upload, Maximize2 } from "lucide-react";
 
 import type { Task } from "@/shared/utils/api";
 import {
@@ -44,6 +44,7 @@ import {
 } from "@/dashboard/project/components/Tasks/components/quickTaskUtils";
 import { formatTaskName } from "@/shared/utils/taskNameFormatting";
 import AttachmentPreviewModal from "@/shared/ui/AttachmentPreviewModal";
+import NoteEditorModal from "@/dashboard/features/messages/components/NoteEditorModal";
 import { FileManagerV2 } from "@/dashboard/project/components/FileManager";
 import type { FileItem, FileManagerRef } from "@/dashboard/project/components/FileManager";
 
@@ -512,6 +513,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedAttachmentIndex, setSelectedAttachmentIndex] = useState<number | null>(null);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const [descriptionEditorOpen, setDescriptionEditorOpen] = useState(false);
   const [isDueOpen, setIsDueOpen] = useState(false);
   const [showQuickDateChips, setShowQuickDateChips] = useState(false);
   const assigneePopoverRef = useRef<HTMLDivElement | null>(null);
@@ -2870,6 +2872,11 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const previewAttachment =
     selectedAttachmentIndex !== null ? noteAttachments[selectedAttachmentIndex] : null;
 
+  const handleDescriptionEditorSave = useCallback((content: string) => {
+    setDescription(content);
+    setDescriptionEditorOpen(false);
+  }, []);
+
   const previewModal = (
     <AttachmentPreviewModal
       attachment={previewAttachment}
@@ -2877,6 +2884,19 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       onRequestClose={handleClosePreview}
     />
   );
+
+  const descriptionEditorModal = (
+    <NoteEditorModal
+      isOpen={descriptionEditorOpen}
+      mode="edit"
+      projectId={projectId || ""}
+      canEdit={true}
+      editContent={{ title: "Edit Assignment", initialContent: description }}
+      onRequestClose={() => setDescriptionEditorOpen(false)}
+      onSave={handleDescriptionEditorSave}
+    />
+  );
+
   const projectFilesPicker = (
     <FileManagerV2
       ref={fileManagerRef}
@@ -2889,9 +2909,14 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
 
   if (!open) {
 
-    if (!previewOpen) return null;
+    if (!previewOpen && !descriptionEditorOpen) return null;
 
-    return previewModal;
+    return (
+      <>
+        {previewModal}
+        {descriptionEditorModal}
+      </>
+    );
 
   }
 
@@ -3307,6 +3332,15 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                   </div>
                 )}
                 <div className={styles.attachmentButtonOverlay}>
+                  <button
+                    type="button"
+                    className={styles.attachmentIconButton}
+                    onClick={() => setDescriptionEditorOpen(true)}
+                    title="Expand editor"
+                    disabled={isBusy}
+                  >
+                    <Maximize2 size={16} aria-hidden="true" />
+                  </button>
                   <button
                     type="button"
                     ref={attachmentPopoverButtonRef}
@@ -3988,6 +4022,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         document.body
       )}
       {previewModal}
+      {descriptionEditorModal}
       {projectFilesPicker}
       <ConfirmModal
         isOpen={showConfirmClose}

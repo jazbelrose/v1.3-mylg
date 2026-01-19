@@ -62,6 +62,10 @@ export interface Project {
   finishline?: string;
   productionStart?: string;
   dateCreated?: string;
+  /** Project address (human-readable location string) */
+  address?: string;
+  /** Project geographic location */
+  location?: { lat: number; lng: number };
   invoiceBrandName?: string;
   invoiceBrandAddress?: string;
   invoiceBrandPhone?: string;

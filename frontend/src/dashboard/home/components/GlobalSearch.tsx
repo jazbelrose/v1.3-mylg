@@ -433,12 +433,13 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({ className = '', onNavigate,
       if (projects && Array.isArray(projects)) {
         projects.forEach((project: Project) => {
           const title = (project.title || '').toLowerCase();
-          const description = (project.description || '').toLowerCase();
+          // Extract plain text from description (handles Lexical JSON)
+          const descriptionPlain = extractPlainText(project.description).toLowerCase();
           const status = (project.status || '').toLowerCase();
 
           if (
             title.includes(normalizedQuery) ||
-            description.includes(normalizedQuery) ||
+            descriptionPlain.includes(normalizedQuery) ||
             status.includes(normalizedQuery)
           ) {
             const { thumbnailUrl, initial } = getProjectThumbnail(project);

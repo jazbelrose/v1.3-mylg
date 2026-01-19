@@ -439,6 +439,12 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
 
   const isTimeBlockContainer = isFocusBlock || isGroupStack;
 
+  const isTimeBlock = useMemo(() => {
+    if (!isTask || !task) return false;
+    if (isTimeBlockContainer) return false;
+    return Boolean(task.start || task.end);
+  }, [isTask, isTimeBlockContainer, task]);
+
   const focusChildrenResolved = useMemo(() => {
     if (!isTask || !task) return [];
     if (!isTimeBlockContainer) return [];
@@ -1362,7 +1368,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
             <span>{isTimeBlockContainer ? "All done" : "Done"}</span>
           </button>
         )}
-        {!isTimeBlockContainer && onDuplicate && (
+        {!isTimeBlockContainer && !isTimeBlock && onDuplicate && (
           <button
             type="button"
             className="calendar-entry-popover__action"

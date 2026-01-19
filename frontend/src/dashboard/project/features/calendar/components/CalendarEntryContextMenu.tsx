@@ -464,6 +464,10 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
   // Build label suffix for multi-select
   const countSuffix = isMultiSelect ? ` (${selectionCount})` : "";
 
+  // Duplicate is intentionally hidden for time blocks (start/end scheduled tasks)
+  // because duplication is handled via Ctrl/Cmd-drag in the calendar grid.
+  const showDuplicate = Boolean(onDuplicate) && selectedTimeBlocks.length === 0;
+
   const menuContent = (
     <div
       ref={menuRef}
@@ -757,7 +761,7 @@ export const CalendarEntryContextMenu: React.FC<CalendarEntryContextMenuProps> =
       )}
 
       {/* Duplicate */}
-      {onDuplicate && (
+      {showDuplicate && (
         <button
           type="button"
           className="calendar-entry-context-menu__item"
