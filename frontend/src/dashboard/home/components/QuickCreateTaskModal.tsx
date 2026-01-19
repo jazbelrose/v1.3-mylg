@@ -6,8 +6,6 @@ import type { Task } from "@/shared/utils/api";
 import {
   createTask,
   deleteTask,
-  archiveTask,
-  unarchiveTask,
   updateTask,
   uploadFile,
   getFileUrl,
@@ -70,11 +68,10 @@ type TaskStatus =
   | "in_progress"
   | "done"
   | "in_review"
-  | "needs_changes"
-  | "archived";
+  | "needs_changes";
 
 const PATCHABLE_STATUSES: readonly TaskStatus[] = ["todo", "in_progress"] as const;
-const READ_ONLY_STATUSES: readonly TaskStatus[] = ["done", "in_review", "archived"] as const;
+const READ_ONLY_STATUSES: readonly TaskStatus[] = ["done", "in_review"] as const;
 const STATUS_SELECT_OPTIONS: ReadonlyArray<{ value: TaskStatus; label: string }> = [
   { value: "todo", label: "To do" },
   { value: "in_progress", label: "In progress" },
@@ -359,7 +356,8 @@ function normalizeStatus(value?: string | null): TaskStatus {
   if (normalized === "in_progress" || normalized === "in-progress") return "in_progress";
   if (normalized === "in_review" || normalized === "in-review") return "in_review";
   if (normalized === "needs_changes" || normalized === "needs-changes") return "needs_changes";
-  if (normalized === "archived") return "archived";
+  // Legacy archived status now maps to done
+  if (normalized === "archived") return "done";
   return "todo";
 }
 
@@ -490,7 +488,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const costTouchedRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [archiving, setArchiving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
@@ -863,7 +860,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const titleRemaining = 120 - title.length;
   const showTitleCounter = titleRemaining <= 20;
   const canSubmit = Boolean(effectiveProjectId && trimmedTitle);
-  const isBusy = submitting || deleting || archiving;
+  const isBusy = submitting || deleting;
 
   const hasUnsavedChanges = useMemo(() => {
     const current = {
@@ -1305,7 +1302,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     setTimeRangeError(null);
     setTaskId(null);
     setStatus("todo");
-    setArchiving(false);
     setReviewerId(null);
     setCreatedById(null);
     setCreatedByName(null);
@@ -1775,7 +1771,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     normalizedStatus === "in_progress" ||
     normalizedStatus === "needs_changes";
 
-  const isCompleteStatus = normalizedStatus === "done" || normalizedStatus === "archived";
+  const isCompleteStatus = normalizedStatus === "done";
   const canSubmitForReviewAction = Boolean(isAdmin || isCurrentUserAssigned || isCreator);
   const showSubmitForReviewButton =
     isEditing && !isBusy && !isAwaitingApproval && !isCompleteStatus && canSubmitForReview && canSubmitForReviewAction;
@@ -1784,15 +1780,11 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
   const showApproveReviewButton = isEditing && !isBusy && isAdmin && isAwaitingApproval && !isCompleteStatus && !isReviewApproved;
   const showMarkDoneButton = isEditing && !isBusy && isAdmin && !isCompleteStatus;
   const showRequestChangesButton = isEditing && isAwaitingApproval && isAdmin && !isBusy;
-  const canArchiveTask = Boolean(isEditing && status === "done" && (isAdmin || isReviewer));
-  const canUnarchiveTask = Boolean(isEditing && status === "archived" && (isAdmin || isReviewer));
   const hasAnyStatusAction =
     showSubmitForReviewButton ||
     showApproveReviewButton ||
     showMarkDoneButton ||
-    showRequestChangesButton ||
-    canArchiveTask ||
-    canUnarchiveTask;
+    showRequestChangesButton;
   const taskNameDescribedBy = [
     showTitleCounter ? titleCounterId : null,
     titleError ? titleErrorId : null,
@@ -2711,37 +2703,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       setErrorMessage("We couldn't delete that task. Please try again.");
     } finally {
       setDeleting(false);
-    }
-  };
-
-  const handleArchiveToggle = async () => {
-    if (!taskId || !effectiveProjectId) {
-      setErrorMessage("We couldn't find that task or its project.");
-      return;
-    }
-
-    setArchiving(true);
-    try {
-      if (status === "archived") {
-        await unarchiveTask(effectiveProjectId, taskId);
-        const message = "Task unarchived and marked as completed.";
-        setSuccessMessage(message);
-        setErrorMessage(null);
-        notify("success", message);
-      } else {
-        await archiveTask(effectiveProjectId, taskId);
-        const message = "Task archived. You can find it under ‘Archived’ if needed.";
-        setSuccessMessage(message);
-        setErrorMessage(null);
-        notify("success", message);
-      }
-      await onUpdated?.();
-    } catch (error) {
-      console.error("Failed to update archive status", error);
-      setErrorMessage("We couldn't update the task. Please try again.");
-      notify("error", "Failed to update the task status.");
-    } finally {
-      setArchiving(false);
     }
   };
 
@@ -3950,21 +3911,6 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
                       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                     </svg>
                     <span>Request changes</span>
-                  </button>
-                )}
-                {(canArchiveTask || canUnarchiveTask) && (
-                  <button
-                    type="button"
-                    className={styles.statusActionButton}
-                    onClick={handleArchiveToggle}
-                    disabled={isBusy}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="21 8 21 21 3 21 3 8"></polyline>
-                      <rect x="1" y="3" width="22" height="5"></rect>
-                      <line x1="10" y1="12" x2="14" y2="12"></line>
-                    </svg>
-                    <span>{archiving ? "Working…" : canUnarchiveTask ? "Unarchive task" : "Archive task"}</span>
                   </button>
                 )}
               </>

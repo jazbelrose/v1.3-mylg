@@ -6,7 +6,6 @@ export const taskStatuses = [
   "in_review",
   "needs_changes",
   "done",
-  "archived",
 ];
 
 export const allowedTransitions = {
@@ -14,8 +13,7 @@ export const allowedTransitions = {
   in_progress: ["in_review"],
   in_review: ["done", "needs_changes"],
   needs_changes: ["in_progress", "in_review"],
-  done: ["archived", "needs_changes"],
-  archived: ["done"],
+  done: ["needs_changes"],
 };
 
 const LEGACY_STATUS_MAP = new Map(
@@ -30,7 +28,7 @@ const LEGACY_STATUS_MAP = new Map(
     ["needs-changes", "needs_changes"],
     ["complete", "done"],
     ["completed", "done"],
-    ["archived", "archived"],
+    ["archived", "done"],
   ].map(([a, b]) => [a, b]),
 );
 
@@ -306,39 +304,6 @@ export async function updateTaskStatus({
 
   const response = await ddb.send(command);
   return response.Attributes || null;
-}
-
-export async function setArchive({
-  ddb,
-  tableName,
-  projectId,
-  taskId,
-  archived,
-  actorId,
-  now,
-}) {
-  if (archived) {
-    return updateTaskStatus({
-      ddb,
-      tableName,
-      projectId,
-      taskId,
-      nextStatus: "archived",
-      actorId,
-      now,
-      options: { archivedAt: now },
-    });
-  }
-  return updateTaskStatus({
-    ddb,
-    tableName,
-    projectId,
-    taskId,
-    nextStatus: "done",
-    actorId,
-    now,
-    options: { archived: false },
-  });
 }
 
 export async function requestReview({

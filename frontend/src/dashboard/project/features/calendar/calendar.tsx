@@ -915,7 +915,7 @@ const CalendarPage: React.FC = () => {
       const normalizedStatus =
         typeof target.status === "string" ? target.status.trim().toLowerCase() : "";
       const isAwaitingApproval = normalizedStatus === "in_review";
-      const isComplete = normalizedStatus === "done" || normalizedStatus === "archived";
+      const isComplete = normalizedStatus === "done";
       const canSubmitForReview =
         normalizedStatus === "to_do" ||
         normalizedStatus === "in_progress" ||

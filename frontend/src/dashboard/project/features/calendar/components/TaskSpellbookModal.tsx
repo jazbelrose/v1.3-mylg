@@ -75,7 +75,7 @@ const buildLoadTodayCandidates = (dateIso: string, tasks: CalendarTask[], active
       if (!dueDate) return false;
       if (dueDate.getTime() > cutoff.getTime()) return false;
 
-      const isDone = task.done === true || task.status === "done" || task.status === "archived";
+      const isDone = task.done === true || task.status === "done";
       if (isDone) return false;
 
       const kind = (task.kind ?? "").toLowerCase();

@@ -31,7 +31,7 @@ export function formatStatusLabel(status: Status): string {
 
 function isTaskCompleted(status: Status): boolean {
   const normalized = typeof status === "string" ? status.trim().toLowerCase() : "";
-  return ["done", "completed", "complete", "archived"].includes(normalized);
+  return ["done", "completed", "complete"].includes(normalized);
 }
 
 export function getTaskStatusCategory(

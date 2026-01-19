@@ -30,8 +30,6 @@ import {
   requestTaskReview,
   approveTask,
   requestTaskChanges,
-  archiveTask,
-  unarchiveTask,
   deleteTask,
   getFileUrl,
 } from "@/shared/utils/api";
@@ -52,12 +50,11 @@ type AssignedPersonOption = {
   name: string;
 };
 
-type StatusFilterOption = "active" | "all" | "archived";
+type StatusFilterOption = "active" | "all";
 
 const STATUS_FILTER_OPTIONS: Array<{ value: StatusFilterOption; label: string }> = [
   { value: "active", label: "Active" },
   { value: "all", label: "All" },
-  { value: "archived", label: "Archived" },
 ];
 
 type GlobalTaskDrawerProps = {
@@ -118,7 +115,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
     stats,
     openTasks,
     completedTasks,
-    archivedTasks,
     refreshTasks,
     updateTaskStatus,
     projectOptions,
@@ -207,12 +203,11 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
   const touchStartY = useRef(0);
   const hasFocusedTaskRef = useRef(false);
 
-  // Combine open/completed tasks and archived tasks for filtering
-  const activeTaskPool = useMemo(() => [...openTasks, ...completedTasks].filter(task => task.status !== 'archived'), [openTasks, completedTasks]);
-  const archivedTaskPool = useMemo(() => [...archivedTasks].filter(task => task.status === 'archived'), [archivedTasks]);
+  // Combine open/completed tasks for filtering (archived status removed)
+  const activeTaskPool = useMemo(() => [...openTasks, ...completedTasks], [openTasks, completedTasks]);
   const allKnownTasks = useMemo(
-    () => [...activeTaskPool, ...archivedTaskPool],
-    [activeTaskPool, archivedTaskPool],
+    () => activeTaskPool,
+    [activeTaskPool],
   );
 
   const { assignedByOptions, assignedToOptions } = useMemo<{
@@ -317,40 +312,36 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
 
     let filtered: TasksOverviewListItem[] = [];
 
-    if (statusFilter === "archived") {
-      filtered = [...archivedTaskPool];
-    } else {
-      switch (activeFilter) {
-        case "due":
-          filtered = activeTaskPool.filter((task) => task.dueDate && task.status !== "done");
-          break;
-        case "completed":
-          filtered = activeTaskPool.filter((task) => task.status === "done");
-          break;
-        case "completedToday": {
-          const today = new Date();
-          filtered = activeTaskPool.filter(
-            (task) => task.status === "done" && task.completedAt && task.completedAt.toDateString() === today.toDateString(),
-          );
-          break;
-        }
-        case "overdue":
-          filtered = activeTaskPool.filter(
-            (task) => task.dueDate && task.dueDate < todayStart && task.status !== "done",
-          );
-          break;
-        case "mine":
-          filtered = user?.userId
-            ? activeTaskPool.filter(
-                (task) => task.assigneeId === user.userId || task.createdById === user.userId,
-              )
-            : activeTaskPool;
-          break;
-        case "all":
-        default:
-          filtered = activeTaskPool;
-          break;
+    switch (activeFilter) {
+      case "due":
+        filtered = activeTaskPool.filter((task) => task.dueDate && task.status !== "done");
+        break;
+      case "completed":
+        filtered = activeTaskPool.filter((task) => task.status === "done");
+        break;
+      case "completedToday": {
+        const today = new Date();
+        filtered = activeTaskPool.filter(
+          (task) => task.status === "done" && task.completedAt && task.completedAt.toDateString() === today.toDateString(),
+        );
+        break;
       }
+      case "overdue":
+        filtered = activeTaskPool.filter(
+          (task) => task.dueDate && task.dueDate < todayStart && task.status !== "done",
+        );
+        break;
+      case "mine":
+        filtered = user?.userId
+          ? activeTaskPool.filter(
+              (task) => task.assigneeId === user.userId || task.createdById === user.userId,
+            )
+          : activeTaskPool;
+        break;
+      case "all":
+      default:
+        filtered = activeTaskPool;
+        break;
     }
 
     if (searchQuery.trim()) {
@@ -400,7 +391,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
     return filtered;
   }, [
     activeTaskPool,
-    archivedTaskPool,
     searchQuery,
     activeFilter,
     sortField,
@@ -408,7 +398,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
     user?.userId,
     assignedByFilter,
     assignedToFilter,
-    statusFilter,
     projectFilter,
   ]);
 
@@ -741,66 +730,6 @@ const GlobalTaskDrawer: React.FC<GlobalTaskDrawerProps> = ({ open, onClose, init
       } catch (error) {
         console.error("Failed to request task changes", error);
         notify("error", "Failed to send the task back for changes.");
-        await refreshTasks(); // revert
-      } finally {
-        setTaskPending(task.id, false);
-      }
-    },
-    [refreshTasks, resolveTaskIdentifiers, setTaskPending, updateTaskStatus, user?.userId, isAdmin],
-  );
-
-  const handleArchiveTask = useCallback(
-    async (task: TasksOverviewListItem) => {
-      const identifiers = resolveTaskIdentifiers(task);
-      if (!identifiers) return;
-      const normalizedUserId = user?.userId?.trim().toLowerCase() ?? '';
-      const normalizedAssigneeId = task.assigneeId?.trim().toLowerCase() ?? '';
-      const normalizedCreatorId = task.createdById?.trim().toLowerCase() ?? '';
-      const isAssignee = normalizedUserId && normalizedAssigneeId && normalizedUserId === normalizedAssigneeId;
-      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
-      const canActOnTask = isAdmin || isAssignee || isCreator;
-      if (!canActOnTask) {
-        notify('error', 'Only the assignee, creator, or an admin can update this task.');
-        return;
-      }
-      setTaskPending(task.id, true);
-      updateTaskStatus(task.id, "archived");
-      try {
-        await archiveTask(identifiers.projectId, identifiers.taskId);
-        notify("success", "Task archived. You can find it under 'Archived' if needed.");
-      } catch (error) {
-        console.error("Failed to archive task", error);
-        notify("error", "Failed to archive task.");
-        await refreshTasks();
-      } finally {
-        setTaskPending(task.id, false);
-      }
-    },
-    [refreshTasks, resolveTaskIdentifiers, setTaskPending, updateTaskStatus, user?.userId, isAdmin],
-  );
-
-  const handleUnarchiveTask = useCallback(
-    async (task: TasksOverviewListItem) => {
-      const identifiers = resolveTaskIdentifiers(task);
-      if (!identifiers) return;
-      const normalizedUserId = user?.userId?.trim().toLowerCase() ?? '';
-      const normalizedAssigneeId = task.assigneeId?.trim().toLowerCase() ?? '';
-      const normalizedCreatorId = task.createdById?.trim().toLowerCase() ?? '';
-      const isAssignee = normalizedUserId && normalizedAssigneeId && normalizedUserId === normalizedAssigneeId;
-      const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
-      const canActOnTask = isAdmin || isAssignee || isCreator;
-      if (!canActOnTask) {
-        notify('error', 'Only the assignee, creator, or an admin can update this task.');
-        return;
-      }
-      setTaskPending(task.id, true);
-      updateTaskStatus(task.id, "done", { completedAt: new Date() });
-      try {
-        await unarchiveTask(identifiers.projectId, identifiers.taskId);
-        notify("success", "Task unarchived and marked as completed.");
-      } catch (error) {
-        console.error("Failed to unarchive task", error);
-        notify("error", "Failed to unarchive task.");
         await refreshTasks(); // revert
       } finally {
         setTaskPending(task.id, false);
@@ -1489,14 +1418,13 @@ const BADGE_CLASS_BY_TONE = {
                       );
                       const normalizedStatus =
                         typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
-                      const isArchived = normalizedStatus === "archived";
                       const isInReview = normalizedStatus === "in_review";
-                      const badgeToneCategory = isArchived ? "unscheduled" : isInReview ? "scheduled" : category;
+                      const badgeToneCategory = isInReview ? "scheduled" : category;
                       const tone = getTaskStatusTone(badgeToneCategory);
                       const badgeClassKey = BADGE_CLASS_BY_TONE[tone];
                       const badgeToneClass = badgeClassKey ? styles[badgeClassKey] : undefined;
                       const badgeClassName = [styles.StatusBadge, badgeToneClass].filter(Boolean).join(" ");
-                      const badgeLabel = isArchived ? "Archived" : isInReview ? "In Review" : label;
+                      const badgeLabel = isInReview ? "In Review" : label;
                       const normalizedUserId = normalizeUserId(user?.userId);
                       const normalizedAssignee = normalizeUserId(task.assigneeId);
                       const isDone = normalizedStatus === "done";
@@ -1505,12 +1433,10 @@ const BADGE_CLASS_BY_TONE = {
                       const isAssignee = normalizedUserId && normalizedAssignee && normalizedUserId === normalizedAssignee;
                       const isCreator = normalizedUserId && normalizedCreatorId && normalizedUserId === normalizedCreatorId;
                       const canActOnTask = isAdmin || isAssignee || isCreator;
-                      const isComplete = isDone || isArchived;
+                      const isComplete = isDone;
                       const canSubmitForReview = canActOnTask && ["todo", "in_progress", "needs_changes"].includes(normalizedStatus);
                       const canApprove = Boolean(isAdmin && !isComplete);
                       const canRequestChanges = Boolean(isAdmin && isInReview);
-                      const canArchive = canActOnTask && isDone;
-                      const canUnarchive = canActOnTask && isArchived;
                       const isBusy = pendingTaskIds.has(task.id);
                       const reviewNote = (
                         task.reviewNote ?? (task.rawTask as { reviewNote?: string })?.reviewNote ?? ""
@@ -1525,9 +1451,7 @@ const BADGE_CLASS_BY_TONE = {
                         (canActOnTask && (
                           canSubmitForReview ||
                           canApprove ||
-                          canRequestChanges ||
-                          canArchive ||
-                          canUnarchive
+                          canRequestChanges
                         ))
                       );
 
@@ -1826,46 +1750,6 @@ const BADGE_CLASS_BY_TONE = {
                                 disabled={isBusy}
                               >
                                 {isBusy ? "Working…" : "Send back for changes"}
-                              </button>
-                            ) : null}
-                            {canArchive ? (
-                              <button
-                                type="button"
-                                className={`${styles.taskActionButton} ${styles.taskActionArchive}`}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleArchiveTask(task);
-                                }}
-                                disabled={isBusy}
-                              >
-                                {isBusy ? "Working…" : "Archive task"}
-                              </button>
-                            ) : null}
-                              {canUnarchive ? (
-                                <button
-                                  type="button"
-                                className={`${styles.taskActionButton} ${styles.taskActionRestore}`}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleUnarchiveTask(task);
-                                }}
-                                disabled={isBusy}
-                              >
-                                {isBusy ? "Working…" : "Unarchive task"}
-                              </button>
-                            ) : null}
-                            {canUnarchive ? (
-                              <button
-                                type="button"
-                                className={styles.taskActionButton}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleDeleteTask(task);
-                                }}
-                                disabled={isBusy}
-                                style={{ color: '#ff6b6b', borderColor: '#ff6b6b', marginLeft: 'auto', background: 'rgba(255, 107, 107, 0.1)' }}
-                              >
-                                <Trash size={14} style={{ marginRight: '4px' }} /> Delete
                               </button>
                             ) : null}
                             </div>

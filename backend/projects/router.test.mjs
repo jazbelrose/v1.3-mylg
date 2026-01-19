@@ -3,8 +3,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   patchTask,
   reviewTransition,
-  archiveTask,
-  unarchiveTask
 } from './router.mjs';
 
 // Mock dependencies
@@ -18,7 +16,6 @@ vi.mock('./tasksDal.mjs', () => ({
   buildStatusSortKey: vi.fn(),
   normalizeStatus: vi.fn((status) => status),
   updateTaskStatus: vi.fn(),
-  setArchive: vi.fn(),
   requestReview: vi.fn(),
   approveTask: vi.fn(),
   requestChanges: vi.fn(),
@@ -29,14 +26,12 @@ vi.mock('./tasksDal.mjs', () => ({
 import {
   updateTaskStatus,
   updateTaskFields,
-  setArchive,
   getTaskById
 } from './tasksDal.mjs';
 
 const dalGetTaskById = getTaskById;
 const dalUpdateTaskStatus = updateTaskStatus;
 const dalUpdateTaskFields = updateTaskFields;
-const dalSetArchive = setArchive;
 
 describe('patchTask', () => {
   const mockUserId = 'user123';
@@ -114,26 +109,6 @@ describe('patchTask', () => {
 
       const mockTask = {
         status: 'in_review',
-        assigneeIds: [mockUserId],
-        createdById: mockUserId,
-      };
-
-      dalGetTaskById.mockResolvedValue(mockTask);
-
-      const result = await patchTask(event, mockCors, mockParams);
-
-      expect(result.statusCode).toBe(400);
-      expect(result.body.error).toBe('Status transition requires a dedicated endpoint');
-    });
-
-    it('should block transition to archived via PATCH', async () => {
-      const event = {
-        ...mockEvent,
-        body: JSON.stringify({ status: 'archived' }),
-      };
-
-      const mockTask = {
-        status: 'done',
         assigneeIds: [mockUserId],
         createdById: mockUserId,
       };
@@ -565,57 +540,5 @@ describe('Review Transition Endpoint', () => {
         nextStatus: 'done',
       }),
     );
-  });
-
-  describe('archiveTask', () => {
-    it('should allow archiving a done task', async () => {
-      const mockTask = {
-        status: 'done',
-      };
-
-      const mockUpdatedTask = { ...mockTask, status: 'archived' };
-
-      dalGetTaskById.mockResolvedValue(mockTask);
-      dalSetArchive.mockResolvedValue(mockUpdatedTask);
-
-      const result = await archiveTask(adminEvent, mockCors, mockParams);
-
-      expect(result.statusCode).toBe(200);
-      expect(dalSetArchive).toHaveBeenCalledWith({
-        ddb: expect.any(Object),
-        tableName: 'Tasks',
-        projectId: mockProjectId,
-        taskId: mockTaskId,
-        archived: true,
-        actorId: mockUserId,
-        now: expect.any(String),
-      });
-    });
-  });
-
-  describe('unarchiveTask', () => {
-    it('should allow unarchiving an archived task', async () => {
-      const mockTask = {
-        status: 'archived',
-      };
-
-      const mockUpdatedTask = { ...mockTask, status: 'done' };
-
-      dalGetTaskById.mockResolvedValue(mockTask);
-      dalSetArchive.mockResolvedValue(mockUpdatedTask);
-
-      const result = await unarchiveTask(adminEvent, mockCors, mockParams);
-
-      expect(result.statusCode).toBe(200);
-      expect(dalSetArchive).toHaveBeenCalledWith({
-        ddb: expect.any(Object),
-        tableName: 'Tasks',
-        projectId: mockProjectId,
-        taskId: mockTaskId,
-        archived: false,
-        actorId: mockUserId,
-        now: expect.any(String),
-      });
-    });
   });
 });

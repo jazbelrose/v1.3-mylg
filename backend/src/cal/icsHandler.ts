@@ -88,7 +88,7 @@ function normalizeEvent(event: EventRecord, projectId: string): CanonicalCalenda
 }
 
 function normalizeTask(task: TaskRecord, projectId: string): CanonicalCalendarItem | null {
-  if (task.status === 'done' || task.status === 'cancelled' || task.status === 'archived') {
+  if (task.status === 'done' || task.status === 'cancelled') {
     return null;
   }
   const baseUrl = `https://app.mylg.studio/projects/${projectId}/tasks/${task.taskId}`;

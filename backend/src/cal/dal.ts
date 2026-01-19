@@ -179,8 +179,7 @@ export async function listProjectTasks(
   return items.filter((task) => {
     if (
       task.status === 'done' ||
-      task.status === 'cancelled' ||
-      task.status === 'archived'
+      task.status === 'cancelled'
     ) {
       return false;
     }

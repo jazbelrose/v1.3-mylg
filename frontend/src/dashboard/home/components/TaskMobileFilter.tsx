@@ -6,7 +6,7 @@ import desktopStyles from "@/dashboard/home/components/ProjectsPanelDesktop.modu
 import styles from "@/dashboard/project/features/budget/components/BudgetToolbar.module.css";
 
 type FilterOption = "due" | "completed" | "completedToday" | "overdue" | "mine" | "all";
-type StatusFilter = "active" | "all" | "archived";
+type StatusFilter = "active" | "all";
 
 type SortOptionValue = "default" | "dueDate-asc" | "dueDate-desc" | "title-asc" | "title-desc";
 
@@ -224,7 +224,7 @@ const TaskMobileFilter: React.FC<TaskMobileFilterProps> = ({
           <div className={styles.mobileFilterSection}>
             <span className={styles.mobileFilterLabel}>Status</span>
             <div className={styles.mobileFilterGroup} role="group" aria-label="Filter by status">
-              {["active", "all", "archived"].map((option) => {
+              {["active", "all"].map((option) => {
                 const typedOption = option as StatusFilter;
                 const isActiveStatus = statusFilter === typedOption;
                 return (
@@ -239,7 +239,7 @@ const TaskMobileFilter: React.FC<TaskMobileFilterProps> = ({
                     onClick={() => onStatusFilterChange(typedOption)}
                     aria-pressed={isActiveStatus}
                   >
-                    {typedOption === "active" ? "Active" : typedOption === "all" ? "All" : "Archived"}
+                    {typedOption === "active" ? "Active" : "All"}
                   </button>
                 );
               })}

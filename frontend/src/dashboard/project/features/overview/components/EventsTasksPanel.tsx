@@ -202,7 +202,7 @@ function normalizeItems(
     const isOverdue = diffDays < 0;
     const isDueSoon = diffDays >= 0 && diffDays <= 2;
     const status = t.status?.toLowerCase() || '';
-    const isCompleted = status === 'done' || status === 'completed' || status === 'complete' || status === 'archived';
+    const isCompleted = status === 'done' || status === 'completed' || status === 'complete';
     
     const assignee = parseAssignee(t.assignedTo);
     const meta = assignee ? `Due ${formatDateMeta(date, today)} · ${assignee.name}` : `Due ${formatDateMeta(date, today)}`;

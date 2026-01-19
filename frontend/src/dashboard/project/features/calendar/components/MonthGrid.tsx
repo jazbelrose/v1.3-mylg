@@ -52,7 +52,7 @@ const MAX_VISIBLE_ENTRIES = 3;
 
 const isTaskDone = (task: CalendarTask): boolean => {
   const normalizedStatus = typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
-  return Boolean(task.done) || ["done", "archived", "completed", "complete"].includes(normalizedStatus);
+  return Boolean(task.done) || ["done", "completed", "complete"].includes(normalizedStatus);
 };
 
 const parseDateCandidate = (...candidates: Array<string | undefined | null>) => {

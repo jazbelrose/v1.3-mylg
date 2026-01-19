@@ -526,7 +526,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     if (total <= 0) return null;
     const done = focusChildrenResolved.reduce((sum, child) => {
       const normalizedStatus = typeof child.status === "string" ? child.status.trim().toLowerCase() : "";
-      const isDone = child.done === true || ["done", "archived", "completed", "complete"].includes(normalizedStatus);
+      const isDone = child.done === true || ["done", "completed", "complete"].includes(normalizedStatus);
       return sum + (isDone ? 1 : 0);
     }, 0);
     return { done, total };
@@ -536,7 +536,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     if (!isTask || !task) return false;
     const isDone = (t: CalendarTask) => {
       const normalizedStatus = typeof t.status === "string" ? t.status.trim().toLowerCase() : "";
-      return Boolean(t.done === true) || ["done", "archived", "completed", "complete"].includes(normalizedStatus);
+      return Boolean(t.done === true) || ["done", "completed", "complete"].includes(normalizedStatus);
     };
     if (isTimeBlockContainer && focusChildrenResolved.length > 0) {
       return focusChildrenResolved.every(isDone);

@@ -663,7 +663,7 @@ function WeekGrid({
     (task: CalendarTask): boolean => {
       const isDone = (t: CalendarTask) => {
         const normalizedStatus = typeof t.status === "string" ? t.status.trim().toLowerCase() : "";
-        return Boolean(t.done) || ["done", "archived", "completed", "complete"].includes(normalizedStatus);
+        return Boolean(t.done) || ["done", "completed", "complete"].includes(normalizedStatus);
       };
 
       const normalizedKind = typeof task.kind === "string" ? task.kind.trim().toLowerCase() : "";
@@ -3062,7 +3062,7 @@ function WeekGrid({
                       e.stopPropagation();
                       const task = entry.payload as CalendarTask | undefined;
                       if (!task) return;
-                      const isDone = task.done === true || task.status === "done" || task.status === "archived";
+                      const isDone = task.done === true || task.status === "done";
                       if (isDone) return;
                       onMarkAsDone?.([task]);
                     }}
@@ -3231,7 +3231,7 @@ function WeekGrid({
 
       const isChildDone = (child: CalendarTask): boolean => {
         const normalizedStatus = typeof child.status === "string" ? child.status.trim().toLowerCase() : "";
-        return Boolean(child.done) || ["done", "archived", "completed", "complete"].includes(normalizedStatus);
+        return Boolean(child.done) || ["done", "completed", "complete"].includes(normalizedStatus);
       };
 
       const resolveOwnerUserId = (child: CalendarTask): string | null => {

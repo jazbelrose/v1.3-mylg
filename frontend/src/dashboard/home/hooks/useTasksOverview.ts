@@ -496,7 +496,6 @@ export function useTasksOverview() {
     undatedTasks,
     completedThisWeek,
     completedTasks,
-    archivedTasks,
   } = useMemo(() => {
     const now = new Date();
     const weekStart = startOfWeek(now);
@@ -507,7 +506,6 @@ export function useTasksOverview() {
     let dueSoonCount = 0;
     let overdueCount = 0;
     const doneTasks: NormalizedTask[] = [];
-    const archivedTasks: NormalizedTask[] = [];
 
     const groupMap = new Map<
       string,
@@ -522,13 +520,7 @@ export function useTasksOverview() {
     tasks.forEach((task) => {
       const due = task.dueDate;
       const isDone = task.status === "done";
-      const isArchived = task.status === "archived";
       const completionReference = task.completedAt ?? due;
-
-      if (isArchived) {
-        archivedTasks.push(task);
-        return;
-      }
 
       if (isDone) {
         doneTasks.push(task);
@@ -619,8 +611,6 @@ export function useTasksOverview() {
       })
       .map(toListItem);
 
-    const archivedList = archivedTasks.map(toListItem);
-
     const completedThisWeek = completedTasks.filter((task) => {
       const completedOn = task.completedAt ?? task.dueDate;
       return Boolean(completedOn && completedOn >= weekStart && completedOn <= weekEnd);
@@ -636,7 +626,6 @@ export function useTasksOverview() {
       undatedTasks,
       completedThisWeek,
       completedTasks,
-      archivedTasks: archivedList,
     };
   }, [tasks, toListItem]);
 
@@ -733,7 +722,6 @@ export function useTasksOverview() {
     undatedTasks,
     completedThisWeek,
     completedTasks,
-    archivedTasks,
     navigateToProject,
     refreshTasks,
     updateTaskStatus,

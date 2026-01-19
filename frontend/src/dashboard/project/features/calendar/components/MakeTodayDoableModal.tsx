@@ -90,7 +90,7 @@ export default function MakeTodayDoableModal({
         if (task.kind === "intent") return false;
         if (task.kind === "focus_block") return false;
         if (task.focusBlockId) return false;
-        if (task.status === "done" || task.status === "archived") return false;
+        if (task.status === "done") return false;
         if (task.start || task.end) return false;
         const due = task.due ? safeDate(task.due) : null;
         if (!due) return false;

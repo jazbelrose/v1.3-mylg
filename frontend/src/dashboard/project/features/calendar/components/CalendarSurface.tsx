@@ -551,7 +551,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const doneCountsByDay = useMemo(() => {
     const map = new Map<string, number>();
     tasksForUi.forEach((task) => {
-      if (task.status !== "done" && task.status !== "archived") return;
+      if (task.status !== "done") return;
       const dueDate = task.due ? safeDate(task.due) : null;
       if (!dueDate) return;
       const key = fmtLocal(dueDate);
@@ -562,7 +562,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   const effectiveTasks = useMemo(() => {
     if (!hideCompleted) return visibleTasks;
-    return visibleTasks.filter((task) => task.status !== "done" && task.status !== "archived");
+    return visibleTasks.filter((task) => task.status !== "done");
   }, [hideCompleted, visibleTasks]);
 
   const drawerTasks = useMemo(() => sortTasksForDrawer(quickTasks), [quickTasks]);
@@ -628,7 +628,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
         note: undefined,
         type: "task",
         color: defaultColor,
-        isCompleted: Boolean(task.done || task.status === 'archived'),
+        isCompleted: Boolean(task.done || task.status === 'done'),
         sortKey: task.start ?? "99:99",
         taskId: task.id,
       };
@@ -2055,7 +2055,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
   const handleMarkAsDone = useCallback(
     async (tasks: CalendarTask[]) => {
       const eligible = (Array.isArray(tasks) ? tasks : []).filter(
-        (task) => task.status !== "done" && task.status !== "archived",
+        (task) => task.status !== "done",
       );
       if (eligible.length === 0) return;
 

@@ -103,7 +103,7 @@ const TaskListItem: React.FC<TaskListItemProps> = ({
   const assigneeLabel = formatAssigneeDisplay(task.assignedTo);
   const directionsLinks = buildDirectionsLinks(task.address);
   const normalizedStatus = typeof task.status === "string" ? task.status.toLowerCase() : "";
-  const isCompleted = normalizedStatus === "done" || normalizedStatus === "archived";
+  const isCompleted = normalizedStatus === "done";
   const isAwaitingApproval = normalizedStatus === "in_review";
   const showStatusAction = !isCompleted && (!isAwaitingApproval || canApprove);
   const actionLabel = canApprove ? "Approve" : "Submit for review";
@@ -494,7 +494,7 @@ const TasksComponent: React.FC<TasksComponentProps> = ({
       const normalizedStatus =
         typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
       const isAwaitingApproval = normalizedStatus === "in_review";
-      const isComplete = normalizedStatus === "done" || normalizedStatus === "archived";
+      const isComplete = normalizedStatus === "done";
 
       if (isComplete) {
         setTaskMarkingState(taskId, false);

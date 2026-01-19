@@ -333,7 +333,7 @@ export function computeRisksHealth(tasks: TaskItem[], today: Date = new Date()):
     const status = task.status?.toLowerCase() || '';
     
     // Count overdue
-    if (task.dueDate && new Date(task.dueDate) < today && status !== 'done' && status !== 'archived') {
+    if (task.dueDate && new Date(task.dueDate) < today && status !== 'done') {
       overdueCount++;
     }
 

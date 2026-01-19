@@ -345,7 +345,7 @@ const BudgetPageContent = () => {
         if (l.budgetLineItemId) linkedIds.add(l.budgetLineItemId);
       });
 
-      const isDone = task.status === "done" || task.status === "archived";
+      const isDone = task.status === "done";
 
       linkedIds.forEach((budgetItemId) => {
         if (!out[budgetItemId]) return;

@@ -58,7 +58,7 @@ const TaskList: React.FC<TaskListProps> = ({
           : null;
         const normalizedStatus =
           typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
-        const isCompleted = normalizedStatus === "done" || normalizedStatus === "archived";
+        const isCompleted = normalizedStatus === "done";
         const isAwaitingApproval = normalizedStatus === "in_review";
         const canApprove = canApproveTask?.(task) ?? false;
         const showStatusAction = !isCompleted && (!isAwaitingApproval || canApprove);

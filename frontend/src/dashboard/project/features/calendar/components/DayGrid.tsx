@@ -366,7 +366,7 @@ function DayGrid({
     (task: CalendarTask): boolean => {
       const isDone = (t: CalendarTask) => {
         const normalizedStatus = typeof t.status === "string" ? t.status.trim().toLowerCase() : "";
-        return Boolean(t.done) || ["done", "archived", "completed", "complete"].includes(normalizedStatus);
+        return Boolean(t.done) || ["done", "completed", "complete"].includes(normalizedStatus);
       };
 
       const normalizedKind = typeof task.kind === "string" ? task.kind.trim().toLowerCase() : "";
@@ -1542,7 +1542,7 @@ function DayGrid({
       const doneCount = children.reduce(
         (sum, child) => {
           const normalizedStatus = typeof child.status === "string" ? child.status.trim().toLowerCase() : "";
-          const isDone = child.done === true || ["done", "archived", "completed", "complete"].includes(normalizedStatus);
+          const isDone = child.done === true || ["done", "completed", "complete"].includes(normalizedStatus);
           return sum + (isDone ? 1 : 0);
         },
         0,
@@ -1572,7 +1572,7 @@ function DayGrid({
                 <li
                   key={child.id}
                   className={`week-grid__focus-child-item week-grid__focus-child-item--icon${
-                  child.done === true || ["done", "archived", "completed", "complete"].includes(
+                  child.done === true || ["done", "completed", "complete"].includes(
                     typeof child.status === "string" ? child.status.trim().toLowerCase() : "",
                   )
                     ? " is-done"
@@ -1639,7 +1639,7 @@ function DayGrid({
                       e.stopPropagation();
                       const task = entry.payload as CalendarTask | undefined;
                       if (!task) return;
-                      const isDone = task.done === true || task.status === "done" || task.status === "archived";
+                      const isDone = task.done === true || task.status === "done";
                       if (isDone) return;
                       onMarkAsDone?.([task]);
                     }}

@@ -386,7 +386,7 @@ const TasksComponentMobile: React.FC<TasksComponentMobileProps> = ({
       const normalizedStatus =
         typeof task.status === "string" ? task.status.trim().toLowerCase() : "";
       const isAwaitingApproval = normalizedStatus === "in_review";
-      const isComplete = normalizedStatus === "done" || normalizedStatus === "archived";
+      const isComplete = normalizedStatus === "done";
 
       if (isComplete) {
         setTaskMarkingState(taskId, false);

@@ -35,9 +35,8 @@ function normalizeStatus(value: unknown): string {
 }
 
 function isTaskActionable(task: Record<string, unknown>): boolean {
-  if (task.archived === true) return false;
   const status = normalizeStatus(task.status);
-  if (status === "done" || status === "completed" || status === "archived") return false;
+  if (status === "done" || status === "completed") return false;
   if (task.done === true) return false;
   if (task.completedAt != null) return false;
   return true;

@@ -201,7 +201,7 @@ function EventsAndTasks({
         const normalizedStatus = typeof statusOverride === "string" ? statusOverride.trim().toLowerCase() : "";
         const raw = typeof t.status === "string" ? t.status.trim().toLowerCase() : "";
         const status = normalizedStatus || raw;
-        return Boolean(t.done) || status === "done" || status === "completed" || status === "complete" || status === "archived";
+        return Boolean(t.done) || status === "done" || status === "completed" || status === "complete";
       };
 
       const normalizedKind = typeof task.kind === "string" ? task.kind.trim().toLowerCase() : "";

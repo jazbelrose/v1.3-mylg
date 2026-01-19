@@ -386,7 +386,7 @@ function getStatusSeverity(item: TimelineTask): 'overdue' | 'due-soon' | 'normal
   if (item.focusGroup?.isGroup && item.focusGroup.totalCount > 0 && item.focusGroup.doneCount >= item.focusGroup.totalCount) {
     return 'done';
   }
-  if (item.done || status === 'done' || status === 'completed' || status === 'archived') {
+  if (item.done || status === 'done' || status === 'completed') {
     return 'done';
   }
   if (item.isOverdue) return 'overdue';
@@ -1239,7 +1239,7 @@ export function CommandPanel({
 
       const childDone = (child: TimelineTask) => {
         const s = typeof child.status === 'string' ? child.status.trim().toLowerCase() : '';
-        return Boolean(child.done || s === 'done' || s === 'completed' || s === 'archived');
+        return Boolean(child.done || s === 'done' || s === 'completed');
       };
       const doneCount = sortedChildren.filter(childDone).length;
       const totalCount = sortedChildren.length || (Array.isArray(t.focusChecklist) ? t.focusChecklist.length : 0);
@@ -2053,7 +2053,7 @@ export function CommandPanel({
 
                     const allChildrenDone =
                       nextFocusChildren.length > 0 &&
-                      nextFocusChildren.every((t) => t.status === 'done' || t.done === true || t.status === 'archived');
+                      nextFocusChildren.every((t) => t.status === 'done' || t.done === true);
 
                     const nextEntry: CalendarTask = allChildrenDone
                       ? { ...prev.entry, done: true, status: doneStatus }
@@ -2072,7 +2072,7 @@ export function CommandPanel({
                   });
 
                   tasksToMark.forEach((t) => {
-                    const isDone = t.status === 'done' || t.done === true || t.status === 'archived';
+                    const isDone = t.status === 'done' || t.done === true;
                     if (isDone) return;
                     onToggleTask(t.id);
                   });

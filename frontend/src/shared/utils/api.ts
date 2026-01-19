@@ -129,7 +129,7 @@ export interface Task extends JsonRecord {
     createdBy?: string;
     isPrimary?: boolean;
   }>;
-  status?: 'todo' | 'in_progress' | 'in_review' | 'needs_changes' | 'done' | 'archived';
+  status?: 'todo' | 'in_progress' | 'in_review' | 'needs_changes' | 'done';
   /**
    * Assignment token (`<name>__<userId>`) or null to explicitly clear.
    * Note: undefined is treated as "no change" in PATCH payloads.
@@ -1055,8 +1055,8 @@ export async function createTasksBulk(projectId: string, tasks: Task[]): Promise
 }
 
 // IMPORTANT: Do NOT use updateTask() to move a task into in_review, needs_changes,
-// done, or archived. Those transitions must go through the dedicated review-transition /
-// archive endpoints documented in TASK_STATUS_TRANSITIONS.md.
+// or done. Those transitions must go through the dedicated review-transition
+// endpoints documented in TASK_STATUS_TRANSITIONS.md.
 export async function updateTask(task: Task): Promise<Task> {
   const { projectId, taskId, ...payload } = task;
   if (!projectId || !taskId) throw new Error('projectId and taskId are required for updateTask');
@@ -1151,24 +1151,6 @@ export async function reviewTransitionTask(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-  });
-}
-
-export async function archiveTask(projectId: string, taskId: string): Promise<Task> {
-  if (!projectId || !taskId) throw new Error('projectId and taskId are required for archiveTask');
-  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/archive`;
-  return apiFetch<Task>(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
-export async function unarchiveTask(projectId: string, taskId: string): Promise<Task> {
-  if (!projectId || !taskId) throw new Error('projectId and taskId are required for unarchiveTask');
-  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/unarchive`;
-  return apiFetch<Task>(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
   });
 }
 

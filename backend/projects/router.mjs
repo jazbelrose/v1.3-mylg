@@ -10,7 +10,6 @@ import {
   buildStatusSortKey,
   normalizeStatus as normalizeTaskStatus,
   updateTaskStatus as dalUpdateTaskStatus,
-  setArchive as dalSetArchive,
   requestReview as dalRequestReview,
   approveTask as dalApproveTask,
   requestChanges as dalRequestChanges,
@@ -922,10 +921,6 @@ const performReviewTransition = async (e, C, { projectId, taskId }, actionOverri
   }
 
   if (action === "mark_done") {
-    if (status === "archived") {
-      return json(409, C, { error: "Archived tasks cannot be marked done" });
-    }
-
     const note = typeof body.note === "string" ? body.note : undefined;
     const { entry, submissionId } = buildThreadEntry({ task, action, note, actorId, isAdmin, now });
     const thread = [...getTaskThread(task), entry];
@@ -1401,74 +1396,6 @@ const approveTaskReview = async (e, C, { projectId, taskId }) => {
 
 const requestTaskChanges = async (e, C, { projectId, taskId }) => {
   return performReviewTransition(e, C, { projectId, taskId }, "request_changes");
-};
-
-const archiveTask = async (e, C, { projectId, taskId }) => {
-  const { userId, isAdmin } = getUserFromEvent(e);
-  if (!userId && !isAdmin) {
-    return json(403, C, { error: "Authentication required" });
-  }
-
-  const task = await dalGetTaskById({ ddb, tableName: TASKS_TABLE, projectId, taskId });
-  if (!task) {
-    return json(404, C, { error: "Task not found" });
-  }
-
-  const actorId = userId || null;
-  const reviewerId = typeof task.reviewerId === "string" ? task.reviewerId.trim() : null;
-  const canArchive =
-    isAdmin ||
-    (actorId && (isTaskCreator(task, actorId) || (reviewerId && reviewerId === actorId)));
-
-  if (!canArchive) {
-    return json(403, C, { error: "Not authorized to archive" });
-  }
-
-  const updated = await dalSetArchive({
-    ddb,
-    tableName: TASKS_TABLE,
-    projectId,
-    taskId,
-    archived: true,
-    actorId,
-    now: nowISO(),
-  });
-
-  return json(200, C, updated);
-};
-
-const unarchiveTask = async (e, C, { projectId, taskId }) => {
-  const { userId, isAdmin } = getUserFromEvent(e);
-  if (!userId && !isAdmin) {
-    return json(403, C, { error: "Authentication required" });
-  }
-
-  const task = await dalGetTaskById({ ddb, tableName: TASKS_TABLE, projectId, taskId });
-  if (!task) {
-    return json(404, C, { error: "Task not found" });
-  }
-
-  const actorId = userId || null;
-  const reviewerId = typeof task.reviewerId === "string" ? task.reviewerId.trim() : null;
-  const canUnarchive =
-    isAdmin ||
-    (actorId && (isTaskCreator(task, actorId) || (reviewerId && reviewerId === actorId)));
-
-  if (!canUnarchive) {
-    return json(403, C, { error: "Not authorized to unarchive" });
-  }
-
-  const updated = await dalSetArchive({
-    ddb,
-    tableName: TASKS_TABLE,
-    projectId,
-    taskId,
-    archived: false,
-    actorId,
-    now: nowISO(),
-  });
-
-  return json(200, C, updated);
 };
 
 /* ---------- Events (unified timeline/schedule) ---------- */
@@ -3146,8 +3073,6 @@ const routes = [
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/review\/request$/i, h: requestTaskReview },
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/review\/approve$/i, h: approveTaskReview },
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/review\/request_changes$/i, h: requestTaskChanges },
-  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/archive$/i,    h: archiveTask },
-  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)\/unarchive$/i,  h: unarchiveTask },
   { m: "PATCH",  r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)$/i,              h: patchTask },
   { m: "DELETE", r: /^\/projects\/(?<projectId>[^/]+)\/tasks\/(?<taskId>[^/]+)$/i,              h: deleteTask },
 

@@ -8,9 +8,8 @@ The generic PATCH endpoint (`/projects/{projectId}/tasks/{taskId}`) has strict r
 - `in_review` ← Any status
 - `needs_changes` ← Any status
 - `done` ← Any status
-- `archived` ← Any status
 
-Do **not** use the generic PATCH endpoint to move a task into `in_review`, `needs_changes`, `done`, or `archived`. Those transitions must go through the dedicated review/archive endpoints below.
+Do **not** use the generic PATCH endpoint to move a task into `in_review`, `needs_changes`, or `done`. Those transitions must go through the dedicated review endpoints below.
 
 ### Allowed Transitions (via PATCH)
 - `in_progress` ← `todo`, `needs_changes`, `in_progress`
@@ -40,15 +39,9 @@ Only admins, assignees, or the task creator can move a task to `in_progress`.
 - `approve`: admin only
 - `mark_done`: admin only (works even when not already `in_review`)
 
-### Archive Task
-- **Endpoint**: `POST /projects/{projectId}/tasks/{taskId}/archive`
-- **Function**: `archiveTask(projectId, taskId)`
-- **Transitions**: `done` → `archived`
+## Viewing Completed Tasks
 
-### Unarchive Task
-- **Endpoint**: `POST /projects/{projectId}/tasks/{taskId}/unarchive`
-- **Function**: `unarchiveTask(projectId, taskId)`
-- **Transitions**: `archived` → `done`
+Completed tasks remain in `done` status. Use the **Sweep Done** feature in the calendar view to hide completed items from the current view without changing task history. This is a view operation, not a workflow state change.
 
 ## Full Allowed Transitions (from `tasksDal.mjs`)
 
@@ -58,7 +51,6 @@ const allowedTransitions = {
   in_progress: ["in_review"],
   in_review: ["done", "needs_changes"],
   needs_changes: ["in_progress", "in_review"],
-  done: ["archived", "needs_changes"],
-  archived: ["done"],
+  done: ["needs_changes"],
 };
 ```

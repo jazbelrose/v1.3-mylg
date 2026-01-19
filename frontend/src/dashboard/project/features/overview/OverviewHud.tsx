@@ -168,16 +168,15 @@ export function OverviewHud({
   const routeLocation = useLocation();
   const isOpenTask = useCallback((task: TaskItem): boolean => {
     const status = task.status?.toLowerCase() || '';
-    return !['done', 'complete', 'completed', 'archived'].includes(status);
+    return !['done', 'complete', 'completed'].includes(status);
   }, []);
 
   // Filter tasks for client mode (hide internal tasks)
   const visibleTasks = clientMode
     ? tasks.filter(t => {
-        const status = t.status?.toLowerCase() || '';
         // In client mode, only show tasks marked for client visibility
         // This is a simplified check - adjust based on your task schema
-        return status !== 'archived' && !t.title?.toLowerCase().includes('[internal]');
+        return !t.title?.toLowerCase().includes('[internal]');
       })
     : tasks;
 
