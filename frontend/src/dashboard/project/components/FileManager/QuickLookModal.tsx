@@ -473,36 +473,23 @@ export function QuickLookModal({
 
     if (isTextLike && projectId) {
       return (
-        <>
-          <div className={styles.quickLookPlaceholder}>
-            <div className={styles.quickLookPlaceholderIcon}>
-              {getFilePreviewIcon(extension)}
-            </div>
-            <div className={styles.quickLookPlaceholderName}>{currentFile.fileName}</div>
-            <div className={styles.quickLookPlaceholderMeta}>
-              {extension.toUpperCase()} file
-            </div>
-            <button
-              type="button"
-              className={styles.quickLookPlaceholderDownload}
-              onClick={() => setTextEditorOpen(true)}
-            >
-              <Maximize2 size={16} />
-              <span>Open in editor</span>
-            </button>
+        <div className={styles.quickLookPlaceholder}>
+          <div className={styles.quickLookPlaceholderIcon}>
+            {getFilePreviewIcon(extension)}
           </div>
-          <NoteEditorModal
-            isOpen={textEditorOpen}
-            mode="open"
-            projectId={projectId}
-            canEdit={canEdit}
-            openFile={{
-              fileUrl: currentFile.url,
-              fileName: currentFile.fileName,
-            }}
-            onRequestClose={() => setTextEditorOpen(false)}
-          />
-        </>
+          <div className={styles.quickLookPlaceholderName}>{currentFile.fileName}</div>
+          <div className={styles.quickLookPlaceholderMeta}>
+            {extension.toUpperCase()} file
+          </div>
+          <button
+            type="button"
+            className={styles.quickLookPlaceholderDownload}
+            onClick={() => setTextEditorOpen(true)}
+          >
+            <Maximize2 size={16} />
+            <span>Open in editor</span>
+          </button>
+        </div>
       );
     }
 

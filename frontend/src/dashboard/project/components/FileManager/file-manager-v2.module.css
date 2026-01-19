@@ -8,7 +8,7 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
-  z-index: 14000;
+  z-index: 17000;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -155,7 +155,7 @@
 .quickLookOverlay {
   position: fixed;
   inset: 0;
-  z-index: 14000;
+  z-index: 17000;
   display: flex;
   flex-direction: column;
   background: rgba(0, 0, 0, 0.95);
@@ -1349,7 +1349,7 @@
   border-radius: 10px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   padding: 6px 0;
-  z-index: 14000;
+  z-index: 17000;
   animation: contextMenuFadeIn 0.12s ease;
 }
 
