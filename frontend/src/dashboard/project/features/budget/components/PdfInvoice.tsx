@@ -60,6 +60,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
     gap: 16,
+    minHeight: 72,
   },
   brandSection: {
     display: "flex",
@@ -67,6 +68,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 10,
     flexShrink: 0,
+    minHeight: 72,
   },
   logo: {
     width: 72,
@@ -108,13 +110,14 @@ const styles = StyleSheet.create({
     fontSize: 60,
     fontWeight: 800,
     color: "#000000",
-    
     letterSpacing: -2,
+    marginTop: 0,
   },
   headerRuleContainer: {
     display: "flex",
     flexDirection: "column",
     gap: 10,
+    marginTop: 16,
   },
   headerRule: {
     height: 1,
@@ -141,6 +144,7 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: "#dddddd",
+    marginTop: 12,
     marginBottom: 18,
   },
   table: {

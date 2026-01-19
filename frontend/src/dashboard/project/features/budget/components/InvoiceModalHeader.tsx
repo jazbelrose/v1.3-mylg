@@ -13,29 +13,31 @@ interface InvoiceModalHeaderProps {
 const normalizeRevisionName = (revision?: InvoicePreviewModalProps["revision"]): string | null => {
   if (!revision) return null;
 
-  const possibleNames = [
-    (revision as { revisionName?: string | null }).revisionName,
-    (revision as { name?: string | null }).name,
-    (revision as { title?: string | null }).title,
-  ];
+  // BudgetHeader uses revisionName as the primary property
+  const revisionName = (revision as { revisionName?: string | null }).revisionName;
+  if (typeof revisionName === "string" && revisionName.trim().length > 0) {
+    return revisionName.trim();
+  }
 
-  const normalized = possibleNames
-    .map((candidate) => (typeof candidate === "string" ? candidate.trim() : ""))
-    .find((value) => value.length > 0);
-
-  return normalized ?? null;
+  return null;
 };
 
 const getRevisionNumber = (revision?: InvoicePreviewModalProps["revision"]): number | null => {
   if (!revision) return null;
 
-  const possibleNumbers = [
-    (revision as { revision?: number | null }).revision,
-    (revision as { clientRevisionId?: number | null }).clientRevisionId,
-  ];
+  // BudgetHeader uses clientRevisionId as the display number
+  // Fall back to revision for internal tracking
+  const clientRevisionId = (revision as { clientRevisionId?: number | null }).clientRevisionId;
+  if (typeof clientRevisionId === "number") {
+    return clientRevisionId;
+  }
 
-  const firstNumber = possibleNumbers.find((value) => typeof value === "number");
-  return typeof firstNumber === "number" ? firstNumber : null;
+  const revisionNum = (revision as { revision?: number | null }).revision;
+  if (typeof revisionNum === "number") {
+    return revisionNum;
+  }
+
+  return null;
 };
 
 const buildModalTitle = (revision?: InvoicePreviewModalProps["revision"]): string => {
