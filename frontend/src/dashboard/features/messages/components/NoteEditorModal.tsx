@@ -526,6 +526,7 @@ export default function NoteEditorModal({
       contentLabel={mode === "create" ? "Create note" : "Open note"}
       className={styles.content}
       overlayClassName={styles.overlay}
+      portalClassName={styles.portal}
       shouldCloseOnOverlayClick={!isSaving}
     >
       <div className={styles.header}>

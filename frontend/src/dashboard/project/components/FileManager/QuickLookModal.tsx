@@ -645,7 +645,24 @@ export function QuickLookModal({
     </div>
   );
 
-  return createPortal(modal, document.body);
+  return (
+    <>
+      {createPortal(modal, document.body)}
+      {textEditorOpen && isTextLike && projectId && currentFile && (
+        <NoteEditorModal
+          isOpen={textEditorOpen}
+          mode="open"
+          projectId={projectId}
+          canEdit={canEdit}
+          openFile={{
+            fileUrl: currentFile.url,
+            fileName: currentFile.fileName,
+          }}
+          onRequestClose={() => setTextEditorOpen(false)}
+        />
+      )}
+    </>
+  );
 }
 
 function formatFileSize(bytes?: number): string {

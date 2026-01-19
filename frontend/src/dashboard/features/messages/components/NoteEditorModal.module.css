@@ -8,6 +8,10 @@
   z-index: 18000;
 }
 
+.portal {
+  z-index: 18001;
+}
+
 .content {
   width: min(960px, 92vw);
   height: min(88vh, 900px);
