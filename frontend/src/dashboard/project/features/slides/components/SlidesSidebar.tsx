@@ -11,6 +11,8 @@ import { isLexicalContentEffectivelyEmpty } from "../lib/lexicalContent";
 import { warmThumbsForVisibleRange } from "../lib/thumbnails";
 import { getFileUrl, normalizeFileUrl } from "@/shared/utils/api";
 import { useDropdown } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
+import ThumbnailSkeleton from "./ThumbnailSkeleton";
+import ThumbnailError from "./ThumbnailError";
 import "./SlidesSidebar.css";
 
 interface SlideThumbnailProps {
@@ -182,24 +184,23 @@ const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => 
           className={`slides-sidebar__thumbnail-image slides-sidebar__thumbnail-image--current ${activeVisible ? "is-visible" : "is-hidden"}`}
         />
       )}
-      {showFallback && (
+      {isLoading && !activeSrc && !previousSrc && (
+        <ThumbnailSkeleton />
+      )}
+      {error && (
+        <ThumbnailError 
+          onRetry={invalidate}
+          message="Preview unavailable"
+        />
+      )}
+      {showFallback && !error && (
         <div className="slides-sidebar__thumbnail-fallback" style={{ color: textColor }}>
           <div className="slides-sidebar__thumbnail-title" style={{ opacity: 0.85 }}>
             {slide.title || `Slide ${slide.order || 0}`}
           </div>
           <div className="slides-sidebar__thumbnail-subtitle" style={{ opacity: 0.5 }}>
-            {error ? "Preview unavailable" : "No preview"}
+            No preview
           </div>
-        </div>
-      )}
-      {isLoading && (
-        <div className="slides-sidebar__thumbnail-status">
-          <span className="slides-sidebar__thumbnail-loader">
-            <span className="slides-sidebar__thumbnail-loader-dot" />
-            <span className="slides-sidebar__thumbnail-loader-dot" />
-            <span className="slides-sidebar__thumbnail-loader-dot" />
-          </span>
-          <span>Loading</span>
         </div>
       )}
     </div>
