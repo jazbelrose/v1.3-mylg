@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useData } from "@/app/contexts/useData";
 import type { Project, UserLite } from "@/app/contexts/DataProvider";
-import { fetchTasks, requestTaskReview } from "@/shared/utils/api";
+import { fetchTasks, approveTask } from "@/shared/utils/api";
 import type { QuickCreateTaskLocation } from "../components/QuickCreateTaskModal.types";
 import { getColor } from "@/shared/utils/colorUtils";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
@@ -677,7 +677,7 @@ export function useTasksOverview() {
       if (!task) return;
 
       try {
-        await requestTaskReview(task.projectId, taskId);
+        await approveTask(task.projectId, taskId);
         await refreshTasks();
       } catch (error) {
         console.error("Failed to mark task done", error);

@@ -176,7 +176,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
 
   // Undo stack for calendar actions
   type UndoAction = {
-    type: "reschedule" | "delete" | "bulk-assign" | "assign";
+    type: "reschedule" | "delete" | "bulk-assign" | "assign" | "reorder-focus-children";
     label: string;
     undo: () => Promise<void>;
   };
@@ -1747,6 +1747,75 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             endAt,
           };
 
+          // Auto-reschedule children when moving a Focus Block or Group Stack
+          if (change.rescheduleChildren && taskId && isFocusBlockLike(task)) {
+            const oldStartMinutes = parseTimeToMinutes(task.start);
+            const newStartMinutes = parseTimeToMinutes(change.start);
+            const oldDate = task.due;
+            const newDate = dueDate;
+
+            if (oldStartMinutes != null && newStartMinutes != null) {
+              const deltaMinutes = newStartMinutes - oldStartMinutes;
+              const dateChanged = oldDate !== newDate;
+
+              // Find all children of this focus block
+              const focusId = taskId;
+              const declaredChildIds =
+                task.focusChildTaskIds ?? task.focusChecklist?.map((item) => item.taskId) ?? [];
+              const linkedChildren = tasks
+                .filter((t) => t.focusBlockId === focusId)
+                .map((t) => resolveTaskIdentifier(t))
+                .filter((id): id is string => typeof id === "string" && id.trim().length > 0);
+              const allChildIds = Array.from(new Set([...declaredChildIds, ...linkedChildren]));
+
+              allChildIds.forEach((childId) => {
+                const childTask = calendarTaskByStableId.get(childId);
+                if (!childTask) return;
+
+                const childSource = childTask.source as ApiTask;
+                const childProjectId = childSource.projectId ?? projectId;
+                if (childProjectId !== projectId) return; // Skip cross-project children
+
+                const childStartMinutes = parseTimeToMinutes(childTask.start);
+                const childEndMinutes = parseTimeToMinutes(childTask.end);
+                if (childStartMinutes == null || childEndMinutes == null) return;
+
+                const newChildStart = Math.max(0, Math.min(24 * 60 - 1, childStartMinutes + deltaMinutes));
+                const newChildEnd = Math.max(newChildStart + 15, Math.min(24 * 60, childEndMinutes + deltaMinutes));
+
+                const childStartAt = buildIsoDateTime(newDate, formatMinutesHHMM(newChildStart));
+                const childEndAt = buildIsoDateTime(newDate, formatMinutesHHMM(newChildEnd));
+                const childDueAt = childEndAt ?? newDate;
+
+                // Store undo info for child
+                undoUpdates.push({
+                  projectId: childProjectId,
+                  taskId: childId,
+                  fields: {
+                    dueDate: childSource.dueDate,
+                    dueAt: childSource.dueAt,
+                    startAt: childSource.startAt,
+                    endAt: childSource.endAt,
+                    focusBlockId: childSource.focusBlockId,
+                  },
+                });
+
+                updatesByProject.set(childProjectId, [
+                  ...(updatesByProject.get(childProjectId) ?? []),
+                  {
+                    taskId: childId,
+                    fields: {
+                      dueDate: childDueAt,
+                      dueAt: childDueAt,
+                      startAt: childStartAt,
+                      endAt: childEndAt,
+                    },
+                  },
+                ]);
+              });
+            }
+          }
+
           if (Object.prototype.hasOwnProperty.call(change, "focusBlockId")) {
             const newFocusBlockId = change.focusBlockId ?? null;
             fields.focusBlockId = newFocusBlockId;
@@ -2566,6 +2635,56 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
     [activeProjectId, buildAssigneeToken, onRefreshTasks, pushUndo, teamMembers],
   );
 
+  // Reorder focus children within a focus block
+  const handleReorderFocusChildren = useCallback(
+    async (focusBlock: CalendarTask, reorderedChildIds: string[]) => {
+      if (!activeProjectId) {
+        notify("error", "No active project selected");
+        return;
+      }
+      const source = focusBlock.source as ApiTask | undefined;
+      const taskId = source?.taskId ?? focusBlock.id;
+      if (!taskId) {
+        notify("error", "Missing focus block id");
+        return;
+      }
+
+      // Previous order for undo
+      const previousOrder = focusBlock.focusChildTaskIds ?? [];
+      const title = focusBlock.title ?? "Focus Block";
+
+      try {
+        await updateTask({
+          projectId: activeProjectId,
+          taskId,
+          title,
+          focusChildTaskIds: reorderedChildIds,
+        });
+
+        const projectId = activeProjectId;
+        pushUndo({
+          type: "reorder-focus-children",
+          label: "Reorder focus block children",
+          undo: async () => {
+            await updateTask({
+              projectId,
+              taskId,
+              title,
+              focusChildTaskIds: previousOrder,
+            });
+          },
+        });
+
+        notify("success", "Focus block children reordered");
+        await onRefreshTasks();
+      } catch (error) {
+        console.error("Reorder focus children failed:", error);
+        notify("error", "Failed to reorder focus block children");
+      }
+    },
+    [activeProjectId, onRefreshTasks, pushUndo],
+  );
+
   const handleOpenMiniCalendarEvent = useCallback(
     (eventId: string) => {
       const target = eventById.get(eventId);
@@ -2784,6 +2903,7 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
                       onBulkAssignChildren={handleBulkAssignChildren}
                       onAssignTimeBlock={handleAssignTimeBlock}
                       onAssignTimeBlocks={handleAssignTimeBlocks}
+                      onReorderFocusChildren={handleReorderFocusChildren}
                       overlapStackTitles={overlapStackTitles}
                       onRenameOverlapStackTitle={handleRenameOverlapStackTitle}
                     />

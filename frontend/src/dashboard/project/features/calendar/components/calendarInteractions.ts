@@ -24,6 +24,11 @@ export type CalendarEntryChanges = {
    */
   focusBlockId?: string | null;
   duplicate?: boolean;
+  /**
+   * When moving a Focus Block or Group Stack, also reschedule children
+   * by the same relative offset to maintain visual alignment.
+   */
+  rescheduleChildren?: boolean;
 };
 
 export const formatTimeFromMinutes = (minutes: number) => {

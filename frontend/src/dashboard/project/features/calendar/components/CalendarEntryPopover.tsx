@@ -92,6 +92,8 @@ export interface CalendarEntryPopoverProps {
       sourceHeight: number;
     },
   ) => void;
+  /** Reorder focus children within the focus block by drag-and-drop */
+  onReorderFocusChildren?: (focusBlock: CalendarTask, reorderedChildIds: string[]) => void | Promise<void>;
   onOpenFocusChildContextMenu?: (task: CalendarTask, event: React.MouseEvent<HTMLElement>) => void;
   onSubmitForReview?: (tasks: CalendarTask[]) => void;
   onMarkAsDone?: (tasks: CalendarTask[]) => void;
@@ -118,6 +120,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   onRenameTaskTitle,
   onEditFocusChild,
   onStartDragFocusChild,
+  onReorderFocusChildren,
   onOpenFocusChildContextMenu,
   onSubmitForReview,
   onMarkAsDone,
@@ -136,6 +139,10 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
   const [draftTitle, setDraftTitle] = useState("");
   const [titleOverride, setTitleOverride] = useState<string | null>(null);
   const [activeChildKey, setActiveChildKey] = useState<string | null>(null);
+
+  // Reorder-within-focus-block state
+  const [reorderDragIndex, setReorderDragIndex] = useState<number | null>(null);
+  const [reorderDropIndex, setReorderDropIndex] = useState<number | null>(null);
 
   const focusChildPointerRef = useRef<{
     task: CalendarTask;
@@ -450,6 +457,61 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
     if (!isTimeBlockContainer) return [];
     return focusChildren ?? [];
   }, [focusChildren, isTask, isTimeBlockContainer, task]);
+
+  // ---------- Reorder-within-focus-block handlers ----------
+  const handleReorderDragStart = useCallback(
+    (e: React.DragEvent<HTMLDivElement>, index: number) => {
+      if (!onReorderFocusChildren) return;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(index));
+      setReorderDragIndex(index);
+    },
+    [onReorderFocusChildren],
+  );
+
+  const handleReorderDragOver = useCallback(
+    (e: React.DragEvent<HTMLDivElement>, targetIndex: number) => {
+      if (reorderDragIndex === null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (reorderDropIndex !== targetIndex) {
+        setReorderDropIndex(targetIndex);
+      }
+    },
+    [reorderDragIndex, reorderDropIndex],
+  );
+
+  const handleReorderDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      if (reorderDragIndex === null || reorderDropIndex === null) {
+        setReorderDragIndex(null);
+        setReorderDropIndex(null);
+        return;
+      }
+      if (!task || !onReorderFocusChildren) {
+        setReorderDragIndex(null);
+        setReorderDropIndex(null);
+        return;
+      }
+
+      const ordered = [...focusChildrenResolved];
+      const [moved] = ordered.splice(reorderDragIndex, 1);
+      const insertAt = reorderDropIndex > reorderDragIndex ? reorderDropIndex - 1 : reorderDropIndex;
+      ordered.splice(insertAt, 0, moved);
+
+      const reorderedIds = ordered.map((c) => c.id);
+      void onReorderFocusChildren(task, reorderedIds);
+      setReorderDragIndex(null);
+      setReorderDropIndex(null);
+    },
+    [focusChildrenResolved, onReorderFocusChildren, reorderDragIndex, reorderDropIndex, task],
+  );
+
+  const handleReorderDragEnd = useCallback(() => {
+    setReorderDragIndex(null);
+    setReorderDropIndex(null);
+  }, []);
 
   const rawTitle = isTask ? task?.title : event?.title;
   const title = useMemo(() => {
@@ -1293,16 +1355,29 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
               ))}
             </div>
           ) : (
-            <div className="calendar-entry-popover__children-list">
-              {focusChildrenResolved.map((child) => {
+            <div
+              className="calendar-entry-popover__children-list"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleReorderDrop}
+            >
+              {focusChildrenResolved.map((child, index) => {
                 const childTitle = child.title || "Untitled task";
                 const childTime = child.start && child.end
                   ? formatCompactTimeRange(child.start, child.end)
                   : (formatCompactTimeLabel(child.start) ?? formatTimeLabel(child.start) ?? child.start) || "";
                 const isChildDone = child.status === "done" || child.done === true;
                 const childKey = `task:${child.id}`;
+                const isDragging = reorderDragIndex === index;
+                const isDropTarget = reorderDropIndex === index && reorderDragIndex !== null && reorderDragIndex !== index;
                 return (
-                  <div key={child.id} className="calendar-entry-popover__child-row">
+                  <div
+                    key={child.id}
+                    className={`calendar-entry-popover__child-row${isDragging ? " calendar-entry-popover__child-row--dragging" : ""}${isDropTarget ? " calendar-entry-popover__child-row--drop-target" : ""}`}
+                    draggable={Boolean(onReorderFocusChildren)}
+                    onDragStart={(e) => handleReorderDragStart(e, index)}
+                    onDragOver={(e) => handleReorderDragOver(e, index)}
+                    onDragEnd={handleReorderDragEnd}
+                  >
                     <CalendarEntryRow
                       entryType="task"
                       title={childTitle}
@@ -1317,7 +1392,7 @@ export const CalendarEntryPopover: React.FC<CalendarEntryPopoverProps> = ({
                           : undefined
                       }
                       draggable={Boolean(onStartDragFocusChild)}
-                      showDragHandle={false}
+                      showDragHandle={Boolean(onReorderFocusChildren)}
                       onPointerDown={(e) => {
                         e.stopPropagation();
                         handleFocusChildPointerDown(e, child, childKey);

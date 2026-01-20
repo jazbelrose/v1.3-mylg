@@ -81,6 +81,8 @@ export type WeekGridProps = {
   onAssignTimeBlock?: (task: CalendarTask, userId: string | null) => void;
   /** Assign selected time blocks (multi-select) to a user */
   onAssignTimeBlocks?: (tasks: CalendarTask[], userId: string | null) => void;
+  /** Reorder focus children within a focus block */
+  onReorderFocusChildren?: (focusBlock: CalendarTask, reorderedChildIds: string[]) => void | Promise<void>;
   // Multi-user overlap stack title persistence
   overlapStackTitles?: Record<string, string>;
   onRenameOverlapStackTitle?: (key: string, title: string) => void | Promise<void>;
@@ -386,6 +388,7 @@ function WeekGrid({
   onBulkAssignChildren,
   onAssignTimeBlock,
   onAssignTimeBlocks,
+  onReorderFocusChildren,
   overlapStackTitles,
   onRenameOverlapStackTitle,
 }: WeekGridProps) {
@@ -1362,6 +1365,12 @@ function WeekGrid({
         if (state.mode === "drag" && target.entry.type === "task") {
           const taskPayload = target.entry.payload as CalendarTask;
           const isFocusBlock = isFocusBlockTask(taskPayload);
+          
+          // When dragging a Focus Block or Group Stack, auto-reschedule children
+          if (isFocusBlock && !state.isCopyMode) {
+            change.rescheduleChildren = true;
+          }
+          
           if (!isFocusBlock) {
             const targetDayKey = fmtLocal(days[newDayIndex]);
             const focusBlocks = focusBlocksByDay.get(targetDayKey) ?? [];
@@ -2336,9 +2345,29 @@ function WeekGrid({
 
       if (entry.type === "taskStack" || entry.type === "overlapStack") {
         const payload = entry.payload as TaskStackPayload | OverlapStackPayload;
+        const entryKey = `stack:${entry.id}`;
+        const now = Date.now();
+        const isDoubleClick =
+          lastClickedKeyRef.current === entryKey && now - lastClickTimeRef.current < 300;
 
-        // Ensure stack tiles behave like normal entries for selection styling.
-        // Drag-select already selects the child entries; click should do the same.
+        lastClickTimeRef.current = now;
+        lastClickedKeyRef.current = entryKey;
+
+        if (isDoubleClick && payload.childTaskIds.length > 0) {
+          // Double click on stack → open edit for the first child task
+          setPopover(null);
+          setStackPopover(null);
+          setChildMenu(null);
+          setContextMenu(null);
+          const firstTaskId = payload.childTaskIds[0];
+          const firstTask = calendarTaskById.get(firstTaskId);
+          if (firstTask) {
+            onEditTask(firstTask);
+          }
+          return;
+        }
+
+        // Single click → select and open popover
         const additive = Boolean(event.shiftKey || event.ctrlKey || event.metaKey);
         const nextSelection = additive
           ? new Set<string>([...selectedEntryKeys, ...payload.childEntryKeys])
@@ -4306,6 +4335,7 @@ function WeekGrid({
           onDelete={onDeleteEntries}
           onAssignTimeBlock={onAssignTimeBlock}
           onAssignTimeBlocks={onAssignTimeBlocks}
+          onReorderFocusChildren={onReorderFocusChildren}
         />
           );
         })()
