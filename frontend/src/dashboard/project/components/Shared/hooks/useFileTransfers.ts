@@ -326,6 +326,9 @@ export const useFileTransfers = ({
       const cacheKey = isOrgMode ? `org:${entityId}` : entityId;
       fileCache.invalidate(cacheKey, folderKey);
       
+      // Force refresh file list from S3 to ensure UI is in sync
+      await fetchS3Files(true);
+      
       setIsLoading(false);
     },
     [
@@ -433,6 +436,14 @@ export const useFileTransfers = ({
     if (!fileUrlsToDelete.length) return;
     const fileKeysToDelete = fileUrlsToKeys(fileUrlsToDelete);
     
+    console.log("[FileManager] performDelete:", {
+      isOrgMode,
+      orgId,
+      projectId: activeProject?.projectId,
+      fileUrlsToDelete,
+      fileKeysToDelete,
+    });
+    
     // In org mode, we don't need a projectId
     if (!isOrgMode && !activeProject?.projectId) return;
     const projectId = activeProject?.projectId as string;
@@ -458,7 +469,14 @@ export const useFileTransfers = ({
         });
       } else if (isOrgMode && orgId) {
         // Use the dedicated HQ files delete endpoint
-        await deleteHqFiles(orgId, fileKeysToDelete);
+        const deleteResponse = await deleteHqFiles(orgId, fileKeysToDelete);
+        console.log("[FileManager] HQ delete response:", deleteResponse);
+        
+        // Check if delete actually succeeded
+        if (!deleteResponse.ok || deleteResponse.errors?.length > 0) {
+          console.error("[FileManager] HQ delete errors:", deleteResponse.errors);
+          throw new Error(deleteResponse.errors?.[0]?.message || "Delete failed on server");
+        }
       }
 
       let remaining: FileItem[] = [];
@@ -483,17 +501,16 @@ export const useFileTransfers = ({
       const entityId = isOrgMode ? `org:${orgId}` : projectId;
       fileCache.invalidate(entityId, folderKey);
 
-      // In org mode, force refresh the file list to ensure UI is in sync
-      if (isOrgMode) {
-        await fetchS3Files(true);
-      }
+      // Note: We DON'T call fetchS3Files here because:
+      // 1. Local state is already correct (we filtered out deleted files above)
+      // 2. S3 is eventually consistent - might still return deleted files briefly
+      // 3. Cache is invalidated so next time files are loaded they'll be fresh
     } catch (error) {
       console.error("Error during deletion:", error);
       updateNotification(notificationId, "error", "Failed to delete selected files. Please try again.");
     }
   }, [
     activeProject,
-    fetchS3Files,
     folderKey,
     isOrgMode,
     orgId,

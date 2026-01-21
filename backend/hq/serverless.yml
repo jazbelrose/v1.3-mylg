@@ -48,6 +48,7 @@ provider:
             - s3:DeleteObjects
           Resource:
             - arn:aws:s3:::${self:custom.env.FILE_BUCKET}/orgs/*
+            - arn:aws:s3:::${self:custom.env.FILE_BUCKET}/public/orgs/*
 
 functions:
   hqRouter:

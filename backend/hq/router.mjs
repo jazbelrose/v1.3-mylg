@@ -3192,12 +3192,15 @@ const deleteOrgFiles = async (e, C) => {
 
   if (!rawKeys.length) return json(400, C, { error: "fileKeys must be a non-empty array" });
 
-  // Normalize keys: strip "public/" prefix if present (frontend may send either format)
-  const keys = rawKeys.map((k) => (k.startsWith("public/") ? k.slice(7) : k));
+  // Keys come from frontend as "public/orgs/{orgId}/..." - keep them as-is since
+  // that's how they're stored in S3
+  const keys = rawKeys;
 
   // Validate all keys belong to this org (security check)
+  // Keys may have public/ prefix, so check for both formats
   const orgPrefix = `orgs/${orgId}/`;
-  const invalidKeys = keys.filter((k) => !k.startsWith(orgPrefix));
+  const publicOrgPrefix = `public/orgs/${orgId}/`;
+  const invalidKeys = keys.filter((k) => !k.startsWith(orgPrefix) && !k.startsWith(publicOrgPrefix));
   if (invalidKeys.length) {
     return json(403, C, { error: "Cannot delete files outside org scope", invalidKeys });
   }
