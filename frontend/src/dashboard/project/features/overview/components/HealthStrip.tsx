@@ -13,10 +13,10 @@ import {
   computeScheduleHealth,
   computeDeliverablesHealth,
   computeRisksHealth,
-  formatCurrency,
   formatVariance,
   formatRelativeTime,
 } from '../utils';
+import { formatCompactUSD } from '@/shared/utils/budgetUtils';
 import type { BudgetStats } from '@/dashboard/project/features/budget/context/types';
 import { useBudget } from '@/dashboard/project/features/budget/context/BudgetContext';
 import RevisionPillTooltip from '@/dashboard/project/features/budget/components/RevisionPillTooltip';
@@ -94,6 +94,48 @@ function BudgetTile({ projectId, projectTitle, stats }: BudgetTileProps) {
     (clientBudgetHeader as { revisionName?: string | null } | null)?.revisionName ??
     (budgetHeader as { revisionName?: string | null } | null)?.revisionName ?? null;
 
+  const revisionChip = displayedRevision != null ? (
+    <RevisionPillTooltip
+      data={{
+        revisionNumber: Number(displayedRevision),
+        revisionName,
+        isClientVersion: isClientRevision,
+      }}
+    >
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '4px 8px',
+          height: 22,
+          borderRadius: 999,
+          background: 'rgba(255, 255, 255, 0.06)',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+          color: 'var(--text-muted, rgba(255, 255, 255, 0.72))',
+          fontSize: 11,
+          lineHeight: 1.2,
+          letterSpacing: '0.02em',
+          textTransform: 'uppercase',
+        }}
+      >
+        <span>{`REV ${displayedRevision}`}</span>
+        {isClientRevision && (
+          <span
+            aria-label="Published revision"
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: '#fbbf24',
+              display: 'inline-block',
+            }}
+          />
+        )}
+      </span>
+    </RevisionPillTooltip>
+  ) : null;
+
   const handleClick = () => {
     navigate(getProjectDashboardPath(projectId, projectTitle, '/budget'));
   };
@@ -110,22 +152,6 @@ function BudgetTile({ projectId, projectTitle, stats }: BudgetTileProps) {
         <div className={styles.healthTileTitle}>
           <DollarSign className={styles.healthTileIcon} />
           Budget
-          {displayedRevision != null && (
-            <RevisionPillTooltip
-              data={{
-                revisionNumber: Number(displayedRevision),
-                revisionName,
-                isClientVersion: isClientRevision,
-              }}
-            >
-              <span
-                style={{ marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 6px', borderRadius: 10, background: 'var(--bg-3, #f3f4f6)', color: 'var(--text-strong, #111827)', fontSize: 11, lineHeight: 1.2 }}
-              >
-                {isClientRevision && <span style={{ fontWeight: 600 }}>CLIENT</span>}
-                <span style={{ marginLeft: 4 }}>{`Rev.${displayedRevision}`}</span>
-              </span>
-            </RevisionPillTooltip>
-          )}
         </div>
         <div className={`${styles.statusDot} ${styles[statusClass]}`} />
       </div>
@@ -135,7 +161,7 @@ function BudgetTile({ projectId, projectTitle, stats }: BudgetTileProps) {
           <>
             <div className={styles.healthTileMetric}>
               <span className={styles.healthTilePrimary}>
-                {formatCurrency(stats.finalCost)}
+                {formatCompactUSD(stats.finalCost)}
               </span>
               <span className={styles.healthTileSecondary}>
                 Final Cost
@@ -149,9 +175,12 @@ function BudgetTile({ projectId, projectTitle, stats }: BudgetTileProps) {
         )}
       </div>
 
-      <span className={styles.healthTileCta}>
-        Open Budget <ChevronRight />
-      </span>
+      <div className={styles.healthTileCta} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          Open Budget <ChevronRight />
+        </span>
+        {revisionChip}
+      </div>
     </div>
   );
 }

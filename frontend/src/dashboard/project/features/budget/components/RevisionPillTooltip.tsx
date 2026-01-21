@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faStar, faCopy, faCheck } from "@fortawesome/free-solid-svg-icons";
+import { faStar } from "@fortawesome/free-solid-svg-icons";
 import styles from "./revision-pill-tooltip.module.css";
 
 export interface RevisionPillTooltipData {
@@ -37,7 +38,6 @@ const RevisionPillTooltip: React.FC<RevisionPillTooltipProps> = ({
   disabled = false,
 }) => {
   const [visible, setVisible] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [position, setPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLDivElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -82,7 +82,6 @@ const RevisionPillTooltip: React.FC<RevisionPillTooltipProps> = ({
     clearTimeouts();
     hideTimeoutRef.current = setTimeout(() => {
       setVisible(false);
-      setCopied(false);
     }, 150);
   }, [clearTimeouts]);
 
@@ -114,34 +113,22 @@ const RevisionPillTooltip: React.FC<RevisionPillTooltipProps> = ({
     }
   };
 
-  const handleCopyName = async () => {
-    const textToCopy = data.revisionName || `Rev.${data.revisionNumber}`;
-    try {
-      await navigator.clipboard.writeText(textToCopy);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard API may fail in some contexts
-    }
-  };
-
   useEffect(() => {
     return () => clearTimeouts();
   }, [clearTimeouts]);
 
-  const displayTitle = data.revisionName || `Rev.${data.revisionNumber}`;
-  const statusLabel = data.isClientVersion ? "Client Version" : "Internal";
+  const displayTitle =
+    data.revisionName || (data.isClientVersion ? "Final Invoice" : `Revision ${data.revisionNumber}`);
+  const statusLabel = data.isClientVersion ? "Published" : "Internal";
   const formattedDate = formatTooltipDate(data.savedAt);
 
-  let saveStatus: string;
+  let saveStatus: string | null = null;
   if (data.hasUnsavedChanges) {
     saveStatus = "Unsaved changes";
   } else if (data.isAutosaved) {
     saveStatus = "Autosaved";
-  } else if (formattedDate) {
-    saveStatus = `Saved ${formattedDate}`;
-  } else {
-    saveStatus = "Not saved";
+  } else if (!formattedDate) {
+    saveStatus = null; // keep tooltip tight when we already show saved timestamp in meta line
   }
 
   return (
@@ -156,47 +143,52 @@ const RevisionPillTooltip: React.FC<RevisionPillTooltipProps> = ({
     >
       {children}
 
-      {visible && (
-        <div
-          ref={tooltipRef}
-          className={styles.tooltip}
-          style={{
-            top: position.top,
-            left: position.left,
-          }}
-          onMouseEnter={handleTooltipMouseEnter}
-          onMouseLeave={handleTooltipMouseLeave}
-        >
-          <div className={styles.tooltipTitle}>{displayTitle}</div>
-
-          <div className={styles.tooltipMeta}>
-            <span className={styles.revisionTag}>Rev.{data.revisionNumber}</span>
-            <span className={styles.separator}>•</span>
-            <span className={data.isClientVersion ? styles.clientLabel : styles.internalLabel}>
-              {data.isClientVersion && (
-                <FontAwesomeIcon icon={faStar} className={styles.starIcon} />
-              )}
-              {statusLabel}
-            </span>
-          </div>
-
-          <div className={styles.saveStatus}>{saveStatus}</div>
-
-          {data.revisionNote && (
-            <div className={styles.revisionNote}>{data.revisionNote}</div>
-          )}
-
-          <button
-            type="button"
-            className={styles.copyButton}
-            onClick={handleCopyName}
-            aria-label="Copy revision name"
+      {visible && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={tooltipRef}
+            className={styles.tooltip}
+            style={{
+              top: position.top,
+              left: position.left,
+            }}
+            onMouseEnter={handleTooltipMouseEnter}
+            onMouseLeave={handleTooltipMouseLeave}
           >
-            <FontAwesomeIcon icon={copied ? faCheck : faCopy} />
-            <span>{copied ? "Copied!" : "Copy name"}</span>
-          </button>
-        </div>
-      )}
+            <div className={styles.tooltipTitle}>{displayTitle}</div>
+
+            <div className={styles.tooltipMeta}>
+              <span className={styles.revisionTag}>{`Rev ${data.revisionNumber}`}</span>
+              <span className={styles.separator}>•</span>
+              <span className={data.isClientVersion ? styles.clientLabel : styles.internalLabel}>
+                {data.isClientVersion && (
+                  <FontAwesomeIcon icon={faStar} className={styles.starIcon} />
+                )}
+                {statusLabel}
+              </span>
+              {formattedDate && (
+                <>
+                  <span className={styles.separator}>•</span>
+                  <span>{`Saved ${formattedDate}`}</span>
+                </>
+              )}
+            </div>
+
+            {saveStatus && (
+              <div
+                className={styles.saveStatus}
+                style={data.hasUnsavedChanges ? { color: "#f59e0b" } : undefined}
+              >
+                {saveStatus}
+              </div>
+            )}
+
+            {data.revisionNote && (
+              <div className={styles.revisionNote}>{data.revisionNote}</div>
+            )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

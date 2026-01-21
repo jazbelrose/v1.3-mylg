@@ -46,6 +46,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     brandLogoKey,
     handleLogoSelect,
     handleLogoDrop,
+    handleLogoPickerSelect,
+    handleLogoRemove,
     brandName,
     handleBrandNameBlur,
     brandTagline,
@@ -131,6 +133,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   brandLogoKey={brandLogoKey}
                   onLogoSelect={handleLogoSelect}
                   onLogoDrop={handleLogoDrop}
+                  onLogoPickerSelect={handleLogoPickerSelect}
+                  onLogoRemove={handleLogoRemove}
                   groupFields={groupFields}
                   groupField={groupField}
                   onGroupFieldChange={handleGroupFieldChange}

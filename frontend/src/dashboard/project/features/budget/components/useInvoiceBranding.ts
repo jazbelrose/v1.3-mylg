@@ -73,8 +73,20 @@ export function useInvoiceBranding({
     };
   }, [userData]);
 
+  // Track whether we've initialized for the current modal session
+  const hasInitializedRef = useRef(false);
+
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      // Reset the initialization flag when modal closes
+      hasInitializedRef.current = false;
+      return;
+    }
+    
+    // Only initialize once per modal open session
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+
     const initial: Partial<BrandingSnapshot> = initialBranding ?? {};
     const rawInitialKey =
       typeof initial.brandLogoKey === "string"

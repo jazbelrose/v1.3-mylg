@@ -216,11 +216,11 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 1.6rem !important;
+  font-size: 1.4rem !important;
 }
 
 .dashboard-item.budget .budget-overview-amount span {
-  font-size: 1.6rem !important;
+  font-size: 1.4rem !important;
 }
 
 .budget-overview-invoice-icon {

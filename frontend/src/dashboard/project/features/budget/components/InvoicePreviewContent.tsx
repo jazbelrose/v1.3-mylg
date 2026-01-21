@@ -6,11 +6,13 @@ import React, {
   useState,
 } from "react";
 import { pdf as createPdf } from "@react-pdf/renderer";
+import { Image as ImageIcon, X } from "lucide-react";
 
 import { getFileUrl } from "@/shared/utils/api";
 import PDFPreview from "@/dashboard/project/components/Shared/PDFPreview";
 
 import PdfInvoice from "./PdfInvoice";
+import InvoiceLogoPickerModal from "./InvoiceLogoPickerModal";
 import styles from "./invoice-preview-modal.module.css";
 import type {
   GroupField,
@@ -46,6 +48,8 @@ interface InvoicePreviewContentProps {
   brandLogoKey: string;
   onLogoSelect: React.ChangeEventHandler<HTMLInputElement>;
   onLogoDrop: React.DragEventHandler<HTMLDivElement>;
+  onLogoPickerSelect: (logoKey: string, logoUrl: string) => void;
+  onLogoRemove: () => void;
   brandName: string;
   onBrandNameBlur: (value: string) => void;
   brandTagline: string;
@@ -147,6 +151,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   brandLogoKey,
   onLogoSelect,
   onLogoDrop,
+  onLogoPickerSelect,
+  onLogoRemove,
   brandName,
   onBrandNameBlur,
   brandTagline,
@@ -184,11 +190,34 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   pdfPreviewUrl,
   onClosePdfPreview,
 }) => {
+  const [isLogoPickerOpen, setIsLogoPickerOpen] = useState(false);
+
   const logoSrc = useMemo(() => {
     if (logoDataUrl) return logoDataUrl;
     if (brandLogoKey) return getFileUrl(brandLogoKey);
     return "";
   }, [brandLogoKey, logoDataUrl]);
+
+  const handleOpenLogoPicker = useCallback(() => {
+    setIsLogoPickerOpen(true);
+  }, []);
+
+  const handleCloseLogoPicker = useCallback(() => {
+    setIsLogoPickerOpen(false);
+  }, []);
+
+  const handleLogoPickerSelectInternal = useCallback(
+    (logoKey: string, logoUrl: string) => {
+      onLogoPickerSelect(logoKey, logoUrl);
+      setIsLogoPickerOpen(false);
+    },
+    [onLogoPickerSelect]
+  );
+
+  const handleLogoRemoveInternal = useCallback(() => {
+    onLogoRemove();
+    setIsLogoPickerOpen(false);
+  }, [onLogoRemove]);
 
   const pdfBrandName = useMemo(() => brandName.trim(), [brandName]);
   const pdfBrandTagline = useMemo(() => brandTagline.trim(), [brandTagline]);
@@ -747,28 +776,45 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 </span>
               </div>
 
-              <div
-                className={styles.logoDropzone}
-                role="button"
-                tabIndex={0}
-                onClick={handleLogoZoneClick}
-                onKeyDown={handleLogoZoneKeyDown}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={handleLogoDropInternal}
-              >
-                {logoSrc ? (
-                  <img src={logoSrc} alt="Uploaded logo" className={styles.logoImage} />
-                ) : (
-                  <span className={styles.logoEmpty}>Click or drop an image</span>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef}
-                  style={{ display: "none" }}
-                  onChange={onLogoSelect}
-                />
+              {/* Compact Logo Card */}
+              <div className={styles.logoCardRow}>
+                <div className={styles.logoCard}>
+                  {logoSrc ? (
+                    <>
+                      <img src={logoSrc} alt="Organization logo" className={styles.logoCardImage} />
+                      <button
+                        type="button"
+                        className={styles.logoCardRemove}
+                        onClick={handleLogoRemoveInternal}
+                        title="Remove logo"
+                      >
+                        <X size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <div className={styles.logoCardPlaceholder}>
+                      <ImageIcon size={24} />
+                      <span>No logo</span>
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className={styles.logoCardButton}
+                  onClick={handleOpenLogoPicker}
+                >
+                  {logoSrc ? "Change logo" : "Choose logo"}
+                </button>
               </div>
+
+              {/* Hidden file input for drag/drop fallback */}
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                style={{ display: "none" }}
+                onChange={onLogoSelect}
+              />
 
               <div className={styles.formRow}>
                 <label htmlFor="invoice-brand-name">Organization name</label>
@@ -1087,6 +1133,17 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
           </div>
         ) : null}
       </div>
+
+      {/* Logo Picker Modal */}
+      <InvoiceLogoPickerModal
+        isOpen={isLogoPickerOpen}
+        onClose={handleCloseLogoPicker}
+        currentLogoUrl={logoSrc || null}
+        onSelectLogo={handleLogoPickerSelectInternal}
+        onRemoveLogo={handleLogoRemoveInternal}
+      />
     </div>
   );
-};export default InvoicePreviewContent;
+};
+
+export default InvoicePreviewContent;

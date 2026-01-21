@@ -36,6 +36,10 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  Minus,
+  ArrowUp,
+  List,
+  FileText,
 } from "lucide-react";
 import {
   generateMagicLayouts,
@@ -54,6 +58,8 @@ import {
   type FileItem,
 } from "@/dashboard/project/components/FileManager";
 import ConfirmModal from "@/shared/ui/ConfirmModal";
+import { useTextAssist, type TextAssistAction } from "../hooks/useTextAssist";
+import { getThumbnailUrl } from "@/shared/utils/api";
 import "./MagicLayoutWorkspace.css";
 
 // =====================================================
@@ -100,11 +106,21 @@ interface MagicLayoutWorkspaceProps {
   open: boolean;
   onClose: () => void;
   insertOnly?: boolean;
-  onApply: (options: {
-    variants: LayoutVariant[];
-    tasteMode: TasteModeId;
-    seed: string;
-  }) => void;
+  onApply: (
+    variants: LayoutVariant[],
+    options: {
+      mode: LayoutMode;
+      seed: string;
+      tasteMode: TasteModeId;
+      slideCount?: number;
+      slideImages?: Array<Array<string | null>>;
+      textStyle?: {
+        fontStyle: string;
+        dropCap: boolean;
+        autoSize: boolean;
+      };
+    }
+  ) => void;
   projectImageUrls?: Array<{ url: string; name: string }>;
   hasExistingContent?: boolean;
 }
@@ -160,11 +176,116 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 };
 
 /**
+ * VirtualizedAssetGrid - Virtualized grid for asset thumbnails
+ * Only renders visible items + buffer for smooth scrolling with 25+ images
+ */
+interface VirtualizedAssetGridProps {
+  images: string[];
+  thumbnails: string[];
+  onRemove: (index: number) => void;
+}
+
+const GRID_ITEM_SIZE = 72; // px per thumbnail
+const GRID_COLUMNS = 4;
+const BUFFER_ROWS = 2;
+
+const VirtualizedAssetGrid: React.FC<VirtualizedAssetGridProps> = ({
+  images,
+  thumbnails,
+  onRemove,
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(300);
+
+  // Handle scroll
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  }, []);
+
+  // Track container height
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerHeight(entry.contentRect.height);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Calculate visible range
+  const rowHeight = GRID_ITEM_SIZE + 8; // Include gap
+  const totalRows = Math.ceil(images.length / GRID_COLUMNS);
+  const totalHeight = totalRows * rowHeight;
+  
+  const startRow = Math.max(0, Math.floor(scrollTop / rowHeight) - BUFFER_ROWS);
+  const endRow = Math.min(
+    totalRows,
+    Math.ceil((scrollTop + containerHeight) / rowHeight) + BUFFER_ROWS
+  );
+  
+  const startIndex = startRow * GRID_COLUMNS;
+  const endIndex = Math.min(images.length, endRow * GRID_COLUMNS);
+  const visibleItems = images.slice(startIndex, endIndex);
+
+  return (
+    <div
+      ref={containerRef}
+      className="magic-workspace__assets-grid magic-workspace__assets-grid--virtualized"
+      onScroll={handleScroll}
+      style={{ maxHeight: 300, overflowY: "auto" }}
+    >
+      <div style={{ height: totalHeight, position: "relative" }}>
+        <div
+          style={{
+            position: "absolute",
+            top: startRow * rowHeight,
+            left: 0,
+            right: 0,
+            display: "grid",
+            gridTemplateColumns: `repeat(${GRID_COLUMNS}, 1fr)`,
+            gap: 8,
+          }}
+        >
+          {visibleItems.map((_, localIdx) => {
+            const globalIdx = startIndex + localIdx;
+            return (
+              <div
+                key={globalIdx}
+                className="magic-workspace__asset-thumb magic-workspace__asset-thumb--selected"
+              >
+                <img
+                  src={thumbnails[globalIdx]}
+                  alt={`Asset ${globalIdx + 1}`}
+                  loading="lazy"
+                />
+                <span className="magic-workspace__asset-index">{globalIdx + 1}</span>
+                <button
+                  type="button"
+                  className="magic-workspace__asset-remove"
+                  onClick={() => onRemove(globalIdx)}
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
  * LayoutPreviewSvg - Renders a layout variant as SVG
+ * Uses thumbnails for preview performance, with optional imageOffset for multi-slide distribution
  */
 interface LayoutPreviewSvgProps {
   variant: LayoutVariant;
   images?: string[];
+  imageOffset?: number; // Starting index in images array for this slide
   width?: number;
   height?: number;
 }
@@ -172,17 +293,31 @@ interface LayoutPreviewSvgProps {
 const LayoutPreviewSvg: React.FC<LayoutPreviewSvgProps> = ({
   variant,
   images = [],
+  imageOffset = 0,
   width = 1920,
   height = 1080,
 }) => {
+  // Memoize thumbnail URLs for performance
+  const thumbnailImages = useMemo(
+    () => images.map((url) => getThumbnailUrl(url, { fallbackToOriginal: true })),
+    [images]
+  );
+
   const viewBox = `0 0 ${width} ${height}`;
+  
+  // Track image cursor only for image frames, starting from offset
+  let imageCursor = imageOffset;
 
   return (
     <svg viewBox={viewBox} preserveAspectRatio="xMidYMid meet">
       <rect x="0" y="0" width={width} height={height} fill="#1a1c1e" />
       {variant.frames.map((frame, i) => {
-        const imgSrc = images[i];
-        const frameId = `frame-${i}-${frame.x}-${frame.y}`;
+        const isTextFrame = frame.contentType === "text";
+        const radius = frame.radius ?? 0;
+        const frameId = `frame-${variant.id || 'v'}-${i}-${frame.x}-${frame.y}`;
+        
+        // Only get image for image frames, using thumbnail for preview
+        const imgSrc = isTextFrame ? null : thumbnailImages[imageCursor++] ?? null;
 
         return (
           <g key={frameId}>
@@ -195,7 +330,7 @@ const LayoutPreviewSvg: React.FC<LayoutPreviewSvgProps> = ({
                       y={frame.y}
                       width={frame.width}
                       height={frame.height}
-                      rx={frame.borderRadius || 0}
+                      rx={radius}
                     />
                   </clipPath>
                 </defs>
@@ -215,11 +350,34 @@ const LayoutPreviewSvg: React.FC<LayoutPreviewSvgProps> = ({
                 y={frame.y}
                 width={frame.width}
                 height={frame.height}
-                rx={frame.borderRadius || 0}
-                fill={`hsl(${220 + i * 15}, 15%, ${25 + (i % 3) * 5}%)`}
-                stroke="rgba(255,255,255,0.08)"
-                strokeWidth="1"
+                rx={radius}
+                fill={
+                  isTextFrame
+                    ? "rgba(79, 140, 255, 0.15)"
+                    : `hsl(${220 + i * 15}, 15%, ${25 + (i % 3) * 5}%)`
+                }
+                stroke={
+                  isTextFrame
+                    ? "rgba(79, 140, 255, 0.4)"
+                    : "rgba(255,255,255,0.08)"
+                }
+                strokeWidth={isTextFrame ? 2 : 1}
+                strokeDasharray={isTextFrame ? "8 4" : undefined}
               />
+            )}
+            {/* Show text indicator for text frames */}
+            {isTextFrame && (
+              <text
+                x={frame.x + frame.width / 2}
+                y={frame.y + frame.height / 2}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill="rgba(79, 140, 255, 0.6)"
+                fontSize={Math.min(frame.width, frame.height) * 0.15}
+                fontFamily="system-ui, sans-serif"
+              >
+                T
+              </text>
             )}
           </g>
         );
@@ -280,19 +438,25 @@ const PlanCard: React.FC<PlanCardProps> = ({
 };
 
 /**
- * TextBlockEditor - Single text block with type selector
+ * TextBlockEditor - Single text block with type selector and AI assist
  */
 interface TextBlockEditorProps {
   block: TextBlock;
   onUpdate: (id: string, updates: Partial<TextBlock>) => void;
   onDelete: (id: string) => void;
+  onAiAction?: (id: string, action: TextAssistAction) => void;
+  isAiLoading?: boolean;
 }
 
 const TextBlockEditor: React.FC<TextBlockEditorProps> = ({
   block,
   onUpdate,
   onDelete,
+  onAiAction,
+  isAiLoading = false,
 }) => {
+  const [showAiMenu, setShowAiMenu] = useState(false);
+  
   const typeLabels: Record<TextBlock["type"], string> = {
     headline: "Headline",
     subhead: "Subhead",
@@ -301,6 +465,13 @@ const TextBlockEditor: React.FC<TextBlockEditorProps> = ({
     quote: "Quote",
     credit: "Credit",
   };
+
+  const aiActions: Array<{ id: TextAssistAction; label: string; icon: React.ReactNode }> = [
+    { id: "shorten", label: "Shorten", icon: <Minus size={12} /> },
+    { id: "expand", label: "Expand", icon: <ArrowUp size={12} /> },
+    { id: "make-editorial", label: "Make Editorial", icon: <FileText size={12} /> },
+    { id: "bullet-list", label: "Bullet List", icon: <List size={12} /> },
+  ];
 
   return (
     <div className="magic-workspace__text-block">
@@ -324,13 +495,40 @@ const TextBlockEditor: React.FC<TextBlockEditorProps> = ({
           ))}
         </select>
         <div className="magic-workspace__text-block-actions">
-          <button
-            type="button"
-            className="magic-workspace__text-block-btn"
-            title="AI Rewrite"
-          >
-            <Wand2 size={12} />
-          </button>
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              className={`magic-workspace__text-block-btn ${showAiMenu ? "magic-workspace__text-block-btn--active" : ""}`}
+              onClick={() => setShowAiMenu(!showAiMenu)}
+              title="AI Assist"
+              disabled={isAiLoading}
+            >
+              {isAiLoading ? (
+                <RefreshCw size={12} className="magic-workspace__spin" />
+              ) : (
+                <Wand2 size={12} />
+              )}
+            </button>
+            {showAiMenu && (
+              <div className="magic-workspace__ai-menu">
+                {aiActions.map((action) => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    className="magic-workspace__ai-menu-item"
+                    onClick={() => {
+                      onAiAction?.(block.id, action.id);
+                      setShowAiMenu(false);
+                    }}
+                    disabled={isAiLoading}
+                  >
+                    {action.icon}
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="button"
             className="magic-workspace__text-block-btn"
@@ -492,15 +690,24 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
 
   const generateLayouts = useCallback(() => {
     const output = generateMagicLayouts({
-      count,
+      frameCount: count,
       mode,
       tasteMode,
       seed,
-      globalSpacing: effectiveSpacing,
-      globalRadius: effectiveRadius,
-      lockSpacing: globalLocks.lockSpacing,
-      lockRadius: globalLocks.lockRadius,
-      frameConfigs: appliedFrameConfigs,
+      canvasWidth: 1920,
+      canvasHeight: 1080,
+      globalLocks,
+      sessionKey,
+      overrides: {
+        gutter: effectiveSpacing,
+        radius: effectiveRadius,
+      },
+      frameConfigs: appliedFrameConfigs.map((cfg) => ({
+        contentType: cfg.contentType,
+        imageSrc: cfg.imageSrc,
+        textConfig: cfg.contentType === "text" ? { intent: "body" as const, content: cfg.textValue } : null,
+        locks: { lockPosition: cfg.lockPosition, lockCrop: false, lockHero: false },
+      })),
       variantCount: 6,
     });
     setLayoutOutput(output);
@@ -525,6 +732,7 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
     mode,
     tasteMode,
     seed,
+    sessionKey,
     effectiveSpacing,
     effectiveRadius,
     globalLocks,
@@ -570,12 +778,12 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
       const plan: LayoutVariant[] = [selectedVar];
       for (let slideIdx = 1; slideIdx < slideCount; slideIdx++) {
         const variantSeed = `${sessionSeed}#plan${selectedVariantIndex}#slide${slideIdx}`;
-        const slideVar = generateMagicLayoutVariant({
-          count,
-          mode,
-          tasteMode,
-          seed: variantSeed,
-        });
+        const slideVar = generateMagicLayoutVariant(
+          layoutOutput.input,
+          variantSeed,
+          slideIdx,
+          sessionSeed
+        );
         plan.push(slideVar);
       }
       return plan;
@@ -586,12 +794,12 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
     const finalPlan = basePlan.map((variant, slideIdx) => {
       const overrideSeed = overrides[slideIdx];
       if (overrideSeed) {
-        return generateMagicLayoutVariant({
-          count,
-          mode,
-          tasteMode,
-          seed: overrideSeed,
-        });
+        return generateMagicLayoutVariant(
+          layoutOutput.input,
+          overrideSeed,
+          slideIdx,
+          sessionSeed
+        );
       }
       return variant;
     });
@@ -604,9 +812,6 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
     slideCount,
     candidatePlans,
     planSeedOverrides,
-    count,
-    mode,
-    tasteMode,
   ]);
 
   const activeVariant = useMemo(() => {
@@ -709,6 +914,45 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
     setTextBlocks((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
+  // AI text assist
+  const { isLoading: isAiLoading, runAction: runAiAction } = useTextAssist();
+
+  const handleAiAction = useCallback(
+    async (blockId: string, action: TextAssistAction) => {
+      const block = textBlocks.find((b) => b.id === blockId);
+      if (!block) return;
+
+      const result = await runAiAction(action, block.content, selectedImages);
+      setTextBlocks((prev) =>
+        prev.map((b) => (b.id === blockId ? { ...b, content: result } : b))
+      );
+    },
+    [textBlocks, selectedImages, runAiAction]
+  );
+
+  // Build slideImages array for apply
+  const buildSlideImages = useCallback((): Array<Array<string | null>> => {
+    if (!selectedPlanPreview) return [];
+    
+    const slideImages: Array<Array<string | null>> = [];
+    let cursor = 0;
+    
+    for (const variant of selectedPlanPreview) {
+      const imageFrameCount = variant.frames.filter(
+        (f) => f.contentType === "image"
+      ).length;
+      const slideImageSet: Array<string | null> = [];
+      for (let i = 0; i < imageFrameCount; i++) {
+        slideImageSet.push(
+          cursor < selectedImages.length ? selectedImages[cursor++] : null
+        );
+      }
+      slideImages.push(slideImageSet);
+    }
+    
+    return slideImages;
+  }, [selectedPlanPreview, selectedImages]);
+
   // Apply layout
   const handleApply = useCallback(() => {
     if (!selectedPlanPreview) return;
@@ -718,10 +962,19 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
       return;
     }
 
-    onApply({
-      variants: selectedPlanPreview,
-      tasteMode,
+    const slideImages = buildSlideImages();
+
+    onApply(selectedPlanPreview, {
+      mode,
       seed,
+      tasteMode,
+      slideCount,
+      slideImages,
+      textStyle: {
+        fontStyle: textStylePreset === "editorial" ? "serif" : "clean",
+        dropCap: dropCapEnabled,
+        autoSize: true,
+      },
     });
     onClose();
   }, [
@@ -729,21 +982,47 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
     hasExistingContent,
     insertOnly,
     onApply,
-    tasteMode,
+    mode,
     seed,
+    tasteMode,
+    slideCount,
+    buildSlideImages,
+    textStylePreset,
+    dropCapEnabled,
     onClose,
   ]);
 
   const handleConfirmOverwrite = useCallback(() => {
     if (!selectedPlanPreview) return;
     setShowOverwriteConfirm(false);
-    onApply({
-      variants: selectedPlanPreview,
-      tasteMode,
+    
+    const slideImages = buildSlideImages();
+    
+    onApply(selectedPlanPreview, {
+      mode,
       seed,
+      tasteMode,
+      slideCount,
+      slideImages,
+      textStyle: {
+        fontStyle: textStylePreset === "editorial" ? "serif" : "clean",
+        dropCap: dropCapEnabled,
+        autoSize: true,
+      },
     });
     onClose();
-  }, [selectedPlanPreview, onApply, tasteMode, seed, onClose]);
+  }, [
+    selectedPlanPreview,
+    onApply,
+    mode,
+    seed,
+    tasteMode,
+    slideCount,
+    buildSlideImages,
+    textStylePreset,
+    dropCapEnabled,
+    onClose,
+  ]);
 
   // Keyboard handling
   useEffect(() => {
@@ -765,6 +1044,24 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
   // RENDER HELPERS
   // =====================================================
 
+  // Memoize thumbnail URLs for asset grid and previews
+  const thumbnailImages = useMemo(
+    () => selectedImages.map((url) => getThumbnailUrl(url, { fallbackToOriginal: true })),
+    [selectedImages]
+  );
+
+  // Compute cumulative image offsets for each slide
+  const slideImageOffsets = useMemo(() => {
+    if (!selectedPlanPreview) return [];
+    const offsets: number[] = [];
+    let cumulative = 0;
+    for (const variant of selectedPlanPreview) {
+      offsets.push(cumulative);
+      cumulative += variant.frames.filter((f) => f.contentType === "image").length;
+    }
+    return offsets;
+  }, [selectedPlanPreview]);
+
   const renderPlansSection = () => (
     <CollapsibleSection
       title="Plans"
@@ -773,11 +1070,9 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
     >
       <div className="magic-workspace__plans-grid">
         {layoutOutput?.variants.map((variant, i) => {
-          // Assign images to frames
-          let cursor = 0;
-          const variantImages = variant.frames.map(() =>
-            cursor < selectedImages.length ? selectedImages[cursor++] : null
-          );
+          // Each plan card shows first N images (plans are alternatives, not sequential slides)
+          const imageFrameCount = variant.frames.filter((f) => f.contentType === "image").length;
+          const variantImages = thumbnailImages.slice(0, imageFrameCount);
 
           return (
             <PlanCard
@@ -785,7 +1080,7 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
               variant={variant}
               index={i}
               isSelected={selectedVariantIndex === i}
-              images={variantImages.filter((u): u is string => u !== null)}
+              images={variantImages}
               onSelect={() => setSelectedVariantIndex(i)}
               onRefresh={() => handleRefreshVariant(i)}
             />
@@ -831,24 +1126,11 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
       </div>
 
       {selectedImages.length > 0 && (
-        <div className="magic-workspace__assets-grid">
-          {selectedImages.map((url, i) => (
-            <div
-              key={i}
-              className="magic-workspace__asset-thumb magic-workspace__asset-thumb--selected"
-            >
-              <img src={url} alt={`Asset ${i + 1}`} />
-              <span className="magic-workspace__asset-index">{i + 1}</span>
-              <button
-                type="button"
-                className="magic-workspace__asset-remove"
-                onClick={() => handleRemoveImage(i)}
-              >
-                <X size={10} />
-              </button>
-            </div>
-          ))}
-        </div>
+        <VirtualizedAssetGrid
+          images={selectedImages}
+          thumbnails={thumbnailImages}
+          onRemove={handleRemoveImage}
+        />
       )}
 
       {selectedImages.length === 0 && (
@@ -1050,6 +1332,8 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
             block={block}
             onUpdate={handleUpdateTextBlock}
             onDelete={handleDeleteTextBlock}
+            onAiAction={handleAiAction}
+            isAiLoading={isAiLoading}
           />
         ))}
 
@@ -1254,6 +1538,7 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
                     <LayoutPreviewSvg
                       variant={activeVariant}
                       images={selectedImages}
+                      imageOffset={slideImageOffsets[activeSlideIndex] ?? 0}
                     />
                     <div
                       className="magic-workspace__canvas-overlay"
@@ -1281,6 +1566,7 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
                     <LayoutPreviewSvg
                       variant={variant}
                       images={selectedImages}
+                      imageOffset={slideImageOffsets[i] ?? 0}
                     />
                   </div>
                 ))}
@@ -1345,21 +1631,15 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
               {mobileTab === "plans" && (
                 <div className="magic-workspace__plans-grid">
                   {layoutOutput?.variants.map((variant, i) => {
-                    let cursor = 0;
-                    const variantImages = variant.frames.map(() =>
-                      cursor < selectedImages.length
-                        ? selectedImages[cursor++]
-                        : null
-                    );
+                    const imageFrameCount = variant.frames.filter((f) => f.contentType === "image").length;
+                    const variantImages = thumbnailImages.slice(0, imageFrameCount);
                     return (
                       <PlanCard
                         key={`plan-m-${i}`}
                         variant={variant}
                         index={i}
                         isSelected={selectedVariantIndex === i}
-                        images={variantImages.filter(
-                          (u): u is string => u !== null
-                        )}
+                        images={variantImages}
                         onSelect={() => setSelectedVariantIndex(i)}
                         onRefresh={() => handleRefreshVariant(i)}
                       />
@@ -1388,26 +1668,11 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
                     </button>
                   </div>
                   {selectedImages.length > 0 && (
-                    <div className="magic-workspace__assets-grid">
-                      {selectedImages.map((url, i) => (
-                        <div
-                          key={i}
-                          className="magic-workspace__asset-thumb magic-workspace__asset-thumb--selected"
-                        >
-                          <img src={url} alt={`Asset ${i + 1}`} />
-                          <span className="magic-workspace__asset-index">
-                            {i + 1}
-                          </span>
-                          <button
-                            type="button"
-                            className="magic-workspace__asset-remove"
-                            onClick={() => handleRemoveImage(i)}
-                          >
-                            <X size={10} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                    <VirtualizedAssetGrid
+                      images={selectedImages}
+                      thumbnails={thumbnailImages}
+                      onRemove={handleRemoveImage}
+                    />
                   )}
                 </>
               )}

@@ -28,6 +28,23 @@ export function formatUSD(value: string | number): string {
   return `$${num.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
 
+export function formatCompactUSD(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return "Not available";
+  if (value >= 1_000_000) {
+    return `$${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  }
+  if (value >= 10_000) {
+    return `$${(value / 1_000).toFixed(1).replace(/\.0$/, "")}k`;
+  }
+
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 
 
 

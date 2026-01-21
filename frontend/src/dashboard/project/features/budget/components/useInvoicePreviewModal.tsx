@@ -193,8 +193,8 @@ export function useInvoicePreviewModal({
     () =>
       resolvedInvoiceDetails
         ? {
-            brandLogoKey: resolvedInvoiceDetails.brandLogoKey ?? "",
-            brandLogoDataUrl: resolvedInvoiceDetails.brandLogoDataUrl ?? null,
+            brandLogoKey: resolvedInvoiceDetails.brandLogoKey || "",
+            brandLogoDataUrl: resolvedInvoiceDetails.brandLogoDataUrl || null,
             brandName: resolvedInvoiceDetails.brandName ?? "",
             brandTagline: resolvedInvoiceDetails.brandTagline ?? "",
           }
@@ -480,6 +480,21 @@ export function useInvoicePreviewModal({
     [brandingHandleLogoDrop, markInvoiceDirty],
   );
 
+  const handleLogoPickerSelect = useCallback(
+    (logoKey: string, _logoUrl: string) => {
+      setBrandLogoKey(logoKey);
+      setLogoDataUrl(null);
+      markInvoiceDirty();
+    },
+    [setBrandLogoKey, setLogoDataUrl, markInvoiceDirty],
+  );
+
+  const handleLogoRemove = useCallback(() => {
+    setBrandLogoKey("");
+    setLogoDataUrl(null);
+    markInvoiceDirty();
+  }, [setBrandLogoKey, setLogoDataUrl, markInvoiceDirty]);
+
   const handleBrandNameBlur = useCallback(
     (value: string) => {
       setBrandName(value);
@@ -733,6 +748,8 @@ export function useInvoicePreviewModal({
     brandLogoKey,
     handleLogoSelect,
     handleLogoDrop,
+    handleLogoPickerSelect,
+    handleLogoRemove,
     brandName,
     handleBrandNameBlur,
     brandTagline,

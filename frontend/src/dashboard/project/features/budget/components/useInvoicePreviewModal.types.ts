@@ -39,6 +39,8 @@ export interface UseInvoicePreviewModalResult {
   brandLogoKey: string;
   handleLogoSelect: ChangeEventHandler<HTMLInputElement>;
   handleLogoDrop: DragEventHandler<HTMLDivElement>;
+  handleLogoPickerSelect: (logoKey: string, logoUrl: string) => void;
+  handleLogoRemove: () => void;
   brandName: string;
   handleBrandNameBlur: (value: string) => void;
   brandTagline: string;

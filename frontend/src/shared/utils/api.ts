@@ -358,6 +358,90 @@ export function getFileUrl(keyOrUrl: string): string {
   return `${base.replace(/\/$/, '')}/${encodedKey}`;
 }
 
+/**
+ * Get a thumbnail URL for an image file.
+ * 
+ * The backend image-thumbnails service creates WebP thumbnails at max 400x400
+ * in a parallel `_thumbnails/` folder structure.
+ * 
+ * Examples:
+ * - projects/abc/files/photo.jpg -> projects/abc/files_thumbnails/photo.jpg.webp
+ * - uploads/tasks/image.png -> uploads/tasks_thumbnails/image.png.webp
+ * 
+ * Falls back to original URL if:
+ * - Already a blob/data URL (local upload preview)
+ * - Not a recognized file path pattern
+ * 
+ * @param urlOrKey - Original image URL or S3 key
+ * @param options - Optional configuration
+ * @returns Thumbnail URL or original if not applicable
+ */
+export function getThumbnailUrl(
+  urlOrKey: string,
+  options?: { fallbackToOriginal?: boolean }
+): string {
+  const { fallbackToOriginal = true } = options ?? {};
+
+  if (!urlOrKey || typeof urlOrKey !== 'string') {
+    return urlOrKey;
+  }
+
+  const lower = urlOrKey.toLowerCase();
+
+  // Don't transform blob/data URLs - they're local previews
+  if (lower.startsWith('blob:') || lower.startsWith('data:')) {
+    return urlOrKey;
+  }
+
+  // Extract key from URL if needed
+  let key = urlOrKey;
+  let baseUrl = '';
+
+  if (urlOrKey.startsWith('http')) {
+    try {
+      const parsed = new URL(urlOrKey);
+      baseUrl = `${parsed.protocol}//${parsed.host}`;
+      key = parsed.pathname.startsWith('/') 
+        ? decodeURIComponent(parsed.pathname.slice(1)) 
+        : decodeURIComponent(parsed.pathname);
+    } catch {
+      return fallbackToOriginal ? urlOrKey : urlOrKey;
+    }
+  }
+
+  // Check if it's an image file (common extensions)
+  const imageExtensions = /\.(jpg|jpeg|png|gif|webp|bmp|tiff?)$/i;
+  if (!imageExtensions.test(key)) {
+    return fallbackToOriginal ? getFileUrl(urlOrKey) : urlOrKey;
+  }
+
+  // Transform path to thumbnail path:
+  // projects/{id}/files/name.jpg -> projects/{id}/files_thumbnails/name.jpg.webp
+  // uploads/tasks/name.jpg -> uploads/tasks_thumbnails/name.jpg.webp
+  const thumbnailKey = key.replace(
+    /^(.*?)\/([^/]+)\/([^/]+)$/,
+    (match, prefix, folder, filename) => {
+      // Skip if already a thumbnail path
+      if (folder.endsWith('_thumbnails')) {
+        return match;
+      }
+      return `${prefix}/${folder}_thumbnails/${filename}.webp`;
+    }
+  );
+
+  // If transformation didn't change anything, return original
+  if (thumbnailKey === key) {
+    return fallbackToOriginal ? getFileUrl(urlOrKey) : urlOrKey;
+  }
+
+  // Build the thumbnail URL
+  if (baseUrl) {
+    return `${baseUrl}/${thumbnailKey}`;
+  }
+
+  return getFileUrl(thumbnailKey);
+}
+
 export function normalizeFileUrl(urlOrKey: string): string {
   if (!urlOrKey) return urlOrKey;
   if (urlOrKey.startsWith('http')) {

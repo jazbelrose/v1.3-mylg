@@ -6,6 +6,7 @@ const fallbackOrgContext: OrgContextValue = {
   orgs: [],
   activeOrgId: null,
   activeOrgRole: null,
+  activeOrgBranding: null,
   setActiveOrgId: () => {
     // no-op when provider is missing
   },
@@ -16,6 +17,12 @@ const fallbackOrgContext: OrgContextValue = {
     throw new Error("OrgProvider is not mounted");
   },
   deleteOrg: async () => {
+    throw new Error("OrgProvider is not mounted");
+  },
+  updateOrgBranding: async () => {
+    throw new Error("OrgProvider is not mounted");
+  },
+  fetchOrgDetails: async () => {
     throw new Error("OrgProvider is not mounted");
   },
 };

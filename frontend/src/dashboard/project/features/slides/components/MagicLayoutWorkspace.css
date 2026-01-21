@@ -168,6 +168,10 @@
   border-left: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(0, 0, 0, 0.1);
   overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  /* Ensure scrollbar doesn't overlap content */
+  scrollbar-gutter: stable;
 }
 
 /* =====================================================
@@ -477,6 +481,28 @@
   gap: 8px;
 }
 
+/* Virtualized grid override - uses inline styles for positioning */
+.magic-workspace__assets-grid--virtualized {
+  display: block;
+  max-height: 300px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.magic-workspace__assets-grid--virtualized::-webkit-scrollbar {
+  width: 6px;
+}
+
+.magic-workspace__assets-grid--virtualized::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.magic-workspace__assets-grid--virtualized::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
 .magic-workspace__asset-thumb {
   position: relative;
   aspect-ratio: 1;
@@ -598,6 +624,73 @@
 .magic-workspace__text-block-btn:hover {
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.7);
+}
+
+.magic-workspace__text-block-btn--active {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+}
+
+.magic-workspace__text-block-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* AI Menu */
+.magic-workspace__ai-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  margin-top: 4px;
+  padding: 6px;
+  background: rgba(28, 30, 34, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.magic-workspace__ai-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.magic-workspace__ai-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.magic-workspace__ai-menu-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Spinning animation */
+@keyframes magic-workspace-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.magic-workspace__spin {
+  animation: magic-workspace-spin 1s linear infinite;
 }
 
 .magic-workspace__text-block-textarea {

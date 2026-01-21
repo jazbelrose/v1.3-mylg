@@ -215,7 +215,84 @@ const getOrg = async (e, C, { orgId }) => {
     return json(404, C, { error: "Not found" });
   }
 
-  return json(200, C, { org: { orgId, name: org.name, createdAt: org.createdAt, createdBy: org.createdBy } });
+  return json(200, C, {
+    org: {
+      orgId,
+      name: org.name,
+      createdAt: org.createdAt,
+      createdBy: org.createdBy,
+      branding: org.branding || null,
+    },
+  });
+};
+
+// PATCH /orgs/:orgId (admin+ can update org settings including branding)
+const updateOrg = async (e, C, { orgId }) => {
+  const userId = requireCallerUserId(e);
+  orgId = parseOrgId(orgId);
+
+  await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+  await requireActiveOrg(orgId);
+
+  const body = B(e);
+  const updates = {};
+  const expressionParts = [];
+  const attrNames = {};
+  const attrValues = {};
+
+  // Handle name update
+  if (typeof body.name === "string") {
+    const name = body.name.trim();
+    if (name.length >= 2) {
+      updates.name = name;
+      expressionParts.push("#name = :name");
+      attrNames["#name"] = "name";
+      attrValues[":name"] = name;
+    }
+  }
+
+  // Handle branding update
+  if (body.branding !== undefined) {
+    const branding = body.branding;
+    if (branding === null) {
+      // Clear branding
+      expressionParts.push("branding = :branding");
+      attrValues[":branding"] = null;
+      updates.branding = null;
+    } else if (typeof branding === "object") {
+      // Merge branding fields
+      const newBranding = {
+        logoFileId: typeof branding.logoFileId === "string" ? branding.logoFileId : (branding.logoFileId === null ? null : undefined),
+        logoUrl: typeof branding.logoUrl === "string" ? branding.logoUrl : (branding.logoUrl === null ? null : undefined),
+        brandName: typeof branding.brandName === "string" ? branding.brandName : undefined,
+        brandTagline: typeof branding.brandTagline === "string" ? branding.brandTagline : undefined,
+        updatedAt: nowISO(),
+      };
+      // Remove undefined values
+      Object.keys(newBranding).forEach((k) => newBranding[k] === undefined && delete newBranding[k]);
+      
+      expressionParts.push("branding = :branding");
+      attrValues[":branding"] = newBranding;
+      updates.branding = newBranding;
+    }
+  }
+
+  if (expressionParts.length === 0) {
+    return json(400, C, { error: "No valid fields to update" });
+  }
+
+  expressionParts.push("updatedAt = :updatedAt");
+  attrValues[":updatedAt"] = nowISO();
+
+  await ddb.update({
+    TableName: ORGS_TABLE,
+    Key: { PK: `ORG#${orgId}` },
+    UpdateExpression: `SET ${expressionParts.join(", ")}`,
+    ExpressionAttributeNames: Object.keys(attrNames).length > 0 ? attrNames : undefined,
+    ExpressionAttributeValues: attrValues,
+  });
+
+  return json(200, C, { ok: true, orgId, updates });
 };
 
 // POST /orgs/:orgId/invites (admin+)
@@ -335,6 +412,7 @@ const routes = [
   { m: "POST", r: /^\/orgs\/?$/i, h: createOrg },
 
   { m: "GET", r: /^\/orgs\/(?<orgId>[^/]+)\/?$/i, h: getOrg },
+  { m: "PATCH", r: /^\/orgs\/(?<orgId>[^/]+)\/?$/i, h: updateOrg },
   { m: "DELETE", r: /^\/orgs\/(?<orgId>[^/]+)\/?$/i, h: deleteOrg },
   { m: "POST", r: /^\/orgs\/(?<orgId>[^/]+)\/invites\/?$/i, h: createInvite },
 
