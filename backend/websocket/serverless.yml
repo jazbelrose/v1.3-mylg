@@ -37,6 +37,9 @@ provider:
     ACTIVITY_TABLE: ${env:ACTIVITY_TABLE, 'ProjectActivity'}
     PENDING_BATCHES_TABLE: ${env:PENDING_BATCHES_TABLE, 'PendingEditBatches'}
 
+    # ---- Org Tables (for HQ real-time sync)
+    ORG_MEMBERS_TABLE: ${env:ORG_MEMBERS_TABLE, 'OrgMembers'}
+
     # ---- WebSocket
     WEBSOCKET_ENDPOINT: https://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev
 
@@ -77,6 +80,12 @@ provider:
           Resource:
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:PROJECTS_TABLE}
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:PROJECTS_TABLE}/index/*
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:ORG_MEMBERS_TABLE, 'OrgMembers'}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:ORG_MEMBERS_TABLE, 'OrgMembers'}/index/*
         - Effect: Allow
           Action:
             - execute-api:ManageConnections

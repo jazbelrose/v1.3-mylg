@@ -3,6 +3,7 @@ import Modal from "@/shared/ui/ModalWithStack";
 import { toast } from "react-toastify";
 import { patchHqAccount, fetchHqSummary } from "@/hq/lib/hqApi";
 import { hydrateHqState, readHqState } from "@/hq/lib/hqStore";
+import { sendHqUpdated } from "@/hq/lib/hqWebSocket";
 import { HQ_DEFAULT_TIME_ZONE, todayIsoDateInTimeZone } from "@/hq/lib/hqDate";
 import type { HqAccount } from "@/hq/types";
 import styles from "./SetAnchorModal.module.css";
@@ -16,6 +17,7 @@ type SetAnchorModalProps = {
   isOpen: boolean;
   onRequestClose: () => void;
   account: HqAccount;
+  ws?: WebSocket | null;
 };
 
 const SetAnchorModal: React.FC<SetAnchorModalProps> = ({
@@ -23,6 +25,7 @@ const SetAnchorModal: React.FC<SetAnchorModalProps> = ({
   isOpen,
   onRequestClose,
   account,
+  ws,
 }) => {
   const [anchorDate, setAnchorDate] = React.useState("");
   const [anchorBalance, setAnchorBalance] = React.useState(
@@ -71,13 +74,16 @@ const SetAnchorModal: React.FC<SetAnchorModalProps> = ({
         window.dispatchEvent(new Event("mylg:hq-refresh"));
       }
 
+      // Notify other org members of the anchor update
+      sendHqUpdated(ws, orgId, "account", account.accountId);
+
       toast.success("Balance anchor saved.");
       onRequestClose();
     } catch (err) {
       console.error(err);
       toast.error("Could not save anchor.");
     }
-  }, [account.accountId, anchorDate, canSave, onRequestClose, orgId, parsedBalance]);
+  }, [account.accountId, anchorDate, canSave, onRequestClose, orgId, parsedBalance, ws]);
 
   return (
     <Modal

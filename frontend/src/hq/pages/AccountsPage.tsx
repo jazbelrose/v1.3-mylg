@@ -5,11 +5,13 @@ import ImportCsvModal from "@/hq/components/ImportCsvModal";
 import SetAnchorModal from "@/hq/components/SetAnchorModal";
 import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
+import { useSocket } from "@/app/contexts/useSocket";
 import { toast } from "react-toastify";
 import { deleteHqAccount, patchHqAccount } from "@/hq/lib/hqApi";
 import { computeCashOnHand } from "@/hq/lib/hqMetrics";
 import { updateAccount as updateAccountLocal, useHqStore } from "@/hq/lib/hqStore";
 import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
+import { sendHqUpdated } from "@/hq/lib/hqWebSocket";
 import type { HqAccount } from "@/hq/types";
 import styles from "./AccountsPage.module.css";
 
@@ -22,6 +24,7 @@ const currency = new Intl.NumberFormat("en-US", {
 const AccountsPage: React.FC = () => {
   useUser();
   const { activeOrgId, activeOrgRole } = useOrg();
+  const { ws } = useSocket();
   const hasOrg = Boolean(activeOrgId);
   const orgId = activeOrgId ?? "__no_org__";
   const canAdmin = hasOrg && isOrgAdmin(activeOrgRole);
@@ -73,13 +76,15 @@ const AccountsPage: React.FC = () => {
       try {
         await patchHqAccount(activeOrgId, account.accountId, { includeInCashOnHand: next });
         window.dispatchEvent(new Event("mylg:hq-refresh"));
+        // Notify other org members of the update
+        sendHqUpdated(ws, activeOrgId, "account", account.accountId);
       } catch (err) {
         console.error(err);
         toast.error(err instanceof Error ? err.message : "Could not update account.");
         window.dispatchEvent(new Event("mylg:hq-refresh"));
       }
     },
-    [activeOrgId, canAdmin, orgId]
+    [activeOrgId, canAdmin, orgId, ws]
   );
 
   const handleDeleteAccount = React.useCallback(
@@ -94,12 +99,14 @@ const AccountsPage: React.FC = () => {
         await deleteHqAccount(activeOrgId, account.accountId);
         toast.success("Account deleted.");
         window.dispatchEvent(new Event("mylg:hq-refresh"));
+        // Notify other org members of the deletion
+        sendHqUpdated(ws, activeOrgId, "account", account.accountId);
       } catch (err) {
         console.error(err);
         toast.error(err instanceof Error ? err.message : "Could not delete account.");
       }
     },
-    [activeOrgId, canAdmin]
+    [activeOrgId, canAdmin, ws]
   );
 
   const actions = (
@@ -233,8 +240,8 @@ const AccountsPage: React.FC = () => {
 
       {activeOrgId ? (
         <>
-          <AddAccountModal orgId={activeOrgId} isOpen={isAddOpen} onRequestClose={() => setIsAddOpen(false)} />
-          <ImportCsvModal orgId={activeOrgId} isOpen={isImportOpen} onRequestClose={() => setIsImportOpen(false)} />
+          <AddAccountModal orgId={activeOrgId} isOpen={isAddOpen} onRequestClose={() => setIsAddOpen(false)} ws={ws} />
+          <ImportCsvModal orgId={activeOrgId} isOpen={isImportOpen} onRequestClose={() => setIsImportOpen(false)} ws={ws} />
         </>
       ) : null}
       {activeOrgId && anchorAccount ? (
@@ -243,6 +250,7 @@ const AccountsPage: React.FC = () => {
           isOpen={Boolean(anchorAccount)}
           onRequestClose={() => setAnchorAccount(null)}
           account={anchorAccount}
+          ws={ws}
         />
       ) : null}
     </HQLayout>

@@ -56,8 +56,18 @@ export function useHqBootstrap(orgId: string | null) {
       void load();
     };
 
+    // Listen for websocket hqUpdated events from other org members
+    const handleWsMessage = (event: CustomEvent<{ action?: string; orgId?: string }>) => {
+      const data = event.detail;
+      if (data?.action === "hqUpdated" && data?.orgId === orgId) {
+        console.log("📊 [useHqBootstrap] Received hqUpdated from another org member, refreshing...");
+        handleRefresh();
+      }
+    };
+
     if (typeof window !== "undefined") {
       window.addEventListener("mylg:hq-refresh", handleRefresh);
+      window.addEventListener("ws-message", handleWsMessage as EventListener);
     }
 
     void load();
@@ -66,6 +76,7 @@ export function useHqBootstrap(orgId: string | null) {
       cancelled = true;
       if (typeof window !== "undefined") {
         window.removeEventListener("mylg:hq-refresh", handleRefresh);
+        window.removeEventListener("ws-message", handleWsMessage as EventListener);
       }
     };
   }, [orgId]);

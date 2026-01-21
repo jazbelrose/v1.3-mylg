@@ -3,6 +3,7 @@ import Modal from "@/shared/ui/ModalWithStack";
 import { toast } from "react-toastify";
 import { createHqAccount, fetchHqSummary } from "@/hq/lib/hqApi";
 import { hydrateHqState, readHqState } from "@/hq/lib/hqStore";
+import { sendHqUpdated } from "@/hq/lib/hqWebSocket";
 import type { HqAccount } from "@/hq/types";
 import styles from "./AddAccountModal.module.css";
 
@@ -15,6 +16,7 @@ type AddAccountModalProps = {
   isOpen: boolean;
   onRequestClose: () => void;
   onCreated?: (account: HqAccount) => void;
+  ws?: WebSocket | null;
 };
 
 const AddAccountModal: React.FC<AddAccountModalProps> = ({
@@ -22,6 +24,7 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
   isOpen,
   onRequestClose,
   onCreated,
+  ws,
 }) => {
   const [accountName, setAccountName] = React.useState("");
   const [institution, setInstitution] = React.useState("");
@@ -53,6 +56,9 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
       const prev = readHqState(orgId);
       hydrateHqState(orgId, { ...prev, accounts: summary.accounts, importRuns: summary.importRuns });
 
+      // Notify other org members of the new account
+      sendHqUpdated(ws, orgId, "account", account.accountId);
+
       toast.success("Account added.");
       onCreated?.(account);
       onRequestClose();
@@ -60,7 +66,7 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({
       console.error(err);
       toast.error("Could not add account.");
     }
-  }, [accountMask, accountName, canSave, institution, notes, onCreated, onRequestClose, orgId]);
+  }, [accountMask, accountName, canSave, institution, notes, onCreated, onRequestClose, orgId, ws]);
 
   return (
     <Modal

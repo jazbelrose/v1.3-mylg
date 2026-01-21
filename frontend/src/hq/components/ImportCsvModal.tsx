@@ -5,6 +5,7 @@ import { parseWellsFargoNoHeaderTransactions } from "@/hq/lib/wellsFargoCsv";
 import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import { useHqStore, hydrateHqState, readHqState } from "@/hq/lib/hqStore";
 import { fetchHqSummary, fetchHqTransactions, importHqCsv } from "@/hq/lib/hqApi";
+import { sendHqUpdated } from "@/hq/lib/hqWebSocket";
 import type { HqAccount, HqTransaction } from "@/hq/types";
 import HqSelect from "@/hq/components/HqSelect";
 import styles from "./ImportCsvModal.module.css";
@@ -19,6 +20,7 @@ type ImportCsvModalProps = {
   onRequestClose: () => void;
   defaultAccountId?: string;
   onImported?: (result: { imported: number; duplicates: number }) => void;
+  ws?: WebSocket | null;
 };
 
 type ImportStep = 1 | 2 | 3 | 4;
@@ -48,6 +50,7 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
   onRequestClose,
   defaultAccountId,
   onImported,
+  ws,
 }) => {
   const accounts = useHqStore(orgId, (s) => s.accounts);
   const categoryRules = useHqStore(orgId, (s) => s.categoryRules);
@@ -162,6 +165,9 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
         missingAnchorAccountIds: Array.isArray(summary.missingAnchorAccountIds) ? summary.missingAnchorAccountIds : [],
       });
 
+      // Notify other org members of the import
+      sendHqUpdated(ws, orgId, "import", accountId);
+
       toast.success(`${result.imported} transactions imported, ${result.duplicates} duplicates skipped.`);
       onImported?.({ imported: result.imported, duplicates: result.duplicates });
       onRequestClose();
@@ -195,7 +201,7 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
     } finally {
       setIsWorking(false);
     }
-  }, [accountId, file, isWorking, onImported, onRequestClose, orgId, parsed]);
+  }, [accountId, file, isWorking, onImported, onRequestClose, orgId, parsed, ws]);
 
   const previewRows = (parsed || []).slice(0, 20);
 

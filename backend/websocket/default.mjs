@@ -23,6 +23,7 @@ const notificationsTable = process.env.NOTIFICATIONS_TABLE;
 const projectsTable = process.env.PROJECTS_TABLE;
 const pendingBatchesTable = process.env.PENDING_BATCHES_TABLE || "PendingEditBatches";
 const activityTable = process.env.ACTIVITY_TABLE || "ProjectActivity";
+const orgMembersTable = process.env.ORG_MEMBERS_TABLE || "OrgMembers";
 
 // ============================================================================
 // NOTIFICATION & ACTIVITY CONFIGURATION
@@ -128,6 +129,9 @@ export const handler = async (event) => {
       return await handleLineLocked(payload, userId);
     case "lineUnlocked":
       return await handleLineUnlocked(payload, userId);
+
+    case "hqUpdated":
+      return await handleHqUpdated(event, payload, userId);
 
     case "setActiveRevision":
       return await handleSetActiveRevision(event, payload);
@@ -487,6 +491,121 @@ async function broadcastToUser(userId, payload) {
   } catch (err) {
     console.error("❌ broadcastToUser error:", err);
   }
+}
+
+/**
+ * Broadcast a payload to all active members of an organization.
+ * Queries OrgMembers table for userIds, then sends to all their connections.
+ */
+async function broadcastToOrgMembers(orgId, payload, excludeUserId = null) {
+  if (!orgId || !orgMembersTable) {
+    console.warn("⚠️ [broadcastToOrgMembers] Missing orgId or orgMembersTable");
+    return;
+  }
+
+  try {
+    // Query OrgMembers table for all active members of this org
+    const membersResult = await dynamoDb.send(new QueryCommand({
+      TableName: orgMembersTable,
+      KeyConditionExpression: "PK = :pk",
+      FilterExpression: "#status = :active OR attribute_not_exists(#status)",
+      ExpressionAttributeNames: { "#status": "status" },
+      ExpressionAttributeValues: {
+        ":pk": `ORG#${orgId}`,
+        ":active": "active",
+      },
+      ProjectionExpression: "userId",
+    }));
+
+    const memberUserIds = (membersResult.Items || [])
+      .map((item) => item.userId)
+      .filter((uid) => uid && uid !== excludeUserId);
+
+    if (memberUserIds.length === 0) {
+      console.log("📭 [broadcastToOrgMembers] No other org members to notify");
+      return;
+    }
+
+    console.log("📡 [broadcastToOrgMembers] Broadcasting to org members:", memberUserIds);
+
+    // Get all connections
+    const connectionsData = await dynamoDb.send(new ScanCommand({
+      TableName: process.env.CONNECTIONS_TABLE,
+      ProjectionExpression: "connectionId, userId",
+    }));
+
+    const targetConnections = (connectionsData.Items || [])
+      .filter((c) => memberUserIds.includes(c.userId))
+      .map((c) => c.connectionId);
+
+    if (targetConnections.length === 0) {
+      console.log("📭 [broadcastToOrgMembers] No active connections for org members");
+      return;
+    }
+
+    console.log("📡 [broadcastToOrgMembers] Sending to connections:", targetConnections.length);
+
+    const stale = [];
+    await Promise.allSettled(
+      targetConnections.map(async (connId) => {
+        try {
+          await apigwManagementApi.send(new PostToConnectionCommand({
+            ConnectionId: connId,
+            Data: JSON.stringify(payload),
+          }));
+        } catch (err) {
+          if (err && err.statusCode === 410) stale.push(connId);
+          else console.error("❌ broadcastToOrgMembers send failed", err);
+        }
+      })
+    );
+
+    // Clean up stale connections
+    if (stale.length) {
+      console.log("🧹 [broadcastToOrgMembers] Cleaning stale connections:", stale.length);
+      await Promise.allSettled(
+        stale.map((id) =>
+          dynamoDb.send(new DeleteCommand({
+            TableName: process.env.CONNECTIONS_TABLE,
+            Key: { connectionId: id },
+          }))
+        )
+      );
+    }
+
+    console.log("✅ [broadcastToOrgMembers] Broadcast complete");
+  } catch (err) {
+    console.error("❌ broadcastToOrgMembers error:", err);
+  }
+}
+
+/**
+ * Handle HQ data updates - broadcasts to all org members so they can refresh their local cache.
+ * Payload: { action: "hqUpdated", orgId, updateType: "account"|"transaction"|"rule", entityId?, senderId? }
+ */
+async function handleHqUpdated(event, payload, userId) {
+  const { orgId, updateType, entityId, senderId } = payload || {};
+
+  if (!orgId) {
+    console.warn("⚠️ [handleHqUpdated] Missing orgId");
+    return { statusCode: 400, body: "orgId required" };
+  }
+
+  console.log("📊 [handleHqUpdated] Broadcasting HQ update:", { orgId, updateType, entityId, senderId });
+
+  const broadcastPayload = {
+    action: "hqUpdated",
+    orgId,
+    updateType: updateType || "general",
+    entityId: entityId || null,
+    updatedBy: senderId || userId,
+    at: new Date().toISOString(),
+  };
+
+  // Broadcast to all org members except the sender
+  await broadcastToOrgMembers(orgId, broadcastPayload, senderId || userId);
+
+  return { statusCode: 200, body: "HQ update broadcast sent" };
 }
 
 function normalizeNotificationMessage(message) {
