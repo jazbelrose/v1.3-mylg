@@ -795,6 +795,49 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
+.lightboxPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 40px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+}
+
+.lightboxPlaceholder span {
+  font-size: 14px;
+}
+
+.lightboxOpenNoteBtn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent-primary, #e91e63);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.lightboxOpenNoteBtn:hover {
+  background: var(--accent-primary-hover, #c2185b);
+  transform: scale(1.02);
+}
+
+.lightboxFileName {
+  text-align: center;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 12px;
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .lightboxNav {
   position: absolute;
   top: 50%;

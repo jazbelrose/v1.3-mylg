@@ -289,7 +289,7 @@ export default function NoteEditorModal({
     return !isReadOnly;
   }, [isDirty, isLoaded, isReadOnly, isSaving, mode]);
 
-  const loadOpenFile = useCallback(async () => {
+  const loadOpenFile = useCallback(async (isReload = false) => {
     if (mode !== "open" || !isOpen) return;
     if (!openFile?.fileUrl || !openFile?.fileName) return;
 
@@ -297,8 +297,11 @@ export default function NoteEditorModal({
     const key = keyFromUrl || openFile.fileUrl;
 
     setError(null);
-    setIsLoading(true);
-    setIsLoaded(false);
+    // Only show loading state on initial load, not on reload after save
+    if (!isReload) {
+      setIsLoading(true);
+      setIsLoaded(false);
+    }
     setLoadedBytes(0);
     setViewInfo(null);
     setFindOpen(false);
@@ -394,6 +397,8 @@ export default function NoteEditorModal({
     } finally {
       setIsLoading(false);
       setIsLoaded(true);
+      // Reset lastAppliedRef to force editor to re-apply content (important for reload after save)
+      lastAppliedRef.current = null;
     }
   }, [isOpen, mode, openFile?.fileName, openFile?.fileUrl, projectId]);
 
@@ -555,7 +560,8 @@ export default function NoteEditorModal({
         throw new Error(`Save failed (${res.status})`);
       }
 
-      await loadOpenFile();
+      // Reload after save - pass true to indicate reload (avoids loading flash)
+      await loadOpenFile(true);
     } catch (err) {
       console.error("Save failed", err);
       setError(err instanceof Error ? err.message : "Save failed.");

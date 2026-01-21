@@ -28,6 +28,7 @@ import {
   Clock,
   X,
   FolderOpen,
+  FileText,
 } from 'lucide-react';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
 import { getFileUrl } from '@/shared/utils/api';
@@ -93,6 +94,7 @@ interface ActivityPanelProps {
   onViewAll?: () => void;
   onPinMessage?: (messageId: string) => void;
   onCreateTaskFromMessage?: (message: ChatMessage) => void;
+  onOpenNote?: (file: RecentFile) => void;
 }
 
 // ============================================================================
@@ -268,9 +270,15 @@ interface FilesLightboxProps {
   onClose: () => void;
   onNavigate: (index: number) => void;
   onOpenFileManager: () => void;
+  onOpenNote?: (file: RecentFile) => void;
 }
 
-function FilesLightbox({ files, currentIndex, onClose, onNavigate, onOpenFileManager }: FilesLightboxProps) {
+function isNoteFile(fileName: string): boolean {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  return ext === 'md' || ext === 'markdown' || ext === 'txt';
+}
+
+function FilesLightbox({ files, currentIndex, onClose, onNavigate, onOpenFileManager, onOpenNote }: FilesLightboxProps) {
   const handlePrev = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onNavigate(currentIndex > 0 ? currentIndex - 1 : files.length - 1);
@@ -331,7 +339,7 @@ function FilesLightbox({ files, currentIndex, onClose, onNavigate, onOpenFileMan
           {currentFile?.fileName || 'Unknown file'}
         </div>
 
-        {/* Image */}
+        {/* Image or Note preview */}
         <div className={styles.lightboxImageWrapper}>
           {imageUrl ? (
             <img
@@ -339,6 +347,21 @@ function FilesLightbox({ files, currentIndex, onClose, onNavigate, onOpenFileMan
               alt={currentFile?.fileName || 'File preview'}
               className={styles.lightboxImage}
             />
+          ) : isNoteFile(currentFile?.fileName || '') && onOpenNote ? (
+            <div className={styles.lightboxPlaceholder}>
+              <FileText size={48} />
+              <span>Note file</span>
+              <button
+                type="button"
+                className={styles.lightboxOpenNoteBtn}
+                onClick={() => {
+                  onOpenNote(currentFile);
+                  onClose();
+                }}
+              >
+                Open Note
+              </button>
+            </div>
           ) : (
             <div className={styles.lightboxPlaceholder}>
               <FileUp size={48} />
@@ -389,6 +412,7 @@ export function ActivityPanel({
   onViewAll,
   onPinMessage,
   onCreateTaskFromMessage,
+  onOpenNote,
 }: ActivityPanelProps) {
   const navigate = useNavigate();
   
@@ -709,6 +733,7 @@ export function ActivityPanel({
           onClose={() => setLightboxOpen(false)}
           onNavigate={(idx) => setLightboxIndex(idx)}
           onOpenFileManager={handleOpenFiles}
+          onOpenNote={onOpenNote}
         />
       )}
     </div>

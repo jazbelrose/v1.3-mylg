@@ -9,7 +9,7 @@
  * - 2-column main content (Timeline left, Updates/Assets right)
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useData } from '@/app/contexts/useData';
 import { useTeamMembers } from '@/dashboard/project/components/Shared/projectHeaderState/useTeamMembers';
@@ -19,8 +19,10 @@ import { OverviewEventsAndTasks } from './components/OverviewEventsAndTasks';
 import type { TimelineTask } from './components/CommandPanel';
 import { ActivityPanel } from './components/ActivityPanel';
 import { ProjectPoster } from './components/ProjectPoster';
+import NoteEditorModal from '@/dashboard/features/messages/components/NoteEditorModal';
 import type { BudgetStats } from '@/dashboard/project/features/budget/context/types';
 import { getProjectDashboardPath } from '@/shared/utils/projectUrl';
+import { getFileUrl } from '@/shared/utils/api';
 
 import styles from './OverviewHud.module.css';
 
@@ -169,6 +171,25 @@ export function OverviewHud({
 
   const navigate = useNavigate();
   const routeLocation = useLocation();
+
+  // State for NoteEditorModal when opening notes from activity/recent files
+  const [noteEditorState, setNoteEditorState] = useState<
+    | { isOpen: false }
+    | { isOpen: true; fileUrl: string; fileName: string }
+  >({ isOpen: false });
+
+  const handleOpenNote = useCallback((file: RecentFile) => {
+    // fileId contains the full S3 key like "projects/{projectId}/uploads/filename.md"
+    // We need to construct the full CDN URL from it
+    const key = file.fileId.startsWith('public/') ? file.fileId : `public/${file.fileId}`;
+    const fileUrl = getFileUrl(key);
+    setNoteEditorState({
+      isOpen: true,
+      fileUrl,
+      fileName: file.fileName,
+    });
+  }, []);
+
   const isOpenTask = useCallback((task: TaskItem): boolean => {
     const status = task.status?.toLowerCase() || '';
     return !['done', 'complete', 'completed'].includes(status);
@@ -322,10 +343,24 @@ export function OverviewHud({
             recentFiles={recentFiles}
             recentLinks={recentLinks}
             maxItems={20}
+            onOpenNote={handleOpenNote}
           />
         </div>
       </div>
 
+      {/* Note Editor Modal for opening notes from activity/recent files */}
+      <NoteEditorModal
+        isOpen={noteEditorState.isOpen}
+        mode="open"
+        projectId={projectId}
+        canEdit={true}
+        openFile={
+          noteEditorState.isOpen
+            ? { fileUrl: noteEditorState.fileUrl, fileName: noteEditorState.fileName }
+            : undefined
+        }
+        onRequestClose={() => setNoteEditorState({ isOpen: false })}
+      />
     </div>
   );
 }
