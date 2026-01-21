@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { toJpeg, toPng } from "html-to-image";
 import { Slide } from "@/app/contexts/DataProvider";
 import SlideReadOnlyRenderer from "./SlideReadOnlyRenderer";
-import { getFileUrl } from "@/shared/utils/api";
+import { getFileUrl, getEmbedUrl } from "@/shared/utils/api";
 
 const NATIVE_SLIDE_WIDTH = 1920;
 const NATIVE_SLIDE_HEIGHT = 1080;
@@ -425,7 +425,8 @@ const OffscreenSlideRenderer = forwardRef<OffscreenSlideRendererRef, OffscreenSl
   }
 
   const backgroundColor = currentSlide.backgroundColor || "#101112";
-  const backgroundImage = currentSlide.backgroundImage ? `url(${getFileUrl(currentSlide.backgroundImage)})` : undefined;
+  // Use embed URL for background (<=2MB), with fallback to original
+  const backgroundImage = currentSlide.backgroundImage ? `url(${getEmbedUrl(currentSlide.backgroundImage, { fallbackToOriginal: true })})` : undefined;
 
   return createPortal(
     <div

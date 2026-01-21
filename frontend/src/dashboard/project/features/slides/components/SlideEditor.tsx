@@ -12,7 +12,7 @@ import { useEditTracking } from "../hooks/useEditTracking";
 import { ToolbarActions } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarActionsPlugin";
 import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
 import { ToolbarContextProvider } from "@/dashboard/project/features/editor/components/Brief/plugins/ToolbarContextBridge";
-import { getFileUrl } from "@/shared/utils/api";
+import { getFileUrl, getEmbedUrl } from "@/shared/utils/api";
 import {
   type FontFamily,
   type FontSize,
@@ -546,7 +546,8 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   // Compute scale: zoom=0 means "fit to view", otherwise use zoom percentage directly
   const scale = zoom === 0 ? fitScale : zoom / 100;
   const appliedScale = Math.max(scale, 0.01);
-  const backgroundImageUrl = slide.backgroundImage ? getFileUrl(slide.backgroundImage) : null;
+  // Use embed URL for background (<=2MB), with fallback to original
+  const backgroundImageUrl = slide.backgroundImage ? getEmbedUrl(slide.backgroundImage, { fallbackToOriginal: true }) : null;
 
   return (
     <DropdownProvider>

@@ -5,7 +5,7 @@ import { toSvg, toPng } from 'html-to-image';
 import { pdf as createPdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
 import { Slide } from '@/app/contexts/DataProvider';
-import { getFileUrl } from '@/shared/utils/api';
+import { getFileUrl, getEmbedUrl } from '@/shared/utils/api';
 import SlidesPdfDocument, { type SlideImageData } from './SlidesPdfDocument';
 
 const NATIVE_SLIDE_WIDTH = 1920;
@@ -661,7 +661,8 @@ async function getSlideImage(
 
   // Fall back to background image if available
   if (slide.backgroundImage) {
-    const bgImageUrl = getFileUrl(slide.backgroundImage);
+    // Use embed URL for background (<=2MB) for better PDF performance
+    const bgImageUrl = getEmbedUrl(slide.backgroundImage, { fallbackToOriginal: true });
     const dataUrl = await imageUrlToDataUrl(bgImageUrl);
     if (dataUrl) {
       return dataUrl;

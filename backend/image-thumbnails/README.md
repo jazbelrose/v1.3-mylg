@@ -1,19 +1,57 @@
-# Image Thumbnails Service
+# Image Thumbnails & Embed Service
 
-S3-triggered Lambda that automatically generates optimized thumbnails for uploaded images.
+S3-triggered Lambda that automatically generates optimized image renditions for uploaded images.
+
+## Renditions Generated
+
+When an image is uploaded to S3, this service generates TWO renditions:
+
+### 1. Thumbnail (for UI grids)
+- **Size**: Max 400x400px
+- **Format**: WebP (best compression)
+- **Path**: `{folder}_thumbnails/{filename}.webp`
+- **Use case**: File manager grid, slide thumbnails, quick previews
+
+### 2. Embed (for slides/deck export)
+- **Size**: Dynamically sized to be **≤ 2MB**
+- **Format**: JPEG (or PNG if image has alpha channel)
+- **Path**: `{folder}_embed/{filename}`
+- **Use case**: Slide editor, deck exports, presentations
+- **Guarantee**: Images are downscaled/compressed until under 2MB
+
+### Original (for download)
+- The original file is preserved at its upload location
+- Use for "Download Original" feature only
+- **Never embed originals in slides** - use the embed rendition
+
+## Path Structure
+
+```
+Original:  projects/{projectId}/files/photo.jpg
+Thumbnail: projects/{projectId}/files_thumbnails/photo.jpg.webp
+Embed:     projects/{projectId}/files_embed/photo.jpg
+```
+
+## Frontend Usage
+
+```typescript
+import { getEmbedUrl, getThumbnailUrl, getFileUrl } from '@/shared/utils/api';
+
+// For slide editor / deck export (<=2MB guaranteed)
+const embedUrl = getEmbedUrl(imageKey, { fallbackToOriginal: true });
+
+// For UI grids (tiny preview)
+const thumbUrl = getThumbnailUrl(imageKey, { fallbackToOriginal: true });
+
+// For download original
+const originalUrl = getFileUrl(imageKey);
+```
 
 ## How It Works
 
 1. **Trigger**: When an image is uploaded to the S3 bucket, the Lambda is triggered
 2. **Process**: The image is resized to max 400x400px and converted to WebP
 3. **Store**: Thumbnail is saved to a parallel `_thumbnails/` path
-
-### Path Structure
-
-```
-Original:  projects/{projectId}/files/photo.jpg
-Thumbnail: projects/{projectId}/files_thumbnails/photo.jpg.webp
-```
 
 ## Supported Formats
 
@@ -26,6 +64,9 @@ Environment variables:
 - `FILE_BUCKET`: S3 bucket name (default: `mylg-files-v12`)
 - `THUMBNAIL_MAX_SIZE`: Max dimension in pixels (default: `400`)
 - `THUMBNAIL_QUALITY`: WebP quality 0-100 (default: `80`)
+- `EMBED_MAX_BYTES`: Max size for embed rendition (default: `2097152` = 2MB)
+- `EMBED_INITIAL_MAX_DIMENSION`: Starting max dimension for embed (default: `3000`)
+- `EMBED_INITIAL_QUALITY`: Starting JPEG quality for embed (default: `85`)
 
 ## Deployment
 

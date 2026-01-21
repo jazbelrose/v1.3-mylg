@@ -13,7 +13,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection";
 
 import { ProjectsContext } from "@/app/contexts/ProjectsContext";
-import { S3_PUBLIC_BASE, getFileUrl, normalizeFileUrl } from "@/shared/utils/api";
+import { S3_PUBLIC_BASE, getFileUrl, normalizeFileUrl, getEmbedUrl } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
 import rotateArrowSvgRaw from "@/assets/svg/rotate arrow.svg?raw";
 import {
@@ -130,11 +130,15 @@ async function uploadImageFileToS3PublicUrl(file: File, projectId: string): Prom
   }
 }
 
+/**
+ * Resolve an image source to a display URL.
+ * Uses embed rendition (<=2MB) for slides, falling back to original if embed not available.
+ */
 function resolvePictureFrameDisplayUrl(value: string | null): string | null {
   if (!value) return null;
   if (value.startsWith("blob:") || value.startsWith("data:")) return value;
-  if (value.startsWith("http")) return normalizeFileUrl(value);
-  return getFileUrl(value);
+  // Use embed URL for display (<=2MB), with fallback to original
+  return getEmbedUrl(value, { fallbackToOriginal: true });
 }
 
 async function preloadImage(url: string): Promise<void> {

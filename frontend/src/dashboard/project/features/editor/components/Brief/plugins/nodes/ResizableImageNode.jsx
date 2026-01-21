@@ -17,7 +17,7 @@ import {
   mergeBorderRadius,
   borderRadiusToCss,
 } from "./imageBorderRadius";
-import { normalizeFileUrl } from "@/shared/utils/api";
+import { normalizeFileUrl, getEmbedUrl } from "@/shared/utils/api";
 import {
   applyModifierNodeSelection,
   duplicateSlideNodes,
@@ -331,9 +331,11 @@ export class ResizableImageNode extends DecoratorNode {
   }
 
   decorate() {
+    // Use embed URL for display (<=2MB), falling back to original if embed not available
+    const displaySrc = getEmbedUrl(this.__src, { fallbackToOriginal: true });
     return (
         <ResizableImageComponent
-          src={normalizeFileUrl(this.__src)}
+          src={displaySrc}
           altText={this.__altText}
           width={this.__width}
           height={this.__height}

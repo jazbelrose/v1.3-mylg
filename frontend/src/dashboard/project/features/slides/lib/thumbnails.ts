@@ -1,7 +1,7 @@
 // lib/thumbnails.ts - Thumbnail generation and upload utilities
 import { toBlob } from 'html-to-image';
 import { uploadData } from 'aws-amplify/storage';
-import { getFileUrl, THUMBNAILS_URL, apiFetch } from '@/shared/utils/api';
+import { getFileUrl, getEmbedUrl, THUMBNAILS_URL, apiFetch } from '@/shared/utils/api';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import SlideReadOnlyRenderer from '../components/SlideReadOnlyRenderer';
@@ -813,7 +813,8 @@ async function renderThumbnailOffscreen(
   container.style.zIndex = '-1';
 
   if (backgroundImage) {
-    container.style.backgroundImage = `url(${getFileUrl(backgroundImage)})`;
+    // Use embed URL for background (<=2MB), with fallback to original
+    container.style.backgroundImage = `url(${getEmbedUrl(backgroundImage, { fallbackToOriginal: true })})`;
     container.style.backgroundSize = 'cover';
     container.style.backgroundPosition = 'center';
     container.style.backgroundRepeat = 'no-repeat';

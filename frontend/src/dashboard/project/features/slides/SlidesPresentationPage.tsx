@@ -5,7 +5,7 @@ import { Maximize2, Minimize2, X } from "lucide-react";
 import { useData } from "@/app/contexts/useData";
 import type { Slide } from "@/app/contexts/DataProvider";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
-import { getFileUrl, apiFetch, deckVersionUrl } from "@/shared/utils/api";
+import { getFileUrl, getEmbedUrl, apiFetch, deckVersionUrl } from "@/shared/utils/api";
 import AppHeaderCard from "@/shared/ui/AppHeaderCard";
 
 import SlideReadOnlyRenderer from "./components/SlideReadOnlyRenderer";
@@ -279,7 +279,7 @@ const SlidesPresentationPage: React.FC = () => {
   }
 
   const backgroundImageUrl = activeSlide?.backgroundImage
-    ? getFileUrl(activeSlide.backgroundImage)
+    ? getEmbedUrl(activeSlide.backgroundImage, { fallbackToOriginal: true })
     : null;
   const backgroundColor = activeSlide?.backgroundColor || "#101112";
 

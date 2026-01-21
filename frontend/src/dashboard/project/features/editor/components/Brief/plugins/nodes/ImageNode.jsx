@@ -6,7 +6,7 @@ import Moveable from "react-moveable";
 import React, { useRef, useState, useEffect } from "react";
 import { useData } from "@/app/contexts/useData";
 import { useImageLocks } from "@/dashboard/project/features/editor/components/Brief/plugins/ImageLockContext";
-import { getFileUrl } from "@/shared/utils/api";
+import { getFileUrl, getEmbedUrl } from "@/shared/utils/api";
 
 export class ImageNode extends DecoratorNode {
   constructor(
@@ -178,9 +178,11 @@ export class ImageNode extends DecoratorNode {
 
   // Render the node's content
   decorate() {
+    // Use embed URL for display (<=2MB), falling back to original if embed not available
+    const displaySrc = getEmbedUrl(this.__src, { fallbackToOriginal: true });
     return (
       <MoveableImage
-        src={getFileUrl(this.__src)}
+        src={displaySrc}
         altText={this.__altText}
         x={this.__x}
         y={this.__y}

@@ -442,6 +442,179 @@ export function getThumbnailUrl(
   return getFileUrl(thumbnailKey);
 }
 
+/**
+ * Get an embed rendition URL for an image file.
+ * 
+ * The backend image-thumbnails service creates embed renditions (<=2MB) 
+ * in a parallel `_embed/` folder structure. Embed renditions are meant 
+ * for use in slides and deck exports - they're smaller than originals
+ * but high enough quality for on-screen display.
+ * 
+ * Examples:
+ * - projects/abc/files/photo.jpg -> projects/abc/files_embed/photo.jpg
+ * - uploads/tasks/image.png -> uploads/tasks_embed/image.png
+ * 
+ * Falls back to original URL if:
+ * - Already a blob/data URL (local upload preview)
+ * - Not a recognized file path pattern
+ * 
+ * @param urlOrKey - Original image URL or S3 key
+ * @param options - Optional configuration
+ * @returns Embed URL or original if not applicable
+ */
+export function getEmbedUrl(
+  urlOrKey: string,
+  options?: { fallbackToOriginal?: boolean }
+): string {
+  const { fallbackToOriginal = true } = options ?? {};
+
+  if (!urlOrKey || typeof urlOrKey !== 'string') {
+    return urlOrKey;
+  }
+
+  const lower = urlOrKey.toLowerCase();
+
+  // Don't transform blob/data URLs - they're local previews
+  if (lower.startsWith('blob:') || lower.startsWith('data:')) {
+    return urlOrKey;
+  }
+
+  // Extract key from URL if needed
+  let key = urlOrKey;
+  let baseUrl = '';
+
+  if (urlOrKey.startsWith('http')) {
+    try {
+      const parsed = new URL(urlOrKey);
+      baseUrl = `${parsed.protocol}//${parsed.host}`;
+      key = parsed.pathname.startsWith('/') 
+        ? decodeURIComponent(parsed.pathname.slice(1)) 
+        : decodeURIComponent(parsed.pathname);
+    } catch {
+      return fallbackToOriginal ? urlOrKey : urlOrKey;
+    }
+  }
+
+  // Check if it's an image file (common extensions)
+  const imageExtensions = /\.(jpg|jpeg|png|gif|webp|bmp|tiff?)$/i;
+  if (!imageExtensions.test(key)) {
+    return fallbackToOriginal ? getFileUrl(urlOrKey) : urlOrKey;
+  }
+
+  // Transform path to embed path:
+  // projects/{id}/files/name.jpg -> projects/{id}/files_embed/name.jpg
+  // uploads/tasks/name.jpg -> uploads/tasks_embed/name.jpg
+  const embedKey = key.replace(
+    /^(.*?)\/([^/]+)\/([^/]+)$/,
+    (match, prefix, folder, filename) => {
+      // Skip if already an embed or thumbnail path
+      if (folder.endsWith('_embed') || folder.endsWith('_thumbnails')) {
+        return match;
+      }
+      return `${prefix}/${folder}_embed/${filename}`;
+    }
+  );
+
+  // If transformation didn't change anything, return original
+  if (embedKey === key) {
+    return fallbackToOriginal ? getFileUrl(urlOrKey) : urlOrKey;
+  }
+
+  // Build the embed URL
+  if (baseUrl) {
+    return `${baseUrl}/${embedKey}`;
+  }
+
+  return getFileUrl(embedKey);
+}
+
+/**
+ * Check if an embed rendition exists for an image URL.
+ * Uses a HEAD request to check if the embed URL is accessible.
+ * 
+ * @param urlOrKey - Original image URL or S3 key
+ * @returns Promise<boolean> - true if embed exists, false otherwise
+ */
+export async function checkEmbedExists(urlOrKey: string): Promise<boolean> {
+  const embedUrl = getEmbedUrl(urlOrKey, { fallbackToOriginal: false });
+  
+  // If the URL didn't transform (no _embed path), embed doesn't apply
+  if (embedUrl === urlOrKey || !embedUrl.includes('_embed/')) {
+    return false;
+  }
+  
+  try {
+    const response = await fetch(embedUrl, { method: 'HEAD' });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Image rendition status for batch import tracking
+ */
+export type ImageRenditionStatus = 'uploading' | 'processing' | 'ready' | 'failed';
+
+export interface ImageUploadProgress {
+  url: string;
+  status: ImageRenditionStatus;
+  error?: string;
+}
+
+/**
+ * Wait for embed rendition to be generated (with timeout).
+ * Useful for batch import UX to show when processing is complete.
+ * 
+ * @param urlOrKey - Original image URL or S3 key
+ * @param options - Configuration options
+ * @returns Promise that resolves when embed is ready or rejects on timeout/error
+ */
+export async function waitForEmbedRendition(
+  urlOrKey: string,
+  options?: { 
+    timeoutMs?: number;
+    pollIntervalMs?: number;
+    onProgress?: (status: ImageRenditionStatus) => void;
+  }
+): Promise<string> {
+  const { 
+    timeoutMs = 30000,  // 30 second timeout
+    pollIntervalMs = 1000, // Poll every 1 second
+    onProgress 
+  } = options ?? {};
+  
+  const embedUrl = getEmbedUrl(urlOrKey, { fallbackToOriginal: false });
+  
+  // If no embed URL could be generated, just return the original
+  if (embedUrl === urlOrKey || !embedUrl.includes('_embed/')) {
+    return getFileUrl(urlOrKey);
+  }
+  
+  onProgress?.('processing');
+  
+  const startTime = Date.now();
+  
+  while (Date.now() - startTime < timeoutMs) {
+    try {
+      const response = await fetch(embedUrl, { method: 'HEAD' });
+      if (response.ok) {
+        onProgress?.('ready');
+        return embedUrl;
+      }
+    } catch {
+      // Ignore errors, keep polling
+    }
+    
+    // Wait before next poll
+    await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+  }
+  
+  // Timeout - return original URL as fallback
+  console.warn(`Embed rendition timed out for ${urlOrKey}, using original`);
+  return getFileUrl(urlOrKey);
+}
+
 export function normalizeFileUrl(urlOrKey: string): string {
   if (!urlOrKey) return urlOrKey;
   if (urlOrKey.startsWith('http')) {

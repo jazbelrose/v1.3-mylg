@@ -16,6 +16,10 @@ provider:
     FILE_BUCKET: ${env:S3_BUCKET_NAME, 'mylg-files-v12'}
     THUMBNAIL_MAX_SIZE: 400  # Max dimension in pixels
     THUMBNAIL_QUALITY: 80    # WebP quality (0-100)
+    # Embed rendition config (for slides/deck export)
+    EMBED_MAX_BYTES: 2097152  # 2MB max for embed renditions
+    EMBED_INITIAL_MAX_DIMENSION: 3000  # Starting max dimension
+    EMBED_INITIAL_QUALITY: 85  # Starting JPEG quality
   iam:
     role:
       statements:
