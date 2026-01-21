@@ -31,13 +31,13 @@ export function useInvoiceGrouping({ items }: UseInvoiceGroupingOptions): UseInv
   }, [items]);
 
   useEffect(() => {
-    const values = Array.from(
+    const rawValues = Array.from(
       new Set(
-        items
-          .map((item) => String((item as BudgetItem)[groupField] || "").trim())
-          .filter(Boolean)
+        items.map((item) => String((item as BudgetItem)[groupField] || "").trim())
       )
     );
+    // For category, keep empty strings to include UNCATEGORIZED items
+    const values = groupField === "category" ? rawValues : rawValues.filter(Boolean);
     setGroupValues((prev) => {
       if (prev.length === 0) return values;
       const filteredVals = prev.filter((value) => values.includes(value));
@@ -46,21 +46,22 @@ export function useInvoiceGrouping({ items }: UseInvoiceGroupingOptions): UseInv
   }, [items, groupField]);
 
   const groupOptions = useMemo(
-    () =>
-      Array.from(
+    () => {
+      const rawValues = Array.from(
         new Set(
-          items
-            .map((item) => String((item as BudgetItem)[groupField] || "").trim())
-            .filter(Boolean)
+          items.map((item) => String((item as BudgetItem)[groupField] || "").trim())
         )
-      ),
+      );
+      // For category, keep empty strings to include UNCATEGORIZED items
+      return groupField === "category" ? rawValues : rawValues.filter(Boolean);
+    },
     [items, groupField]
   );
 
   const filteredItems = useMemo(() => {
     if (groupValues.length === 0) return items;
     return items.filter((item) =>
-      groupValues.includes(String((item as BudgetItem)[groupField]).trim())
+      groupValues.includes(String((item as BudgetItem)[groupField] || "").trim())
     );
   }, [groupField, groupValues, items]);
 

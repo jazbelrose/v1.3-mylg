@@ -418,7 +418,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               {rows.map((row, idx) =>
                 row.type === "group" ? (
                   <tr className="group-header" key={`g-${rowsKeyPrefix}-${idx}`}>
-                    <td colSpan={5}>{row.group}</td>
+                    <td colSpan={5}>{row.group || "UNCATEGORIZED"}</td>
                   </tr>
                 ) : (
                   <tr key={row.item.budgetItemId || `row-${rowsKeyPrefix}-${idx}`}>

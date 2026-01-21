@@ -41,7 +41,7 @@
   min-height: 0;
   padding: 12px 12px 0;
   background: var(--project-header-bg, var(--bg2, #111213));
-  border-radius: 32px;
+  border-radius: 20px;
   overflow: hidden;
   position: relative;
   isolation: isolate;

@@ -57,7 +57,7 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
       const rowsHtml = pageRows
         .map((row) =>
           row.type === "group"
-            ? `<tr class="group-header"><td colSpan="5">${row.group}</td></tr>`
+            ? `<tr class="group-header"><td colSpan="5">${row.group || "UNCATEGORIZED"}</td></tr>`
             : `<tr>
                  <td>${row.item.description || ""}</td>
                  <td>${row.item.quantity || ""}</td>

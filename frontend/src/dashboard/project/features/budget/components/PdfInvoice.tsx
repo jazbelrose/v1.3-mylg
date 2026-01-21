@@ -467,7 +467,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
             if (segment.type === "group") {
               return (
                 <View key={`g-${segment.group}-${index}`} style={[styles.tableRow, styles.groupRow]} wrap={false}>
-                  <Text style={[styles.tableCell, styles.descriptionColumn]}>{segment.group}</Text>
+                  <Text style={[styles.tableCell, styles.descriptionColumn]}>{segment.group || "UNCATEGORIZED"}</Text>
                   <Text style={[styles.tableCell, styles.numericColumn]} />
                   <Text style={[styles.tableCell, styles.numericColumn]} />
                   <Text style={[styles.tableCell, styles.numericColumn]} />
@@ -481,7 +481,7 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
               return (
                 <View key={groupKey} wrap={false}>
                   <View style={[styles.tableRow, styles.groupRow]}>
-                    <Text style={[styles.tableCell, styles.descriptionColumn]}>{segment.group}</Text>
+                    <Text style={[styles.tableCell, styles.descriptionColumn]}>{segment.group || "UNCATEGORIZED"}</Text>
                     <Text style={[styles.tableCell, styles.numericColumn]} />
                     <Text style={[styles.tableCell, styles.numericColumn]} />
                     <Text style={[styles.tableCell, styles.numericColumn]} />

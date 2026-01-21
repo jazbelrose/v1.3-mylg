@@ -1117,7 +1117,7 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
           <option hidden value="" />
           {(fieldDef.options ?? []).map((option) => (
             <option key={option || "__uncategorized__"} value={option}>
-              {option || (isCategory ? "Uncategorized (Standalone)" : "")}
+              {option || (isCategory ? "UNCATEGORIZED" : "")}
             </option>
           ))}
         </select>

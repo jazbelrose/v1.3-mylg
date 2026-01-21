@@ -360,12 +360,24 @@ export function useInvoicePreviewModal({
   const rowsData: RowData[] = useMemo(() => {
     const groups = groupValues.length === 0 ? groupOptions : groupValues;
     const rows: RowData[] = [];
-    groups.forEach((group) => {
+    // Separate UNCATEGORIZED (empty string) from regular groups
+    const regularGroups = groups.filter((g) => g !== "");
+    const hasUncategorized = groups.includes("");
+
+    // Add grouped items (with group headers) for regular groups
+    regularGroups.forEach((group) => {
       if (group) rows.push({ type: "group", group });
       items
         .filter((item) => String((item as BudgetItem)[groupField]).trim() === group)
         .forEach((item) => rows.push({ type: "item", item }));
     });
+
+    // Add UNCATEGORIZED items as standalone rows (no group header) at the bottom
+    if (hasUncategorized) {
+      items
+        .filter((item) => String((item as BudgetItem)[groupField] || "").trim() === "")
+        .forEach((item) => rows.push({ type: "item", item }));
+    }
     return rows;
   }, [items, groupValues, groupField, groupOptions]);
 
