@@ -73,6 +73,7 @@ import { useFileManagerState } from '../Shared/hooks/useFileManagerState';
 import { useFileMessenger } from '../Shared/hooks/useFileMessenger';
 import { useFileTransfers } from '../Shared/hooks/useFileTransfers';
 import type { Message } from '@/app/contexts/DataProvider';
+import { useOrg } from '@/app/contexts/useOrg';
 import type { FileManagerProps, FileManagerRef, FolderOption, FileItem, ViewMode } from './FileManagerTypes';
 import { apiFetch, EDIT_PROJECT_URL, getFileUrl } from '@/shared/utils/api';
 import { notify } from '@/shared/ui/ToastNotifications';
@@ -142,9 +143,13 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       setProjectMessages = () => {},
     } = useData();
     const { ws } = useSocket() || {};
+    const { orgs, activeOrgBranding } = useOrg();
 
     // In org mode, everyone with access can upload/delete
     const isOrgMode = Boolean(orgId);
+
+    // Get org info when in org mode
+    const activeOrg = isOrgMode ? orgs.find(o => o.orgId === orgId) : null;
     const canUpload = isOrgMode || isAdmin || isBuilder || isDesigner || folder === 'uploads';
     const canDelete = isOrgMode || isAdmin || isBuilder || isDesigner;
 
@@ -1225,8 +1230,27 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                   {sidebarCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
                 </button>
 
-                {/* Project Context Chip */}
-                {activeProject && (
+                {/* Context Chip - Org or Project */}
+                {isOrgMode ? (
+                  <div className={styles.projectChip}>
+                    {activeOrgBranding?.logoUrl ? (
+                      <img 
+                        src={activeOrgBranding.logoUrl} 
+                        alt="" 
+                        className={styles.projectChipAvatar}
+                      />
+                    ) : (
+                      <div className={styles.projectChipAvatarPlaceholder}>
+                        {(activeOrg?.name || 'O').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span className={styles.projectChipName}>
+                      {activeOrg?.name || 'Organization'}
+                    </span>
+                    <span className={styles.projectChipSeparator}>›</span>
+                    <span className={styles.projectChipSection}>Files</span>
+                  </div>
+                ) : activeProject ? (
                   <div className={styles.projectChip}>
                     {(activeProject.thumbnails as string[])?.[0] ? (
                       <img 
@@ -1245,7 +1269,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                     <span className={styles.projectChipSeparator}>›</span>
                     <span className={styles.projectChipSection}>Files</span>
                   </div>
-                )}
+                ) : null}
 
                 {/* Breadcrumb (only show subfolders) */}
                 {breadcrumbSegments.length > 1 && (
