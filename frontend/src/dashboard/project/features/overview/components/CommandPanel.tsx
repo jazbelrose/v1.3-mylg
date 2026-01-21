@@ -35,6 +35,7 @@ import {
   Square,
   ListTodo,
   Users,
+  Sparkles,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ProjectAvatar } from '@/shared/ui';
@@ -143,6 +144,12 @@ export interface CommandPanelProps {
   onCreateTask?: () => void;
   onCreateEvent?: () => void;
   onViewCalendar?: () => void;
+  /** Show/hide sweep done toggle button */
+  showSweepDone?: boolean;
+  /** Controlled hide-completed state (optional) */
+  hideCompleted?: boolean;
+  /** Callback when sweep toggle is clicked (for controlled mode) */
+  onHideCompletedChange?: (hideCompleted: boolean) => void;
 }
 
 // ============================================================================
@@ -975,6 +982,9 @@ export function CommandPanel({
   onCreateTask,
   onCreateEvent,
   onViewCalendar,
+  showSweepDone = true,
+  hideCompleted: hideCompletedProp,
+  onHideCompletedChange,
 }: CommandPanelProps) {
   const projectFilterRef = useRef<HTMLDivElement>(null);
   const assigneeFilterRef = useRef<HTMLDivElement>(null);
@@ -1064,6 +1074,22 @@ export function CommandPanel({
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   
+  // Sweep done (hide completed) - internal state for uncontrolled mode
+  const [internalHideCompleted, setInternalHideCompleted] = useState(false);
+  
+  // Resolve hideCompleted: controlled vs uncontrolled
+  const isHideCompletedControlled = hideCompletedProp !== undefined;
+  const hideCompleted = isHideCompletedControlled ? hideCompletedProp : internalHideCompleted;
+  
+  const handleToggleSweep = useCallback(() => {
+    const next = !hideCompleted;
+    if (isHideCompletedControlled) {
+      onHideCompletedChange?.(next);
+    } else {
+      setInternalHideCompleted(next);
+    }
+  }, [hideCompleted, isHideCompletedControlled, onHideCompletedChange]);
+  
   // Selection, hover, popover state
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -1147,7 +1173,27 @@ export function CommandPanel({
 
   const openCalendarEntryPopover = useCallback(
     (anchorElement: HTMLElement, task: TimelineTask) => {
-      const focusChildrenTimeline = focusChildrenByContainerId.get(task.id) ?? [];
+      let focusChildrenTimeline = focusChildrenByContainerId.get(task.id) ?? [];
+      
+      // If no children found via focusBlockId lookup, fall back to focusChecklist metadata
+      // This handles cases where child tasks are filtered out (e.g., done tasks in AllEventsAndTasksPanel)
+      if (focusChildrenTimeline.length === 0 && task.focusChecklist && task.focusChecklist.length > 0) {
+        focusChildrenTimeline = task.focusChecklist.map((item, index) => ({
+          id: item.taskId,
+          type: 'task' as const,
+          title: item.title || 'Untitled',
+          status: 'todo',
+          done: false,
+          dueDate: task.dueDate,
+          startAt: task.startAt,
+          endAt: task.endAt,
+          kind: undefined,
+          order: index,
+          focusBlockId: task.id,
+          source: { taskId: item.taskId, projectId: (task.source as Record<string, unknown>)?.projectId },
+        }));
+      }
+      
       const focusChildren = focusChildrenTimeline.map(toCalendarTask);
       setCalendarEntryPopover({
         anchorElement,
@@ -1165,7 +1211,26 @@ export function CommandPanel({
     if (!calendarEntryPopover) return;
     const containerId = calendarEntryPopover.timelineTask.id;
     const latestContainer = tasks.find((t) => t.id === containerId) ?? calendarEntryPopover.timelineTask;
-    const latestChildrenTimeline = focusChildrenByContainerId.get(containerId) ?? [];
+    let latestChildrenTimeline = focusChildrenByContainerId.get(containerId) ?? [];
+    
+    // Fall back to focusChecklist if no children found
+    if (latestChildrenTimeline.length === 0 && latestContainer.focusChecklist && latestContainer.focusChecklist.length > 0) {
+      latestChildrenTimeline = latestContainer.focusChecklist.map((item, index) => ({
+        id: item.taskId,
+        type: 'task' as const,
+        title: item.title || 'Untitled',
+        status: 'todo',
+        done: false,
+        dueDate: latestContainer.dueDate,
+        startAt: latestContainer.startAt,
+        endAt: latestContainer.endAt,
+        kind: undefined,
+        order: index,
+        focusBlockId: latestContainer.id,
+        source: { taskId: item.taskId, projectId: (latestContainer.source as Record<string, unknown>)?.projectId },
+      }));
+    }
+    
     const latestChildren = latestChildrenTimeline.map(toCalendarTask);
 
     setCalendarEntryPopover((prev) => {
@@ -1244,10 +1309,23 @@ export function CommandPanel({
       const doneCount = sortedChildren.filter(childDone).length;
       const totalCount = sortedChildren.length || (Array.isArray(t.focusChecklist) ? t.focusChecklist.length : 0);
 
-      const preview = sortedChildren.slice(0, 3).map((c) => {
-        const icon: 'checked' | 'unchecked' = childDone(c) ? 'checked' : 'unchecked';
-        return { id: c.id, title: c.title || 'Untitled', icon };
-      });
+      // Build preview - prefer actual children, fall back to focusChecklist metadata
+      let preview: Array<{ id: string; title: string; icon: 'checked' | 'unchecked' }>;
+      if (sortedChildren.length > 0) {
+        preview = sortedChildren.slice(0, 3).map((c) => {
+          const icon: 'checked' | 'unchecked' = childDone(c) ? 'checked' : 'unchecked';
+          return { id: c.id, title: c.title || 'Untitled', icon };
+        });
+      } else if (Array.isArray(t.focusChecklist) && t.focusChecklist.length > 0) {
+        // Fall back to focusChecklist when children aren't in the task list
+        preview = t.focusChecklist.slice(0, 3).map((item) => ({
+          id: item.taskId,
+          title: item.title || 'Untitled',
+          icon: 'unchecked' as const,
+        }));
+      } else {
+        preview = [];
+      }
 
       const assignees = uniqueBy(
         [
@@ -1332,6 +1410,15 @@ export function CommandPanel({
     ];
     
     return allItems.filter(item => {
+      // Hide completed filter (sweep done)
+      if (hideCompleted && item.type === 'task') {
+        const task = item as TimelineTask;
+        const status = typeof task.status === 'string' ? task.status.trim().toLowerCase() : '';
+        if (task.done || status === 'done' || status === 'completed') {
+          return false;
+        }
+      }
+      
       // Time filter
       const itemDate = getItemDate(item);
       if (!itemDate && timeFilter !== 'all') {
@@ -1406,7 +1493,7 @@ export function CommandPanel({
       
       return true;
     });
-  }, [events, displayTasks, timeFilter, assigneeFilter, searchQuery, today, currentUserId, currentUserEmail]);
+  }, [events, displayTasks, timeFilter, assigneeFilter, searchQuery, today, currentUserId, currentUserEmail, hideCompleted]);
   
   // Group by day
   const groupedItems = useMemo(() => {
@@ -1827,6 +1914,18 @@ export function CommandPanel({
             </div>
 
             <div className={styles.headerActions}>
+              {showSweepDone && (
+                <button
+                  type="button"
+                  className={`${styles.sweepButton} ${hideCompleted ? styles.sweepButtonActive : ''}`}
+                  onClick={handleToggleSweep}
+                  title={hideCompleted ? 'Show completed items' : 'Hide completed items'}
+                  aria-pressed={hideCompleted}
+                >
+                  <Sparkles size={14} />
+                  <span>{hideCompleted ? 'Undo sweep' : 'Sweep done'}</span>
+                </button>
+              )}
               <button
                 type="button"
                 className={styles.searchToggle}
