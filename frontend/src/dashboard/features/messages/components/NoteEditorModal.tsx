@@ -16,7 +16,7 @@ import { CodeNode } from "@lexical/code";
 import { $convertFromMarkdownString, $convertToMarkdownString, TRANSFORMERS } from "@lexical/markdown";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import type { Klass, LexicalNode, EditorState, LexicalEditor } from "lexical";
-import { FORMAT_TEXT_COMMAND, REDO_COMMAND, SELECT_ALL_COMMAND, UNDO_COMMAND } from "lexical";
+import { $getRoot, FORMAT_TEXT_COMMAND, REDO_COMMAND, SELECT_ALL_COMMAND, UNDO_COMMAND } from "lexical";
 
 import Modal from "@/shared/ui/ModalWithStack";
 import Spinner from "@/shared/ui/Spinner";
@@ -135,16 +135,25 @@ const Placeholder = ({ text }: { text: string }) => <div className={styles.place
 const ExternalMarkdownPlugin: React.FC<{
   markdown: string;
   lastAppliedRef: React.MutableRefObject<string | null>;
-}> = ({ markdown, lastAppliedRef }) => {
+  forceUpdate?: number; // trigger re-apply when this changes
+}> = ({ markdown, lastAppliedRef, forceUpdate }) => {
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
-    if (markdown === lastAppliedRef.current) return;
+    // If lastAppliedRef is null (just opened modal), always apply
+    // Also apply if markdown differs from last applied
+    if (lastAppliedRef.current !== null && markdown === lastAppliedRef.current) return;
+    
     editor.update(() => {
-      $convertFromMarkdownString(markdown || "", TRANSFORMERS);
+      // Clear existing content first, then apply new markdown
+      const root = $getRoot();
+      root.clear();
+      if (markdown) {
+        $convertFromMarkdownString(markdown, TRANSFORMERS);
+      }
     });
     lastAppliedRef.current = markdown;
-  }, [editor, lastAppliedRef, markdown]);
+  }, [editor, lastAppliedRef, markdown, forceUpdate]);
 
   return null;
 };
@@ -179,8 +188,12 @@ export default function NoteEditorModal({
   onSave,
 }: NoteEditorModalProps) {
   const [title, setTitle] = useState("");
-  const [markdown, setMarkdown] = useState("");
-  const [initialMarkdown, setInitialMarkdown] = useState("");
+  const [markdown, setMarkdown] = useState(() => 
+    mode === "edit" && editContent?.initialContent ? editContent.initialContent : ""
+  );
+  const [initialMarkdown, setInitialMarkdown] = useState(() =>
+    mode === "edit" && editContent?.initialContent ? editContent.initialContent : ""
+  );
   const [isLoaded, setIsLoaded] = useState(mode === "create");
   const [isLoading, setIsLoading] = useState(mode === "open");
   const [isSaving, setIsSaving] = useState(false);
@@ -195,6 +208,7 @@ export default function NoteEditorModal({
 
   const [editor, setEditor] = useState<LexicalEditor | null>(null);
   const lastAppliedRef = useRef<string | null>(null);
+  const [editorKey, setEditorKey] = useState(0); // Forces re-mount of Lexical when changed
 
   const rootEl = useMemo(() => editor?.getRootElement() ?? null, [editor]);
   const haystack = useMemo(() => (rootEl?.textContent ?? ""), [rootEl, markdown]);
@@ -358,6 +372,8 @@ export default function NoteEditorModal({
       setFindOpen(false);
       setFindQuery("");
       setFindIndex(0);
+      lastAppliedRef.current = null; // Reset to ensure content loads
+      setEditorKey(k => k + 1); // Force re-mount of Lexical editor
       return;
     }
     if (mode === "edit" && editContent) {
@@ -372,6 +388,8 @@ export default function NoteEditorModal({
       setFindOpen(false);
       setFindQuery("");
       setFindIndex(0);
+      lastAppliedRef.current = null; // Reset to ensure content loads on every open
+      setEditorKey(k => k + 1); // Force re-mount of Lexical editor with new content
       return;
     }
     void loadOpenFile();
@@ -461,13 +479,10 @@ export default function NoteEditorModal({
       }
 
       if (mode === "edit") {
-        // For inline edit mode, just call the onSave callback with the plain text content
+        // For inline edit mode, call the onSave callback with the markdown content
+        // The markdown state is maintained by OnChangePlugin as the Lexical content is edited
         if (onSave) {
-          const plainText = editor?.getEditorState().read(() => {
-            const root = editor.getEditorState()._nodeMap.get("root");
-            return root ? (root as unknown as { __cachedText?: string }).__cachedText || markdown : markdown;
-          }) || markdown;
-          onSave(plainText);
+          onSave(markdown.trim());
         }
         onRequestClose();
         return;
@@ -510,13 +525,27 @@ export default function NoteEditorModal({
     }
   }, [canSave, editor, effectiveTitle, loadOpenFile, markdown, mode, onCreate, onRequestClose, onSave, openFile?.fileName, openFile?.fileUrl, projectId, viewInfo?.contentType, viewInfo?.etag]);
 
+  // For edit mode, derive initial content directly from props to avoid timing issues
+  const effectiveInitialContent = useMemo(() => {
+    if (mode === "edit" && editContent?.initialContent) {
+      return editContent.initialContent;
+    }
+    return "";
+  }, [mode, editContent?.initialContent]);
+
   const editorConfig = useMemo(
     () => ({
       namespace: "note-editor",
       onError: (err: Error) => console.error("Lexical error", err),
       nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, CodeNode] as Klass<LexicalNode>[],
+      // Initialize with content when the editor mounts - use effectiveInitialContent for immediate availability
+      editorState: effectiveInitialContent
+        ? () => {
+            $convertFromMarkdownString(effectiveInitialContent, TRANSFORMERS);
+          }
+        : undefined,
     }),
-    [],
+    [effectiveInitialContent],
   );
 
   return (
@@ -694,7 +723,7 @@ export default function NoteEditorModal({
             </div>
           ) : (
             <div className={styles.editorInner}>
-              <LexicalComposer initialConfig={editorConfig}>
+              <LexicalComposer key={`${editorKey}-${effectiveInitialContent.length}`} initialConfig={editorConfig}>
                 <RichTextPlugin
                   contentEditable={
                     <ContentEditable
@@ -714,7 +743,7 @@ export default function NoteEditorModal({
                 <LinkPlugin />
                 <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
                 <EditorBridgePlugin onReady={setEditor} />
-                <ExternalMarkdownPlugin markdown={markdown} lastAppliedRef={lastAppliedRef} />
+                <ExternalMarkdownPlugin markdown={markdown} lastAppliedRef={lastAppliedRef} forceUpdate={editorKey} />
                 <OnChangePlugin
                   onChange={(editorState: EditorState) => {
                     editorState.read(() => {
