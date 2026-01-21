@@ -593,12 +593,14 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
     setSelectedPreviewFile(null);
   };
 
-  // WebSocket delete listener
+  // WebSocket message listener (delete, edit, reactions)
   useEffect(() => {
     if (!ws) return;
     const handleWsMessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
+        
+        // Handle delete message
         if (
           data.action === "deleteMessage" &&
           data.conversationType === "project"
@@ -617,6 +619,36 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
                     (data.optimisticId &&
                       m.optimisticId === data.optimisticId)
                   )
+              );
+              setWithTTL(pmKey(pid), updated);
+              return { ...prev, [pid]: updated } as ProjectMessagesMap;
+            });
+          }
+        }
+        
+        // Handle edit message (including note renames)
+        if (
+          data.action === "editMessage" &&
+          data.conversationType === "project"
+        ) {
+          const pid =
+            data.projectId ||
+            (data.conversationId || "").replace("project#", "");
+          if (pid === projectId) {
+            setProjectMessages((prev: ProjectMessagesMap) => {
+              const msgs: Message[] = Array.isArray(prev[pid]) ? prev[pid] as Message[] : [];
+              const updated = msgs.map((m) =>
+                m.messageId === data.messageId
+                  ? {
+                      ...m,
+                      text: data.text ?? m.text,
+                      edited: true,
+                      editedAt: data.editedAt,
+                      // Support note rename
+                      ...(data.noteTitle !== undefined ? { noteTitle: data.noteTitle } : {}),
+                      ...(data.file !== undefined ? { file: data.file } : {}),
+                    }
+                  : m
               );
               setWithTTL(pmKey(pid), updated);
               return { ...prev, [pid]: updated } as ProjectMessagesMap;
