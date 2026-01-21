@@ -51,6 +51,14 @@ declare global {
   var __dirname: string;
 }
 
+// Extend React InputHTMLAttributes to include webkit folder selection attributes
+declare namespace React {
+  interface InputHTMLAttributes<T> {
+    webkitdirectory?: string;
+    directory?: string;
+  }
+}
+
 
 
 

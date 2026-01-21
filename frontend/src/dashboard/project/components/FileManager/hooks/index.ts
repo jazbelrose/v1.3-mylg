@@ -12,3 +12,22 @@ export { useFileListCache } from './useFileListCache';
 
 export { useScrollState } from './useScrollState';
 export type { ScrollState, UseScrollStateOptions } from './useScrollState';
+
+export { 
+  useFileTransferStore,
+  startBatch,
+  updateItemProgress,
+  completeItem,
+  failItem,
+  cancelBatch,
+  clearBatch,
+  clearCompletedBatches,
+  getActiveBatches,
+  getAllBatches,
+} from './useFileTransferStore';
+export type { 
+  TransferType, 
+  TransferStatus, 
+  TransferItem, 
+  TransferBatch,
+} from './useFileTransferStore';

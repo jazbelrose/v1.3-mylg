@@ -19,6 +19,18 @@ import { getFileKind } from "../../FileManager/FileManagerUtils";
 import { downloadViaAnchor } from "../../../../../shared/utils/download";
 import { useFileListCache } from "../../FileManager/hooks/useFileListCache";
 import { filesPerf } from "../../FileManager/hooks/useFilesPerf";
+import { 
+  processDroppedItems, 
+  type DroppedFile,
+  type FolderDropResult,
+} from "../../FileManager/utils/folderDrop";
+import {
+  startBatch,
+  updateItemProgress,
+  completeItem,
+  failItem,
+  type TransferBatch,
+} from "../../FileManager/hooks/useFileTransferStore";
 
 interface UseFileTransfersParams {
   activeProject: Project;
@@ -229,65 +241,124 @@ export const useFileTransfers = ({
     return response.zipFileUrl;
   }, []);
 
+  /**
+   * Upload a single file to S3 with progress tracking
+   * Uses pLimit queue for concurrent upload control
+   * @param entityId - Project or org ID
+   * @param file - File to upload
+   * @param relativePath - Optional relative path for folder uploads (e.g., "subfolder/")
+   * @param batchId - Optional batch ID for transfer status tracking
+   */
   const uploadFileToS3 = useCallback(
-    (entityId: string, file: File) =>
+    (entityId: string, file: File, relativePath?: string, batchId?: string) =>
       uploadQueue(async () => {
-        // In org mode, use orgs/ prefix; otherwise use projects/ prefix
+        // Build the S3 key with optional relative path for folder structure
+        const pathPrefix = relativePath || '';
         const filename = isOrgMode
-          ? `orgs/${entityId}/uploads/${file.name}`
-          : `projects/${entityId}/${folderKey}/${file.name}`;
+          ? `orgs/${entityId}/uploads/${pathPrefix}${file.name}`
+          : `projects/${entityId}/${folderKey}/${pathPrefix}${file.name}`;
+        
         const uploadTask = uploadData({
           key: filename,
           data: file,
-          options: { accessLevel: "guest" },
+          options: { 
+            accessLevel: "guest",
+            // Progress callback for real-time updates
+            onProgress: (progress: { transferredBytes: number; totalBytes: number }) => {
+              if (batchId && progress.totalBytes > 0) {
+                const percent = Math.round((progress.transferredBytes / progress.totalBytes) * 100);
+                // Use startTransition for non-blocking progress updates
+                startTransition(() => {
+                  updateItemProgress(batchId, file.name, percent, progress.transferredBytes);
+                });
+              }
+            },
+          },
         });
 
         await uploadTask.result;
+        
+        // Mark as complete in transfer store
+        if (batchId) {
+          completeItem(batchId, file.name);
+        }
 
         const storageKey = filename.startsWith("public/") ? filename : `public/${filename}`;
         const fileUrl = getFileUrl(storageKey);
-        return { fileName: file.name, url: normalizeFileUrl(fileUrl) };
+        return { fileName: file.name, url: normalizeFileUrl(fileUrl), relativePath: pathPrefix };
       }),
     [folderKey, uploadQueue, isOrgMode]
   );
 
+  /**
+   * Upload files with transfer status tracking
+   * Supports both flat file lists and folder structures
+   * Uses non-blocking updates for premium UX during large uploads
+   */
   const uploadFiles = useCallback(
-    async (files: File[]) => {
-      setIsLoading(true);
-      if (!files.length) {
-        setIsLoading(false);
+    async (files: File[], droppedFiles?: DroppedFile[], folderName?: string) => {
+      // Use droppedFiles if provided (from folder drop), otherwise wrap regular files
+      const filesToUpload: DroppedFile[] = droppedFiles || files.map(f => ({
+        file: f,
+        relativePath: '',
+        fullPath: f.name,
+      }));
+      
+      if (!filesToUpload.length) {
         return;
       }
+      
       // In org mode, use orgId; otherwise use projectId
       const entityId = isOrgMode ? orgId : (activeProject?.projectId as string | undefined);
       if (!entityId) {
         notify("error", isOrgMode ? "Unable to determine the organization." : "Unable to determine the active project. Please refresh and try again.");
-        setIsLoading(false);
         return;
       }
 
-      const notificationId = notifyLoading("Uploading files...");
+      // Start batch in transfer store for status tracking
+      // This provides immediate visual feedback
+      const batchId = startBatch(
+        'upload',
+        filesToUpload.map(df => ({
+          fileName: df.file.name,
+          relativePath: df.relativePath,
+          totalBytes: df.file.size,
+        })),
+        folderName
+      );
 
-      const placeholders: (FileItem | null)[] = files.map((file) => ({
-        fileName: file.name,
-        url: URL.createObjectURL(file),
-        lastModified: file.lastModified || Date.now(),
-        kind: getFileKind(file.name),
+      // Create placeholders with blob URLs for instant preview
+      const placeholders: (FileItem | null)[] = filesToUpload.map((df) => ({
+        fileName: df.relativePath ? `${df.relativePath}${df.file.name}` : df.file.name,
+        url: URL.createObjectURL(df.file),
+        lastModified: df.file.lastModified || Date.now(),
+        kind: getFileKind(df.file.name),
+        isUploading: true, // Mark as uploading for potential UI treatment
       }));
 
-      setSelectedFiles((prev) => [...prev, ...(placeholders as FileItem[])]);
+      // Add placeholders immediately using startTransition for non-blocking update
+      startTransition(() => {
+        setSelectedFiles((prev) => [...prev, ...(placeholders as FileItem[])]);
+      });
 
+      // Upload files concurrently (pLimit controls max concurrent uploads)
       await Promise.all(
-        files.map((file, idx) =>
-          uploadFileToS3(entityId, file)
+        filesToUpload.map((df, idx) =>
+          uploadFileToS3(entityId, df.file, df.relativePath, batchId)
             .then((info) => {
               const oldUrl = placeholders[idx]!.url;
               placeholders[idx]!.url = info.url;
+              // Remove temporary uploading flag
+              delete placeholders[idx]!.isUploading;
+              // Update fileName to include path if it was a folder upload
+              if (info.relativePath) {
+                placeholders[idx]!.fileName = `${info.relativePath}${df.file.name}`;
+              }
               if (oldUrl.startsWith("blob:")) URL.revokeObjectURL(oldUrl);
             })
             .catch((error) => {
               console.error("Upload failed:", error);
-              notify("error", `Upload failed for ${file.name}`);
+              failItem(batchId, df.file.name, error?.message || 'Upload failed');
               const oldUrl = placeholders[idx]?.url;
               if (oldUrl && oldUrl.startsWith("blob:")) URL.revokeObjectURL(oldUrl);
               placeholders[idx] = null;
@@ -297,39 +368,40 @@ export const useFileTransfers = ({
 
       const completed = placeholders.filter(Boolean) as FileItem[];
 
+      // Use startTransition for final state update - non-blocking
       let finalFiles: FileItem[] = [];
-      setSelectedFiles((prev) => {
-        const names = new Set(placeholders.map((p) => p?.fileName).filter(Boolean) as string[]);
-        finalFiles = [...prev.filter((f) => !names.has(f.fileName)), ...completed];
-        return finalFiles;
+      startTransition(() => {
+        setSelectedFiles((prev) => {
+          const names = new Set(placeholders.map((p) => p?.fileName).filter(Boolean) as string[]);
+          finalFiles = [...prev.filter((f) => !names.has(f.fileName)), ...completed];
+          return finalFiles;
+        });
       });
 
       // Only update local project state in project mode
       if (!isOrgMode && folderKey !== "uploads") {
-        setLocalActiveProject((prev: Project) => ({ ...prev, [folderKey]: finalFiles }));
+        startTransition(() => {
+          setLocalActiveProject((prev: Project) => ({ ...prev, [folderKey]: finalFiles }));
+        });
       }
 
-      updateNotification(notificationId, "success", "Files uploaded successfully");
-
-      // Only update project API in project mode
+      // Background task: update project API (don't block UI)
       if (!isOrgMode && folderKey !== "uploads") {
         const payload = finalFiles.map((f) => ({ fileName: f.fileName, url: f.url }));
-        try {
-          await updateFolderFiles(entityId, payload);
-        } catch (error) {
+        updateFolderFiles(entityId, payload).catch((error) => {
           console.error("Error updating file metadata:", error);
-          notify("warning", "Files uploaded but metadata update failed");
-        }
+          // Don't show notification for background task failures
+        });
       }
       
       // Invalidate cache so next open gets fresh data
       const cacheKey = isOrgMode ? `org:${entityId}` : entityId;
       fileCache.invalidate(cacheKey, folderKey);
       
-      // Force refresh file list from S3 to ensure UI is in sync
-      await fetchS3Files(true);
-      
-      setIsLoading(false);
+      // Background refresh - use startTransition so it doesn't block
+      startTransition(() => {
+        fetchS3Files(true).catch(() => {/* ignore */});
+      });
     },
     [
       activeProject.projectId,
@@ -342,6 +414,7 @@ export const useFileTransfers = ({
       fileCache,
       isOrgMode,
       orgId,
+      fetchS3Files,
     ]
   );
 
@@ -395,10 +468,33 @@ export const useFileTransfers = ({
       // Reset drag counter and state
       dragCounterRef.current = 0;
       setIsDragging(false);
-      const files = Array.from(event.dataTransfer.files || []);
-      await uploadFiles(files);
-      if (folderKey === "uploads") {
-        await fetchS3Files();
+      
+      // Process dropped items - supports both files and folders
+      try {
+        const dropResult = await processDroppedItems(event.dataTransfer);
+        
+        if (dropResult.files.length === 0) {
+          return;
+        }
+        
+        if (dropResult.isFolderDrop) {
+          // Folder drop - pass DroppedFile[] with relative paths preserved
+          await uploadFiles(
+            dropResult.files.map(df => df.file),
+            dropResult.files,
+            dropResult.folderName
+          );
+        } else {
+          // Regular file drop
+          await uploadFiles(dropResult.files.map(df => df.file));
+        }
+        
+        if (folderKey === "uploads") {
+          await fetchS3Files();
+        }
+      } catch (error) {
+        console.error("Error processing dropped items:", error);
+        notify("error", "Failed to process dropped items");
       }
     },
     [fetchS3Files, folderKey, setIsDragging, uploadFiles]
@@ -544,6 +640,132 @@ export const useFileTransfers = ({
     }
   }, []);
 
+  /**
+   * Download an entire folder as a ZIP
+   * @param folderPrefix - The folder prefix to download (e.g., "MyFolder/")
+   * @param folderDisplayName - Display name for notifications
+   */
+  const handleFolderDownload = useCallback(async (folderPrefix: string, folderDisplayName: string) => {
+    const entityId = isOrgMode ? orgId : (activeProject?.projectId as string | undefined);
+    if (!entityId) {
+      notify("error", "Unable to determine the project.");
+      return;
+    }
+    
+    // Start a download batch for status tracking
+    const batchId = startBatch('download', [{ fileName: folderDisplayName }], folderDisplayName);
+    
+    try {
+      // Build the S3 prefix for the folder
+      const s3Prefix = isOrgMode
+        ? `orgs/${entityId}/uploads/${folderPrefix}`
+        : `projects/${entityId}/${folderKey}/${folderPrefix}`;
+      
+      // List all files in the folder
+      const result = await list({ prefix: s3Prefix, options: { accessLevel: "guest" } });
+      const fileKeys = (result.items || [])
+        .filter((item: { key?: string }) => item.key && !item.key.endsWith("/"))
+        .map((item: { key: string }) => {
+          const key = item.key;
+          return key.startsWith("public/") ? key : `public/${key}`;
+        });
+      
+      if (fileKeys.length === 0) {
+        failItem(batchId, folderDisplayName, "Folder is empty");
+        notify("warning", "Folder is empty.");
+        return;
+      }
+      
+      // Create zip and download
+      const fileUrls = fileKeys.map((key: string) => getFileUrl(key));
+      const zipFileUrl = await getZippedFiles(fileUrls);
+      
+      completeItem(batchId, folderDisplayName);
+      initiateDownload(zipFileUrl);
+    } catch (error) {
+      console.error("Error downloading folder:", error);
+      failItem(batchId, folderDisplayName, "Download failed");
+      notify("error", "Failed to download folder.");
+    }
+  }, [activeProject?.projectId, folderKey, getZippedFiles, isOrgMode, orgId]);
+
+  /**
+   * Delete an entire folder and all its contents
+   * @param folderPrefix - The folder prefix to delete (e.g., "MyFolder/")
+   * @param folderDisplayName - Display name for notifications
+   */
+  const handleFolderDelete = useCallback(async (folderPrefix: string, folderDisplayName: string) => {
+    if (!canDelete) {
+      notify("error", "Only authorized users can delete files.");
+      return;
+    }
+    
+    const entityId = isOrgMode ? orgId : (activeProject?.projectId as string | undefined);
+    if (!entityId) {
+      notify("error", "Unable to determine the project.");
+      return;
+    }
+    
+    // Start a delete batch for status tracking
+    const batchId = startBatch('delete', [{ fileName: folderDisplayName }], folderDisplayName);
+    
+    try {
+      // Build the S3 prefix for the folder
+      const s3Prefix = isOrgMode
+        ? `orgs/${entityId}/uploads/${folderPrefix}`
+        : `projects/${entityId}/${folderKey}/${folderPrefix}`;
+      
+      // List all files in the folder
+      const result = await list({ prefix: s3Prefix, options: { accessLevel: "guest" } });
+      const items = (result.items || []).filter((item: { key?: string }) => item.key && !item.key.endsWith("/"));
+      
+      if (items.length === 0) {
+        completeItem(batchId, folderDisplayName);
+        notify("info", "Folder was already empty.");
+        return;
+      }
+      
+      const fileKeys = items.map((item: { key: string }) => {
+        const key = item.key;
+        return key.startsWith("public/") ? key : `public/${key}`;
+      });
+      
+      // Delete all files
+      if (!isOrgMode) {
+        await apiFetch(projectFileDeleteUrl(entityId), {
+          method: "POST",
+          body: JSON.stringify({ fileKeys }),
+          headers: { "Content-Type": "application/json" },
+        });
+      } else {
+        const deleteResponse = await deleteHqFiles(entityId, fileKeys);
+        if (!deleteResponse.ok || deleteResponse.errors?.length > 0) {
+          throw new Error(deleteResponse.errors?.[0]?.message || "Delete failed");
+        }
+      }
+      
+      // Update local state - remove files that match the folder prefix
+      setSelectedFiles((prev) => {
+        return prev.filter((f) => {
+          // Check if file belongs to this folder
+          const fileKey = f.key || f.url;
+          return !fileKey.includes(folderPrefix);
+        });
+      });
+      
+      completeItem(batchId, folderDisplayName);
+      notify("success", `Folder "${folderDisplayName}" deleted.`);
+      
+      // Invalidate cache
+      const cacheKey = isOrgMode ? `org:${entityId}` : entityId;
+      fileCache.invalidate(cacheKey, folderKey);
+    } catch (error) {
+      console.error("Error deleting folder:", error);
+      failItem(batchId, folderDisplayName, "Delete failed");
+      notify("error", "Failed to delete folder.");
+    }
+  }, [activeProject?.projectId, canDelete, fileCache, folderKey, isOrgMode, orgId, setSelectedFiles]);
+
   useEffect(
     () => () => {
       if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
@@ -569,6 +791,8 @@ export const useFileTransfers = ({
     performDelete,
     handleDeleteSingle,
     handleDownloadSingle,
+    handleFolderDownload,
+    handleFolderDelete,
   };
 };
 

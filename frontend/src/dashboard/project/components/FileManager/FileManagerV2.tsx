@@ -34,6 +34,7 @@ import {
   Upload,
   Plus,
   FolderPlus,
+  Folder,
   ChevronDown,
   X,
   PanelLeftClose,
@@ -64,8 +65,10 @@ import { type OptimizedGridTileItem } from './OptimizedGridTile';
 import { useSelectionStore } from './hooks/useSelectionStore';
 import { PerfHUD } from './components/PerfHUD';
 import { useFilesPerf } from './hooks/useFilesPerf';
+import { useFileTransferStore } from './hooks/useFileTransferStore';
 import { FolderPickerModal, FolderPickerFolder } from './FolderPickerModal';
 import { FileThumb } from '@/shared/ui/FileThumb';
+import { FileTransferStatus } from './components/FileTransferStatus';
 import { useFileManagerState } from '../Shared/hooks/useFileManagerState';
 import { useFileMessenger } from '../Shared/hooks/useFileMessenger';
 import { useFileTransfers } from '../Shared/hooks/useFileTransfers';
@@ -219,6 +222,10 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       type: 'file' | 'folder' | 'empty';
     } | null>(null);
     const [isZipping, setIsZipping] = useState(false);
+    const [uploadMenuOpen, setUploadMenuOpen] = useState(false);
+    
+    // Folder upload input ref (separate from file input)
+    const folderInputRef = useRef<HTMLInputElement>(null);
     
     // High-performance selection store for grid view
     // Uses subscription pattern so only affected tiles re-render
@@ -385,6 +392,16 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
     }, [isFilesModalOpen]);
 
     // Keyboard shortcuts
+    // Close upload menu when clicking outside
+    useEffect(() => {
+      if (!uploadMenuOpen) return;
+      
+      const handleClickOutside = () => setUploadMenuOpen(false);
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }, [uploadMenuOpen]);
+
+    // Keyboard shortcuts
     useEffect(() => {
       if (!isFilesModalOpen) return;
 
@@ -398,7 +415,9 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
 
         // ESC to clear selection or close
         if (e.key === 'Escape') {
-          if (actionSheetOpen) {
+          if (uploadMenuOpen) {
+            setUploadMenuOpen(false);
+          } else if (actionSheetOpen) {
             setActionSheetOpen(false);
             setActionSheetFile(null);
           } else if (contextMenu) {
@@ -529,6 +548,8 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       performDelete,
       handleDeleteSingle,
       handleDownloadSingle,
+      handleFolderDownload,
+      handleFolderDelete,
     } = useFileTransfers({
       activeProject: activeProject || {},
       folderKey,
@@ -545,6 +566,9 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       canDelete,
       orgId,
     });
+    
+    // Transfer status store for progress tracking
+    const { hasActiveTransfers } = useFileTransferStore();
 
     // Wrap bulk download to track zipping state
     const handleBulkDownloadWithState = useCallback(async () => {
@@ -827,6 +851,19 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
           case 'upload':
             fileInputRef.current?.click();
             break;
+          case 'download-folder':
+            if (file) {
+              // For folder downloads, file.fileName is the folder name
+              const folderPrefix = `${file.fileName}/`;
+              handleFolderDownload(folderPrefix, file.fileName);
+            }
+            break;
+          case 'delete-folder':
+            if (file) {
+              const folderPrefix = `${file.fileName}/`;
+              handleFolderDelete(folderPrefix, file.fileName);
+            }
+            break;
         }
       },
       [
@@ -837,6 +874,8 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
         handleDownloadSingle,
         handleDeleteSingle,
         handleCreateFolder,
+        handleFolderDownload,
+        handleFolderDelete,
         fileInputRef,
         openQuickLook,
       ]
@@ -1280,9 +1319,10 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                   </button>
                 )}
 
-                {/* Upload button */}
+                {/* Upload button with dropdown for files/folder */}
                 {canUpload && (
-                  <>
+                  <div className={styles.uploadDropdown}>
+                    {/* Hidden file inputs */}
                     <input
                       type="file"
                       multiple
@@ -1290,15 +1330,67 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                       ref={fileInputRef}
                       className={legacyStyles.hiddenInput}
                     />
+                    {/* Hidden folder input for folder upload */}
+                    <input
+                      type="file"
+                      webkitdirectory=""
+                      directory=""
+                      multiple
+                      onChange={handleFileSelect}
+                      ref={folderInputRef}
+                      className={legacyStyles.hiddenInput}
+                    />
+                    
+                    {/* Main upload button */}
                     <button
                       type="button"
                       className={styles.toolbarBtnUpload}
                       onClick={() => fileInputRef.current?.click()}
+                      title="Upload files"
                     >
                       <Upload size={16} />
                       <span>Upload</span>
                     </button>
-                  </>
+                    
+                    {/* Dropdown toggle for folder upload */}
+                    <button
+                      type="button"
+                      className={styles.uploadDropdownToggle}
+                      onClick={() => setUploadMenuOpen(!uploadMenuOpen)}
+                      aria-label="More upload options"
+                      aria-expanded={uploadMenuOpen}
+                    >
+                      <ChevronDown size={14} />
+                    </button>
+                    
+                    {/* Dropdown menu */}
+                    {uploadMenuOpen && (
+                      <div className={styles.uploadDropdownMenu}>
+                        <button
+                          type="button"
+                          className={styles.uploadDropdownItem}
+                          onClick={() => {
+                            fileInputRef.current?.click();
+                            setUploadMenuOpen(false);
+                          }}
+                        >
+                          <Upload size={14} />
+                          <span>Upload Files</span>
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.uploadDropdownItem}
+                          onClick={() => {
+                            folderInputRef.current?.click();
+                            setUploadMenuOpen(false);
+                          }}
+                        >
+                          <Folder size={14} />
+                          <span>Upload Folder</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Close divider */}
@@ -1510,6 +1602,9 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                     </div>
                   </div>
                 )}
+                
+                {/* File Transfer Status Bar - shows upload/download/delete progress */}
+                <FileTransferStatus position="bottom" autoHideDelay={5000} />
               </div>
 
               {/* RIGHT INSPECTOR */}

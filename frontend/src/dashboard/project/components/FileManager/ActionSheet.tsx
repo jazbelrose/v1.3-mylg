@@ -59,12 +59,13 @@ const FILE_MENU_ITEMS: ContextMenuItem[] = [
 
 const FOLDER_MENU_ITEMS: ContextMenuItem[] = [
   { action: 'open', label: 'Open', icon: <Eye size={20} />, dividerAfter: true },
-  { action: 'rename', label: 'Rename', icon: <Edit3 size={20} /> },
-  { action: 'move', label: 'Move to…', icon: <Folder size={20} /> },
+  { action: 'download-folder', label: 'Download Folder', icon: <Download size={20} /> },
   { action: 'copy-link', label: 'Copy Link', icon: <Link size={20} />, dividerAfter: true },
+  { action: 'rename', label: 'Rename', icon: <Edit3 size={20} /> },
+  { action: 'move', label: 'Move to…', icon: <Folder size={20} />, dividerAfter: true },
   { action: 'new-folder', label: 'New Folder Inside', icon: <FolderPlus size={20} /> },
   { action: 'upload', label: 'Upload Files Here', icon: <FileUp size={20} />, dividerAfter: true },
-  { action: 'delete', label: 'Delete', icon: <Trash2 size={20} />, danger: true },
+  { action: 'delete-folder', label: 'Delete Folder', icon: <Trash2 size={20} />, danger: true },
 ];
 
 const EMPTY_MENU_ITEMS: ContextMenuItem[] = [
@@ -100,7 +101,7 @@ export function ActionSheet({
 
     // Filter based on permissions
     return items.filter((item) => {
-      if (item.action === 'delete' && !canDelete) return false;
+      if ((item.action === 'delete' || item.action === 'delete-folder') && !canDelete) return false;
       if ((item.action === 'upload' || item.action === 'new-folder') && !canUpload) return false;
       return true;
     });
