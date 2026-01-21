@@ -481,7 +481,7 @@ export function useInvoicePreviewModal({
   );
 
   const handleLogoPickerSelect = useCallback(
-    (logoKey: string, _logoUrl: string) => {
+    (logoKey: string) => {
       setBrandLogoKey(logoKey);
       setLogoDataUrl(null);
       markInvoiceDirty();

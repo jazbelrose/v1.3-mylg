@@ -12,6 +12,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { list as amplifyList } from "aws-amplify/storage";
 import { uploadData } from "aws-amplify/storage";
 import { Image as ImageIcon, Upload, FolderOpen, Check, X } from "lucide-react";
+import { toast } from "react-toastify";
 
 import Modal from "@/shared/ui/ModalWithStack";
 import { getFileUrl } from "@/shared/utils/api";
@@ -33,7 +34,7 @@ interface InvoiceLogoPickerModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentLogoUrl: string | null;
-  onSelectLogo: (logoKey: string, logoUrl: string) => void;
+  onSelectLogo: (logoKey: string) => void;
   onRemoveLogo: () => void;
 }
 
@@ -149,7 +150,14 @@ const InvoiceLogoPickerModal: React.FC<InvoiceLogoPickerModalProps> = ({
   }, []);
 
   const handleUploadAndSelect = useCallback(async () => {
-    if (!pendingUploadFile || !activeOrgId) return;
+    if (!pendingUploadFile) {
+      toast.error("No file selected");
+      return;
+    }
+    if (!activeOrgId) {
+      toast.error("No organization selected");
+      return;
+    }
 
     setIsUploading(true);
     try {
@@ -164,45 +172,76 @@ const InvoiceLogoPickerModal: React.FC<InvoiceLogoPickerModalProps> = ({
       });
 
       const fullKey = uploadKey.startsWith("public/") ? uploadKey : `public/${uploadKey}`;
-      const logoUrl = getFileUrl(fullKey);
 
-      // Update org branding
-      await updateOrgBranding(activeOrgId, { logoUrl: fullKey });
+      // Update org branding (optional, don't block on failure)
+      try {
+        await updateOrgBranding(activeOrgId, { logoUrl: fullKey });
+      } catch (brandingError) {
+        console.warn("Failed to save branding to org:", brandingError);
+      }
 
       // Notify parent
-      onSelectLogo(fullKey, logoUrl);
+      onSelectLogo(fullKey);
 
       // Cleanup
       if (uploadPreview) URL.revokeObjectURL(uploadPreview);
       setUploadPreview(null);
       setPendingUploadFile(null);
+
+      toast.success("Logo uploaded successfully");
       onClose();
     } catch (error) {
       console.error("Failed to upload logo:", error);
+      toast.error("Failed to upload logo");
     } finally {
       setIsUploading(false);
     }
   }, [pendingUploadFile, activeOrgId, updateOrgBranding, onSelectLogo, onClose, uploadPreview]);
 
   const handleSelectFromOrgFiles = useCallback(async () => {
-    if (!selectedImageKey || !activeOrgId) return;
+    if (!selectedImageKey) {
+      toast.error("No image selected");
+      return;
+    }
 
-    const logoUrl = getFileUrl(selectedImageKey);
+    try {
+      // Update org branding (optional, don't block on failure)
+      if (activeOrgId) {
+        try {
+          await updateOrgBranding(activeOrgId, { logoUrl: selectedImageKey });
+        } catch (brandingError) {
+          console.warn("Failed to save branding to org:", brandingError);
+        }
+      }
 
-    // Update org branding
-    await updateOrgBranding(activeOrgId, { logoUrl: selectedImageKey });
-
-    // Notify parent
-    onSelectLogo(selectedImageKey, logoUrl);
-    onClose();
+      // Notify parent
+      onSelectLogo(selectedImageKey);
+      toast.success("Logo updated successfully");
+      onClose();
+    } catch (error) {
+      console.error("Failed to select logo:", error);
+      toast.error("Failed to select logo");
+    }
   }, [selectedImageKey, activeOrgId, updateOrgBranding, onSelectLogo, onClose]);
 
   const handleRemoveLogo = useCallback(async () => {
-    if (!activeOrgId) return;
+    try {
+      // Update org branding (optional, don't block on failure)
+      if (activeOrgId) {
+        try {
+          await updateOrgBranding(activeOrgId, { logoUrl: null });
+        } catch (brandingError) {
+          console.warn("Failed to remove branding from org:", brandingError);
+        }
+      }
 
-    await updateOrgBranding(activeOrgId, { logoUrl: null });
-    onRemoveLogo();
-    onClose();
+      onRemoveLogo();
+      toast.success("Logo removed");
+      onClose();
+    } catch (error) {
+      console.error("Failed to remove logo:", error);
+      toast.error("Failed to remove logo");
+    }
   }, [activeOrgId, updateOrgBranding, onRemoveLogo, onClose]);
 
   const clearUploadPreview = useCallback(() => {

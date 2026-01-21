@@ -239,8 +239,14 @@
   color: var(--color-primary, #3b82f6);
   text-decoration: none;
   padding-top: 4px;
+  padding-left: 2px;
   cursor: pointer;
   transition: opacity 0.15s ease;
+}
+
+/* Budget CTA with extra left padding */
+.budgetHealthTileCta {
+  padding-left: 4px;
 }
 
 .healthTileCta:hover {

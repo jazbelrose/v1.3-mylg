@@ -153,7 +153,6 @@ function BudgetTile({ projectId, projectTitle, stats }: BudgetTileProps) {
           <DollarSign className={styles.healthTileIcon} />
           Budget
         </div>
-        <div className={`${styles.statusDot} ${styles[statusClass]}`} />
       </div>
 
       {revisionChip && (
@@ -181,7 +180,7 @@ function BudgetTile({ projectId, projectTitle, stats }: BudgetTileProps) {
         )}
       </div>
 
-      <div className={styles.healthTileCta} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div className={`${styles.healthTileCta} ${styles.budgetHealthTileCta}`} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           Open Budget <ChevronRight />
         </span>
@@ -304,10 +303,7 @@ function DeliverablesTile({ projectId, projectTitle, deckVersions }: Deliverable
         {health.hasDecks ? (
           <>
             <div className={styles.healthTileSubtext} style={{ color: 'var(--text-primary)' }}>
-              {health.latestDeckName}
-            </div>
-            <div className={styles.healthTileSubtext}>
-              {health.latestDeckVersion}
+              {health.latestDeckName} • {health.latestDeckVersion}
               {health.lastExportTime && ` • ${formatRelativeTime(health.lastExportTime)}`}
             </div>
             {health.approvalState && health.approvalState !== 'none' && (

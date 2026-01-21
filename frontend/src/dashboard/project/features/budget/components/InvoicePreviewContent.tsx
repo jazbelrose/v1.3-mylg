@@ -48,7 +48,7 @@ interface InvoicePreviewContentProps {
   brandLogoKey: string;
   onLogoSelect: React.ChangeEventHandler<HTMLInputElement>;
   onLogoDrop: React.DragEventHandler<HTMLDivElement>;
-  onLogoPickerSelect: (logoKey: string, logoUrl: string) => void;
+  onLogoPickerSelect: (logoKey: string) => void;
   onLogoRemove: () => void;
   brandName: string;
   onBrandNameBlur: (value: string) => void;
@@ -207,8 +207,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   }, []);
 
   const handleLogoPickerSelectInternal = useCallback(
-    (logoKey: string, logoUrl: string) => {
-      onLogoPickerSelect(logoKey, logoUrl);
+    (logoKey: string) => {
+      onLogoPickerSelect(logoKey);
       setIsLogoPickerOpen(false);
     },
     [onLogoPickerSelect]
@@ -406,28 +406,6 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     if (hasDraftChanges) return;
     onSaveInvoice();
   }, [hasDraftChanges, onSaveInvoice]);
-
-  const handleLogoDropInternal: React.DragEventHandler<HTMLDivElement> = useCallback(
-    (event) => {
-      event.preventDefault();
-      onLogoDrop(event);
-    },
-    [onLogoDrop]
-  );
-
-  const handleLogoZoneClick = useCallback(() => {
-    fileInputRef.current?.click();
-  }, [fileInputRef]);
-
-  const handleLogoZoneKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        fileInputRef.current?.click();
-      }
-    },
-    [fileInputRef]
-  );
 
   const renderSummary = useCallback(
     (rows: RowData[], rowsKeyPrefix: string) => (
