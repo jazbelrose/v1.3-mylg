@@ -941,6 +941,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
           id: file.url,
           fileName: file.fileName,
           url: file.url,
+          key: file.key,  // S3 key for rename/move/delete operations
           thumbnailUrl: getThumbnailUrl(file.url) || undefined,
           mimeType: file.kind,
           sizeBytes: file.size,
@@ -1429,6 +1430,13 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                         const originalFile = displayedFiles.find((f) => f.url === file.url);
                         if (originalFile) handleActionSheet(originalFile);
                       }}
+                      onRename={(file, newName) => {
+                        const originalFile = displayedFiles.find((f) => f.url === file.url);
+                        if (originalFile) handleRename(originalFile, newName);
+                      }}
+                      canRename={!isOrgMode && !!activeProject?.projectId}
+                      renameTargetId={renameTargetId}
+                      onRenameComplete={() => setRenameTargetId(null)}
                       sortField={sortField}
                       sortDirection={sortDirection}
                       onSortChange={handleSortChange}

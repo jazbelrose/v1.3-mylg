@@ -25,6 +25,7 @@ export interface ListRowItem {
   id: string;
   fileName: string;
   url: string;
+  key?: string;  // S3 key for file operations (rename, move, delete)
   thumbnailUrl?: string;
   mimeType?: string;
   isFolder?: boolean;

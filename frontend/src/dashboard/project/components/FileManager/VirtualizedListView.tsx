@@ -57,6 +57,10 @@ export interface VirtualizedListViewProps {
   canDelete?: boolean;
   /** Whether user can rename */
   canRename?: boolean;
+  /** ID (key/url) of file to start renaming (controlled from parent) */
+  renameTargetId?: string | null;
+  /** Callback when rename is complete or cancelled (to clear parent state) */
+  onRenameComplete?: () => void;
   /** Empty state message */
   emptyMessage?: string;
   /** Container height (defaults to 100%) */
@@ -130,6 +134,8 @@ export function VirtualizedListView({
   sortDirection = 'asc',
   onSortChange,
   canRename = false,
+  renameTargetId,
+  onRenameComplete,
   emptyMessage = 'No files in this folder',
   height = '100%',
 }: VirtualizedListViewProps) {
@@ -140,6 +146,33 @@ export function VirtualizedListView({
 
   // Combined items list
   const allItems = useMemo(() => [...folders, ...files], [folders, files]);
+
+  // Watch for renameTargetId from parent (context menu rename action)
+  useEffect(() => {
+    if (renameTargetId && canRename) {
+      // Find the item by key or url
+      const item = allItems.find((f) => f.key === renameTargetId || f.url === renameTargetId);
+      if (item) {
+        setEditingId(item.url);
+        setEditValue(item.fileName);
+      }
+    }
+  }, [renameTargetId, allItems, canRename]);
+
+  // Notify parent when rename is cancelled/completed
+  const cancelRename = useCallback(() => {
+    setEditingId(null);
+    setEditValue('');
+    onRenameComplete?.();
+  }, [onRenameComplete]);
+
+  const commitRename = useCallback((item: ListRowItem) => {
+    const trimmedValue = editValue.trim();
+    if (trimmedValue && trimmedValue !== item.fileName && onRename) {
+      onRename(item, trimmedValue);
+    }
+    cancelRename();
+  }, [editValue, onRename, cancelRename]);
 
   // Focus input when editing starts
   useEffect(() => {
@@ -153,19 +186,6 @@ export function VirtualizedListView({
       }
     }
   }, [editingId, editValue]);
-
-  const cancelRename = useCallback(() => {
-    setEditingId(null);
-    setEditValue('');
-  }, []);
-
-  const commitRename = useCallback((item: ListRowItem) => {
-    const trimmedValue = editValue.trim();
-    if (trimmedValue && trimmedValue !== item.fileName && onRename) {
-      onRename(item, trimmedValue);
-    }
-    cancelRename();
-  }, [editValue, onRename, cancelRename]);
 
   // Scroll state management
   const handleScroll = useCallback(() => {
