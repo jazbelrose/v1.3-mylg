@@ -42,6 +42,27 @@ function isTaskActionable(task: Record<string, unknown>): boolean {
   return true;
 }
 
+function isTaskDone(task: Record<string, unknown>): boolean {
+  const status = normalizeStatus(task.status);
+  if (status === "done" || status === "completed") return true;
+  if (task.done === true) return true;
+  if (task.completedAt != null) return true;
+  return false;
+}
+
+function shouldIncludeTask(task: Record<string, unknown>): boolean {
+  // Always include actionable (non-done) tasks
+  if (isTaskActionable(task)) return true;
+  
+  // Also include done tasks that are children of focus blocks (have focusBlockId)
+  // These are needed for accurate done counts in focus block popovers
+  // CommandPanel.displayTasks already suppresses focus block children from the main list
+  const hasFocusBlockId = typeof task.focusBlockId === "string" && task.focusBlockId.trim() !== "";
+  if (hasFocusBlockId) return true;
+  
+  return false;
+}
+
 function safeString(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
@@ -197,20 +218,21 @@ export default function AllEventsAndTasksPanel({ className, selectedDayKey, onOp
       const projectTitle = project?.title || "Project";
 
       for (const raw of result.tasks as Array<Record<string, unknown>>) {
-        if (!isTaskActionable(raw)) continue;
+        if (!shouldIncludeTask(raw)) continue;
         const taskId = safeString(raw.taskId) ?? safeString(raw.id);
         if (!taskId) continue;
 
         rawTasksByKey.set(buildTaskKey(result.projectId, taskId), raw);
 
         const dueDate = safeString(raw.dueDate) ?? safeString(raw.dueAt);
+        const taskDone = isTaskDone(raw);
         nextTasks.push({
           id: taskId,
           type: "task",
           title: safeString(raw.title) ?? "Untitled task",
           dueDate,
-          status: safeString(raw.status) ?? "todo",
-          done: raw.done === true,
+          status: taskDone ? "done" : (safeString(raw.status) ?? "todo"),
+          done: taskDone,
           assignedTo: safeString(raw.assignedTo),
           assigneeId: (raw.assigneeId as string | null | undefined) ?? null,
           assigneeIds: Array.isArray(raw.assigneeIds) ? (raw.assigneeIds as string[]) : undefined,
