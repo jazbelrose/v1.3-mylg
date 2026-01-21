@@ -1037,8 +1037,15 @@ const handleDeleteMessage = async (payload) => {
 };
 
 const handleEditMessage = async (payload) => {
-  const { conversationType, conversationId, messageId, text, editedAt, editedBy, timestamp, projectId } = payload || {};
-  if (!conversationType || !conversationId || !messageId || !text) {
+  const { 
+    conversationType, conversationId, messageId, text, editedAt, editedBy, timestamp, projectId,
+    // Note rename fields
+    noteTitle, file
+  } = payload || {};
+  
+  // For regular edits, text is required. For note renames, noteTitle is required.
+  const isNoteRename = !!noteTitle;
+  if (!conversationType || !conversationId || !messageId || (!text && !isNoteRename)) {
     return { statusCode: 400, body: "Missing fields" };
   }
 
@@ -1052,22 +1059,51 @@ const handleEditMessage = async (payload) => {
     editedBy,
     timestamp,
     projectId,
+    // Include note rename fields if present
+    ...(noteTitle ? { noteTitle } : {}),
+    ...(file ? { file } : {}),
+  };
+
+  // Build update expression based on what's being edited
+  const buildNoteUpdateExpression = () => {
+    const attrs = ["edited = :edited", "editedAt = :editedAt", "editedBy = :editedBy"];
+    const names = {};
+    const values = {
+      ":edited": true,
+      ":editedAt": editedAt || new Date().toISOString(),
+      ":editedBy": editedBy,
+    };
+
+    if (text !== undefined) {
+      attrs.push("#t = :text");
+      names["#t"] = "text";
+      values[":text"] = text;
+    }
+    if (noteTitle) {
+      attrs.push("noteTitle = :noteTitle");
+      values[":noteTitle"] = noteTitle;
+    }
+    if (file) {
+      attrs.push("#f = :file");
+      names["#f"] = "file";
+      values[":file"] = file;
+    }
+
+    return {
+      UpdateExpression: "SET " + attrs.join(", "),
+      ExpressionAttributeNames: Object.keys(names).length > 0 ? names : undefined,
+      ExpressionAttributeValues: values,
+    };
   };
 
   if (conversationType === "dm") {
     // Update message in database
     try {
+      const updateParams = buildNoteUpdateExpression();
       await dynamoDb.send(new UpdateCommand({
         TableName: process.env.MESSAGES_TABLE,
         Key: { conversationId, messageId },
-        UpdateExpression: "SET #t = :text, edited = :edited, editedAt = :editedAt, editedBy = :editedBy",
-        ExpressionAttributeNames: { "#t": "text" },
-        ExpressionAttributeValues: {
-          ":text": text,
-          ":edited": true,
-          ":editedAt": editedAt || new Date().toISOString(),
-          ":editedBy": editedBy,
-        },
+        ...updateParams,
       }));
       console.log("✅ DM message updated in DB:", messageId);
     } catch (err) {
@@ -1084,17 +1120,11 @@ const handleEditMessage = async (payload) => {
     // Update message in database
     const projectId = conversationId.replace("project#", "");
     try {
+      const updateParams = buildNoteUpdateExpression();
       await dynamoDb.send(new UpdateCommand({
         TableName: process.env.PROJECT_MESSAGES_TABLE,
         Key: { projectId, messageId },
-        UpdateExpression: "SET #t = :text, edited = :edited, editedAt = :editedAt, editedBy = :editedBy",
-        ExpressionAttributeNames: { "#t": "text" },
-        ExpressionAttributeValues: {
-          ":text": text,
-          ":edited": true,
-          ":editedAt": editedAt || new Date().toISOString(),
-          ":editedBy": editedBy,
-        },
+        ...updateParams,
       }));
       console.log("✅ Project message updated in DB:", messageId);
     } catch (err) {
@@ -1104,17 +1134,11 @@ const handleEditMessage = async (payload) => {
     await broadcastToConversation(conversationId, eventPayload);
   } else if (conversationType === "org") {
     try {
+      const updateParams = buildNoteUpdateExpression();
       await dynamoDb.send(new UpdateCommand({
         TableName: process.env.MESSAGES_TABLE,
         Key: { conversationId, messageId },
-        UpdateExpression: "SET #t = :text, edited = :edited, editedAt = :editedAt, editedBy = :editedBy",
-        ExpressionAttributeNames: { "#t": "text" },
-        ExpressionAttributeValues: {
-          ":text": text,
-          ":edited": true,
-          ":editedAt": editedAt || new Date().toISOString(),
-          ":editedBy": editedBy,
-        },
+        ...updateParams,
       }));
       console.log("✅ Org message updated in DB:", messageId);
     } catch (err) {

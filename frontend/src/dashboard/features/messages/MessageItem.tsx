@@ -203,12 +203,13 @@ interface MessageItemProps {
   nextMsg?: ChatMessage | null;
   userData?: SimpleUser | null;
   allUsers?: SimpleUser[];
-  openPreviewModal: (file: ChatFile | DMFile) => void;
+  openPreviewModal: (file: ChatFile | DMFile, msg?: ChatMessage) => void;
   folderKey: string;
   renderFilePreview: (file: ChatFile | DMFile, folderKey: string) => React.ReactNode;
   getFileNameFromUrl: (url?: string) => string;
   onDelete?: (msg: ChatMessage) => void;
   onEditRequest?: (msg: ChatMessage) => void;
+  onRenameNote?: (msg: ChatMessage) => void;
   onReact?: (messageId: string, emoji: Emoji) => void;
   /** Stable key used for DOM lookup when searching */
   messageDomKey?: string;
@@ -238,6 +239,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
   getFileNameFromUrl,
   onDelete,
   onEditRequest,
+  onRenameNote,
   onReact,
   messageDomKey,
   isSearchHit = false,
@@ -435,7 +437,9 @@ const MessageItem: React.FC<MessageItemProps> = ({
     setShowReactions(false);
   };
 
+  const isNote = (msg as unknown as { type?: string }).type === "note";
   const canEdit = isCurrentUser && !!text && !matchedUrl && !msg.file;
+  const canRename = isCurrentUser && isNote && !!onRenameNote;
   const canDelete = isCurrentUser;
   const canCopy = !!text;
 
@@ -525,7 +529,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
         return (
           <div
             className="note-message"
-            onClick={() => openPreviewModal(msg.file!)}
+            onClick={() => openPreviewModal(msg.file!, msg)}
             style={{ cursor: "pointer" }}
           >
             <div className="note-message-title">{title}</div>
@@ -535,7 +539,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
         );
       }
       return (
-        <div onClick={() => openPreviewModal(msg.file!)} style={{ cursor: "pointer" }}>
+        <div onClick={() => openPreviewModal(msg.file!, msg)} style={{ cursor: "pointer" }}>
           {renderFilePreview(msg.file!, folderKey)}
         </div>
       );
@@ -545,7 +549,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
       const file: ChatFile = { fileName: getFileNameFromUrl(url), url };
       return (
         <div
-          onClick={() => openPreviewModal(file)}
+          onClick={() => openPreviewModal(file, msg)}
           style={{ cursor: "pointer" }}
         >
           {renderFilePreview(file, folderKey)}
@@ -877,6 +881,20 @@ const MessageItem: React.FC<MessageItemProps> = ({
                     >
                       <Pencil size={14} />
                       Edit
+                    </button>
+                  )}
+                  {canRename && (
+                    <button
+                      type="button"
+                      className="message-actions-item"
+                      role="menuitem"
+                      onClick={() => {
+                        onRenameNote?.(msg);
+                        setMenuOpen(false);
+                      }}
+                    >
+                      <Pencil size={14} />
+                      Rename
                     </button>
                   )}
                   {canDelete && (

@@ -58,6 +58,7 @@ import PDFPreview from "@/dashboard/project/components/Shared/PDFPreview";
 import NoteEditorModal from "./components/NoteEditorModal";
 import {
   GET_PROJECT_MESSAGES_URL,
+  EDIT_PROJECT_URL,
   apiFetch,
   getFileUrl,
   normalizeFileUrl,
@@ -333,10 +334,11 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
     useState<FileObj | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Message | null>(null);
   const [editTarget, setEditTarget] = useState<Message | null>(null);
+  const [renameNoteTarget, setRenameNoteTarget] = useState<Message | null>(null);
   const [noteEditorState, setNoteEditorState] = useState<
     | { isOpen: false }
     | { isOpen: true; mode: "create" }
-    | { isOpen: true; mode: "open"; fileUrl: string; fileName: string; initialTitle?: string | null }
+    | { isOpen: true; mode: "open"; fileUrl: string; fileName: string; initialTitle?: string | null; message?: Message }
   >({ isOpen: false });
 
   // Folder for S3 uploads
@@ -576,11 +578,11 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
     };
   }, [showActionMenu]);
 
-  const openPreviewModal = (file: FileObj) => {
+  const openPreviewModal = (file: FileObj, message?: Message) => {
     const ext = file.fileName.split(".").pop()?.toLowerCase() || "";
     const url = file.finalUrl || file.url;
     if ((ext === "md" || ext === "markdown" || ext === "txt") && url && !url.startsWith("blob:")) {
-      setNoteEditorState({ isOpen: true, mode: "open", fileUrl: url, fileName: file.fileName });
+      setNoteEditorState({ isOpen: true, mode: "open", fileUrl: url, fileName: file.fileName, message });
       return;
     }
     setSelectedPreviewFile(file);
@@ -1190,6 +1192,97 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
     }
   };
 
+  // Rename note
+  const renameNote = async (message: Message, newTitle: string) => {
+    if (!message.messageId || !newTitle.trim()) return;
+    const trimmedTitle = newTitle.trim();
+    
+    try {
+      const ts = new Date().toISOString();
+      const oldFile = message.file;
+      
+      // Build new file name (preserve extension)
+      const oldFileName = oldFile?.fileName || "";
+      const ext = oldFileName.split(".").pop() || "md";
+      const newFileName = `${trimmedTitle}.${ext}`;
+      
+      // Update local state immediately
+      const newFile = oldFile ? { ...oldFile, fileName: newFileName } : undefined;
+      
+      setProjectMessages((prev: ProjectMessagesMap) => {
+        const msgs: Message[] = Array.isArray(prev[projectId]) ? prev[projectId] : [];
+        const updated = msgs.map((m) =>
+          m.messageId === message.messageId
+            ? { ...m, noteTitle: trimmedTitle, file: newFile, edited: true, editedAt: ts }
+            : m
+        );
+        setWithTTL(pmKey(projectId), updated);
+        return { ...prev, [projectId]: updated };
+      });
+
+      // Rename the S3 file if we have the key
+      if (oldFile?.key) {
+        try {
+          const response = await apiFetch(`${EDIT_PROJECT_URL}/${projectId}/files/rename`, {
+            method: "POST",
+            body: JSON.stringify({
+              oldKey: oldFile.key,
+              newName: newFileName,
+            }),
+          }) as { ok?: boolean; newKey?: string; newUrl?: string; error?: string };
+          
+          if (response.ok && response.newKey) {
+            // Update the file with new key/url
+            const updatedFile = {
+              ...newFile,
+              key: response.newKey,
+              url: response.newUrl || newFile?.url,
+              finalUrl: response.newUrl || newFile?.finalUrl,
+            };
+            
+            setProjectMessages((prev: ProjectMessagesMap) => {
+              const msgs: Message[] = Array.isArray(prev[projectId]) ? prev[projectId] : [];
+              const updated = msgs.map((m) =>
+                m.messageId === message.messageId ? { ...m, file: updatedFile } : m
+              );
+              setWithTTL(pmKey(projectId), updated);
+              return { ...prev, [projectId]: updated };
+            });
+          }
+        } catch (renameErr) {
+          console.error("Failed to rename S3 file:", renameErr);
+          // Continue anyway - the message title update is more important
+        }
+      }
+
+      // Broadcast the rename via WebSocket
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        const editPayload = {
+          action: "editMessage",
+          conversationType: "project",
+          conversationId: `project#${projectId}`,
+          projectId,
+          messageId: message.messageId,
+          noteTitle: trimmedTitle,
+          file: newFile,
+          timestamp: message.timestamp,
+          editedAt: ts,
+          editedBy: userData?.userId,
+        };
+        ws.send(JSON.stringify(normalizeMessage(editPayload, "editMessage")));
+      }
+    } catch (err) {
+      console.error("Failed to rename note", err);
+    }
+  };
+
+  // Handler for renaming note from NoteEditorModal
+  const handleNoteEditorRename = async (newTitle: string) => {
+    if (noteEditorState.isOpen && noteEditorState.mode === "open" && noteEditorState.message) {
+      await renameNote(noteEditorState.message, newTitle);
+    }
+  };
+
   // Reactions
   const reactToMessage = (messageId?: string, emoji?: string) => {
     if (!messageId || !emoji) return;
@@ -1428,12 +1521,13 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
                     nextMsg={(index < displayMessages.length - 1 ? displayMessages[index + 1] : null) as ChatMessage | null}
                     userData={userData}
                     allUsers={allUsers}
-                    openPreviewModal={openPreviewModal}
+                    openPreviewModal={(file, m) => openPreviewModal(file as FileObj, m as Message | undefined)}
                     folderKey={folderKey}
                     renderFilePreview={renderFilePreview}
                     getFileNameFromUrl={getFileNameFromUrl}
                     onDelete={(m: ChatMessage) => setDeleteTarget(m as Message)}
                     onEditRequest={(m: ChatMessage) => setEditTarget(m as Message)}
+                    onRenameNote={(m: ChatMessage) => setRenameNoteTarget(m as Message)}
                     onReact={reactToMessage}
                     isFirstInGroup={pos.isFirstInGroup}
                     isLastInGroup={pos.isLastInGroup}
@@ -1631,6 +1725,7 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
         }
         onCreate={createNote}
         onRequestClose={() => setNoteEditorState({ isOpen: false })}
+        onRename={noteEditorState.isOpen && noteEditorState.mode === "open" && noteEditorState.message ? handleNoteEditorRename : undefined}
       />
 
       {/* Delete confirm */}
@@ -1656,6 +1751,20 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
         }}
         message="Edit message"
         defaultValue={editTarget?.text || ""}
+        className="messages-modal-content"
+        overlayClassName="messages-modal-overlay"
+      />
+
+      {/* Rename note prompt */}
+      <PromptModal
+        isOpen={!!renameNoteTarget}
+        onRequestClose={() => setRenameNoteTarget(null)}
+        onSubmit={(newTitle) => {
+          if (renameNoteTarget) renameNote(renameNoteTarget, newTitle);
+          setRenameNoteTarget(null);
+        }}
+        message="Rename note"
+        defaultValue={renameNoteTarget?.noteTitle || renameNoteTarget?.file?.fileName?.replace(/\.(md|txt|markdown)$/i, "") || ""}
         className="messages-modal-content"
         overlayClassName="messages-modal-overlay"
       />

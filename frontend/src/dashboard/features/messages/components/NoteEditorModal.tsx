@@ -174,6 +174,7 @@ export type NoteEditorModalProps = {
   onRequestClose: () => void;
   onCreate?: (input: { title: string; markdown: string }) => Promise<void>;
   onSave?: (content: string) => void;
+  onRename?: (newTitle: string) => Promise<void>;
 };
 
 export default function NoteEditorModal({
@@ -186,8 +187,11 @@ export default function NoteEditorModal({
   onRequestClose,
   onCreate,
   onSave,
+  onRename,
 }: NoteEditorModalProps) {
   const [title, setTitle] = useState("");
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [pendingTitle, setPendingTitle] = useState("");
   const [markdown, setMarkdown] = useState(() => 
     mode === "edit" && editContent?.initialContent ? editContent.initialContent : ""
   );
@@ -205,6 +209,7 @@ export default function NoteEditorModal({
   const [findQuery, setFindQuery] = useState("");
   const [findIndex, setFindIndex] = useState(0);
   const findInputRef = useRef<HTMLInputElement | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   const [editor, setEditor] = useState<LexicalEditor | null>(null);
   const lastAppliedRef = useRef<string | null>(null);
@@ -221,6 +226,9 @@ export default function NoteEditorModal({
 
   const downloadableUrl = viewInfo?.downloadUrl || (fileUrl && !fileUrl.startsWith("blob:") ? fileUrl : "");
 
+  // Whether title can be edited in this mode
+  const canRenameTitle = mode === "open" && canEdit && !!onRename;
+
   const effectiveTitle = useMemo(() => {
     if (mode === "open") {
       const seeded = openFile?.initialTitle?.trim() || stripMdExtension(openFile?.fileName || "");
@@ -231,6 +239,37 @@ export default function NoteEditorModal({
     }
     return title.trim() || defaultNoteTitle();
   }, [mode, openFile?.fileName, openFile?.initialTitle, title, editContent?.title]);
+
+  // Handler to start editing title
+  const startEditingTitle = useCallback(() => {
+    if (!canRenameTitle) return;
+    setPendingTitle(effectiveTitle);
+    setEditingTitle(true);
+    requestAnimationFrame(() => titleInputRef.current?.select());
+  }, [canRenameTitle, effectiveTitle]);
+
+  // Handler to save title
+  const saveTitle = useCallback(async () => {
+    const trimmed = pendingTitle.trim();
+    if (!trimmed || trimmed === effectiveTitle) {
+      setEditingTitle(false);
+      return;
+    }
+    if (onRename) {
+      try {
+        await onRename(trimmed);
+      } catch (err) {
+        console.error("Failed to rename note:", err);
+      }
+    }
+    setEditingTitle(false);
+  }, [effectiveTitle, onRename, pendingTitle]);
+
+  // Cancel title editing
+  const cancelEditingTitle = useCallback(() => {
+    setEditingTitle(false);
+    setPendingTitle("");
+  }, []);
 
   const isReadOnly = useMemo(() => {
     const sizeBytes = viewInfo?.sizeBytes;
@@ -560,7 +599,33 @@ export default function NoteEditorModal({
     >
       <div className={styles.header}>
         <div className={styles.titleRow}>
-          <div className={styles.title}>{effectiveTitle}</div>
+          {editingTitle ? (
+            <input
+              ref={titleInputRef}
+              type="text"
+              className={styles.titleInput}
+              value={pendingTitle}
+              onChange={(e) => setPendingTitle(e.target.value)}
+              onBlur={() => void saveTitle()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void saveTitle();
+                } else if (e.key === "Escape") {
+                  cancelEditingTitle();
+                }
+              }}
+              autoFocus
+            />
+          ) : (
+            <div
+              className={`${styles.title} ${canRenameTitle ? styles.titleEditable : ""}`}
+              onClick={canRenameTitle ? startEditingTitle : undefined}
+              title={canRenameTitle ? "Click to rename" : undefined}
+            >
+              {effectiveTitle}
+            </div>
+          )}
           {isReadOnly && <div className={styles.pill}>Read-only</div>}
           {!isReadOnly && mode === "open" && <div className={styles.pill}>Editing</div>}
         </div>

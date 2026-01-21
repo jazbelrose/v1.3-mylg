@@ -275,10 +275,11 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
   const [selectedPreviewFile, setSelectedPreviewFile] = useState<FileObj | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Message | null>(null);
   const [editTarget, setEditTarget] = useState<Message | null>(null);
+  const [renameNoteTarget, setRenameNoteTarget] = useState<Message | null>(null);
   const [noteEditorState, setNoteEditorState] = useState<
     | { isOpen: false }
     | { isOpen: true; mode: "create" }
-    | { isOpen: true; mode: "open"; fileUrl: string; fileName: string; initialTitle?: string | null }
+    | { isOpen: true; mode: "open"; fileUrl: string; fileName: string; initialTitle?: string | null; message?: Message }
   >({ isOpen: false });
 
   // Use 'uploads' folder so files appear in HQ Files immediately
@@ -477,12 +478,12 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
     ws.send(JSON.stringify(normalizeMessage(messageData, "sendMessage")));
   };
 
-  const openPreviewModal = (file: FileObj) => {
+  const openPreviewModal = (file: FileObj, message?: Message) => {
     const ext = file.fileName.split(".").pop()?.toLowerCase() || "";
     const url = file.finalUrl || file.url;
     // Handle markdown/text files with NoteEditorModal like ProjectMessagesThread
     if ((ext === "md" || ext === "markdown" || ext === "txt") && url && !url.startsWith("blob:")) {
-      setNoteEditorState({ isOpen: true, mode: "open", fileUrl: url, fileName: file.fileName });
+      setNoteEditorState({ isOpen: true, mode: "open", fileUrl: url, fileName: file.fileName, message });
       return;
     }
     setSelectedPreviewFile(file);
@@ -536,7 +537,17 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
             setOrgMessages((prev) => {
               const msgs = Array.isArray(prev[orgId]) ? prev[orgId] : [];
               const updated = msgs.map((m) =>
-                m.messageId === data.messageId ? { ...m, text: data.text, edited: true, editedAt: data.editedAt } : m
+                m.messageId === data.messageId
+                  ? {
+                      ...m,
+                      text: data.text ?? m.text,
+                      edited: true,
+                      editedAt: data.editedAt,
+                      // Support note rename
+                      ...(data.noteTitle !== undefined ? { noteTitle: data.noteTitle } : {}),
+                      ...(data.file !== undefined ? { file: data.file } : {}),
+                    }
+                  : m
               );
               setWithTTL(omKey(orgId), updated);
               return { ...prev, [orgId]: updated };
@@ -950,6 +961,57 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
     }
   };
 
+  // Rename note
+  const renameNote = async (message: Message, newTitle: string) => {
+    if (!message.messageId || !newTitle.trim()) return;
+    const trimmedTitle = newTitle.trim();
+    const ts = new Date().toISOString();
+    const oldFile = message.file;
+
+    // Build new file name (preserve extension)
+    const oldFileName = oldFile?.fileName || "";
+    const ext = oldFileName.split(".").pop() || "md";
+    const newFileName = `${trimmedTitle}.${ext}`;
+
+    // Update local state immediately
+    const newFile = oldFile ? { ...oldFile, fileName: newFileName } : undefined;
+
+    setOrgMessages((prev) => {
+      const msgs = Array.isArray(prev[orgId]) ? prev[orgId] : [];
+      const updated = msgs.map((m) =>
+        m.messageId === message.messageId
+          ? { ...m, noteTitle: trimmedTitle, file: newFile, edited: true, editedAt: ts }
+          : m
+      );
+      setWithTTL(omKey(orgId), updated);
+      return { ...prev, [orgId]: updated };
+    });
+
+    // Broadcast the rename via WebSocket
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      const editPayload = {
+        action: "editMessage",
+        conversationType: "org",
+        conversationId: `org#${orgId}`,
+        orgId,
+        messageId: message.messageId,
+        noteTitle: trimmedTitle,
+        file: newFile,
+        timestamp: message.timestamp,
+        editedAt: ts,
+        editedBy: userData?.userId,
+      };
+      ws.send(JSON.stringify(normalizeMessage(editPayload, "editMessage")));
+    }
+  };
+
+  // Handler for renaming note from NoteEditorModal
+  const handleNoteEditorRename = async (newTitle: string) => {
+    if (noteEditorState.isOpen && noteEditorState.mode === "open" && noteEditorState.message) {
+      await renameNote(noteEditorState.message, newTitle);
+    }
+  };
+
   // Reactions
   const reactToMessage = (messageId?: string, emoji?: string) => {
     if (!messageId || !emoji || !ws || ws.readyState !== WebSocket.OPEN) return;
@@ -1154,12 +1216,13 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
                     nextMsg={(index < displayMessages.length - 1 ? displayMessages[index + 1] : null) as ChatMessage | null}
                     userData={userData}
                     allUsers={allUsers}
-                    openPreviewModal={openPreviewModal}
+                    openPreviewModal={(file, m) => openPreviewModal(file as FileObj, m as Message | undefined)}
                     folderKey={folderKey}
                     renderFilePreview={renderFilePreview}
                     getFileNameFromUrl={getFileNameFromUrl}
                     onDelete={(m: ChatMessage) => setDeleteTarget(m as Message)}
                     onEditRequest={(m: ChatMessage) => setEditTarget(m as Message)}
+                    onRenameNote={(m: ChatMessage) => setRenameNoteTarget(m as Message)}
                     onReact={reactToMessage}
                     isFirstInGroup={pos.isFirstInGroup}
                     isLastInGroup={pos.isLastInGroup}
@@ -1314,6 +1377,20 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
         overlayClassName="messages-modal-overlay"
       />
 
+      {/* Rename note prompt */}
+      <PromptModal
+        isOpen={!!renameNoteTarget}
+        onRequestClose={() => setRenameNoteTarget(null)}
+        onSubmit={(title) => {
+          if (renameNoteTarget) renameNote(renameNoteTarget, title);
+          setRenameNoteTarget(null);
+        }}
+        message="Rename note"
+        defaultValue={renameNoteTarget?.noteTitle || ""}
+        className="messages-modal-content"
+        overlayClassName="messages-modal-overlay"
+      />
+
       {/* Note Editor Modal */}
       <NoteEditorModal
         isOpen={noteEditorState.isOpen}
@@ -1327,6 +1404,7 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
         }
         onCreate={createNote}
         onRequestClose={() => setNoteEditorState({ isOpen: false })}
+        onRename={noteEditorState.isOpen && noteEditorState.mode === "open" && noteEditorState.message ? handleNoteEditorRename : undefined}
       />
     </>
   );
