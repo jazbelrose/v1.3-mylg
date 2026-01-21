@@ -45,6 +45,29 @@ export function formatCompactUSD(value: number | null | undefined): string {
   }).format(value);
 }
 
+/**
+ * Generate a default revision name from project name, date, and unique hex
+ * Format: "ABC-20260120-a1b2" (3 letters + date + 4 hex chars)
+ * @param projectName - The project title/name
+ * @returns A formatted revision name string
+ */
+export function generateDefaultRevisionName(projectName?: string | null): string {
+  // Get first 3 letters of project name (uppercase, alphanumeric only)
+  const cleanName = (projectName || "REV")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+  const prefix = cleanName.slice(0, 3).padEnd(3, "X");
+
+  // Date in YYYYMMDD format
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+
+  // Short hex unique ID (4 chars from random hex)
+  const hexId = Math.random().toString(16).slice(2, 6).toLowerCase();
+
+  return `${prefix}-${dateStr}-${hexId}`;
+}
+
 
 
 

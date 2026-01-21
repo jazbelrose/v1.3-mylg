@@ -340,7 +340,12 @@ const SlidesPresentationPage: React.FC = () => {
                 : null),
             }}
           >
-            <SlideReadOnlyRenderer content={activeSlide?.content ?? null} contentPadding={SLIDE_PADDING} />
+            <SlideReadOnlyRenderer
+              key={activeSlide?.id}
+              slideId={activeSlide?.id}
+              content={activeSlide?.content ?? null}
+              contentPadding={SLIDE_PADDING}
+            />
           </div>
         </div>
       </div>

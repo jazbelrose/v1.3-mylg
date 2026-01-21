@@ -414,6 +414,7 @@
 }
 
 .magic-workspace__slide-thumb {
+  position: relative;
   width: 80px;
   aspect-ratio: 16 / 9;
   background: rgba(255, 255, 255, 0.06);
@@ -436,6 +437,67 @@
 .magic-workspace__slide-thumb svg {
   width: 100%;
   height: 100%;
+}
+
+/* Slide number badge */
+.magic-workspace__slide-number {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 9px;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Text blocks indicator badge */
+.magic-workspace__slide-text-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: rgba(79, 140, 255, 0.3);
+  border-radius: 4px;
+  color: rgba(79, 140, 255, 1);
+}
+
+/* Per-slide refresh button (appears on hover) */
+.magic-workspace__slide-refresh {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s ease;
+}
+
+.magic-workspace__slide-thumb:hover .magic-workspace__slide-refresh {
+  opacity: 1;
+}
+
+.magic-workspace__slide-refresh:hover {
+  background: rgba(99, 102, 241, 0.3);
+  border-color: rgba(99, 102, 241, 0.5);
+  color: rgba(99, 102, 241, 1);
 }
 
 .magic-workspace__slide-add {
@@ -585,6 +647,144 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* Wrapper for text block + apply button */
+.magic-workspace__text-block-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Apply to slide button */
+.magic-workspace__apply-to-slide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 500;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 6px;
+  color: rgba(99, 102, 241, 0.9);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.magic-workspace__apply-to-slide:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.magic-workspace__apply-to-slide--attached {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: rgba(34, 197, 94, 0.9);
+  cursor: default;
+}
+
+.magic-workspace__apply-to-slide:disabled {
+  opacity: 0.7;
+}
+
+/* Attached text blocks list */
+.magic-workspace__attached-blocks {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+
+.magic-workspace__attached-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.magic-workspace__attached-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 10px;
+  background: rgba(99, 102, 241, 0.2);
+  border-radius: 9px;
+  color: #818cf8;
+}
+
+.magic-workspace__attached-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.magic-workspace__attached-item:last-child {
+  margin-bottom: 0;
+}
+
+.magic-workspace__attached-type {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  text-transform: capitalize;
+}
+
+.magic-workspace__attached-preset {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-left: auto;
+}
+
+.magic-workspace__attached-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.magic-workspace__attached-lock,
+.magic-workspace__attached-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: none;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.magic-workspace__attached-lock:hover,
+.magic-workspace__attached-remove:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.magic-workspace__attached-lock--active {
+  background: rgba(255, 100, 100, 0.15);
+  color: rgba(255, 150, 150, 1);
+}
+
+.magic-workspace__attached-remove:hover {
+  background: rgba(255, 100, 100, 0.15);
+  color: rgba(255, 100, 100, 0.9);
 }
 
 .magic-workspace__text-block {
@@ -1009,6 +1209,49 @@
   background: rgba(79, 140, 255, 0.15);
   border-color: rgba(79, 140, 255, 0.4);
   color: rgba(79, 180, 255, 1);
+}
+
+/* Regeneration action buttons in settings */
+.magic-workspace__regen-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.magic-workspace__regen-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 8px;
+  color: rgba(99, 102, 241, 0.95);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.magic-workspace__regen-btn:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.magic-workspace__regen-btn--secondary {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.magic-workspace__regen-btn--secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 /* =====================================================

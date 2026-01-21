@@ -38,7 +38,7 @@ import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { useProjectPalette } from "@/dashboard/project/hooks/useProjectPalette";
 import { resolveProjectCoverUrl } from "@/dashboard/project/utils/theme";
 import { slugify } from "@/shared/utils/slug";
-import { parseBudget } from "@/shared/utils/budgetUtils";
+import { parseBudget, generateDefaultRevisionName } from "@/shared/utils/budgetUtils";
 import {
   fetchBudgetHeaders,
   updateBudgetItem,
@@ -1041,10 +1041,15 @@ const BudgetPageContent = () => {
     try {
       const sourceHeader =
         revisions.find((h) => h.revision === targetRev) || budgetHeader;
+      
+      // Generate default revision name from project title
+      const defaultRevisionName = generateDefaultRevisionName(activeProject?.title);
+      
       const headerFields = duplicate
         ? {
             ...sourceHeader,
             revision: newRev,
+            revisionName: sourceHeader.revisionName || defaultRevisionName,
             isHeader: true,
           }
         : {
@@ -1058,6 +1063,7 @@ const BudgetPageContent = () => {
             headerEffectiveMarkup: 0,
             headerFinalTotalCost: 0,
             revision: newRev,
+            revisionName: defaultRevisionName,
             isHeader: true,
           };
       delete headerFields.budgetItemId;

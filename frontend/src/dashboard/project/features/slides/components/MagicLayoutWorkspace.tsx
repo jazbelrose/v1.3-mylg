@@ -66,6 +66,7 @@ import "./MagicLayoutWorkspace.css";
 // TYPES
 // =====================================================
 type LayoutMode = "grid" | "masonry";
+type RegenerationScope = "plan" | "slide" | "layout-only";
 
 interface FrameUIConfig {
   frameName: string;
@@ -85,6 +86,16 @@ export interface TextBlock {
   id: string;
   type: "headline" | "subhead" | "body" | "caption" | "quote" | "credit";
   content: string;
+}
+
+/** Text block instance attached to a specific slide */
+export interface SlideTextBlockInstance {
+  id: string;
+  blockId: string; // Reference to TextBlock.id
+  slideIndex: number;
+  presetId: TextBlockStyle["preset"];
+  locked: boolean; // Don't move on regeneration
+  placementHint?: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center" | "auto";
 }
 
 export interface TextBlockStyle {
@@ -394,6 +405,7 @@ interface PlanCardProps {
   index: number;
   isSelected: boolean;
   images: string[];
+  slideCount?: number; // For tooltip "Regenerate N slides"
   onSelect: () => void;
   onRefresh: () => void;
 }
@@ -403,6 +415,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
   index,
   isSelected,
   images,
+  slideCount = 1,
   onSelect,
   onRefresh,
 }) => {
@@ -429,6 +442,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
             e.stopPropagation();
             onRefresh();
           }}
+          title={slideCount > 1 ? `Regenerate all ${slideCount} slides` : "Regenerate layout"}
         >
           <RefreshCw size={12} />
         </button>
@@ -650,6 +664,7 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
 
   // Text blocks (new feature)
   const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
+  const [slideTextBlocks, setSlideTextBlocks] = useState<Map<number, SlideTextBlockInstance[]>>(new Map());
   const [textStylePreset, setTextStylePreset] =
     useState<TextBlockStyle["preset"]>("editorial");
   const [dropCapEnabled, setDropCapEnabled] = useState(false);
@@ -660,6 +675,10 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
   >("left");
   const [textBackgroundEnabled, setTextBackgroundEnabled] = useState(false);
   const [textBackgroundOpacity, setTextBackgroundOpacity] = useState(0.8);
+
+  // Regeneration state
+  const [showRegenConfirm, setShowRegenConfirm] = useState(false);
+  const [pendingRegenScope, setPendingRegenScope] = useState<{ scope: RegenerationScope; slideIndex?: number } | null>(null);
 
   // UI state
   const [showFullscreenPreview, setShowFullscreenPreview] = useState(false);
@@ -819,10 +838,83 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
     return selectedPlanPreview[activeSlideIndex] || selectedPlanPreview[0];
   }, [selectedPlanPreview, activeSlideIndex]);
 
+  // Get text blocks attached to current slide
+  const currentSlideTextBlocks = useMemo(() => {
+    return slideTextBlocks.get(activeSlideIndex) ?? [];
+  }, [slideTextBlocks, activeSlideIndex]);
+
   // =====================================================
   // HANDLERS
   // =====================================================
 
+  /**
+   * Regenerate all slides in the current plan
+   * Shows confirmation if multiple slides
+   */
+  const handleRefreshPlan = useCallback(() => {
+    if (slideCount > 1) {
+      setPendingRegenScope({ scope: "plan" });
+      setShowRegenConfirm(true);
+    } else {
+      // Single slide - just refresh immediately
+      setSeed(`${Date.now()}`);
+      setSessionId(`${Date.now()}`);
+    }
+  }, [slideCount]);
+
+  /**
+   * Regenerate a single slide (no confirmation needed)
+   */
+  const handleRefreshSlide = useCallback(
+    (slideIndex: number) => {
+      const newSeed = `${Date.now()}#slide${slideIndex}`;
+      setPlanSeedOverrides((prev) => ({
+        ...prev,
+        [selectedVariantIndex]: {
+          ...(prev[selectedVariantIndex] || {}),
+          [slideIndex]: newSeed,
+        },
+      }));
+    },
+    [selectedVariantIndex]
+  );
+
+  /**
+   * Regenerate layout only (keep images and text blocks in place)
+   */
+  const handleRefreshLayoutOnly = useCallback(
+    (slideIndex: number) => {
+      // Same as slide refresh but preserves locked text block positions
+      const newSeed = `${Date.now()}#layout${slideIndex}`;
+      setPlanSeedOverrides((prev) => ({
+        ...prev,
+        [selectedVariantIndex]: {
+          ...(prev[selectedVariantIndex] || {}),
+          [slideIndex]: newSeed,
+        },
+      }));
+    },
+    [selectedVariantIndex]
+  );
+
+  /**
+   * Confirm plan-level regeneration
+   */
+  const handleConfirmRegen = useCallback(() => {
+    if (pendingRegenScope?.scope === "plan") {
+      setSeed(`${Date.now()}`);
+      setSessionId(`${Date.now()}`);
+    }
+    setShowRegenConfirm(false);
+    setPendingRegenScope(null);
+  }, [pendingRegenScope]);
+
+  const handleCancelRegen = useCallback(() => {
+    setShowRegenConfirm(false);
+    setPendingRegenScope(null);
+  }, []);
+
+  // Legacy handler for backward compatibility
   const handleRefreshAll = useCallback(() => {
     setSeed(`${Date.now()}`);
     setSessionId(`${Date.now()}`);
@@ -840,6 +932,71 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
       }));
     },
     [selectedVariantIndex]
+  );
+
+  /**
+   * Attach a text block to the current slide
+   */
+  const handleAttachTextBlockToSlide = useCallback(
+    (blockId: string) => {
+      const block = textBlocks.find((b) => b.id === blockId);
+      if (!block) return;
+
+      const instance: SlideTextBlockInstance = {
+        id: `${blockId}-slide${activeSlideIndex}-${Date.now()}`,
+        blockId,
+        slideIndex: activeSlideIndex,
+        presetId: textStylePreset,
+        locked: false,
+        placementHint: "auto",
+      };
+
+      setSlideTextBlocks((prev) => {
+        const newMap = new Map(prev);
+        const existing = newMap.get(activeSlideIndex) ?? [];
+        newMap.set(activeSlideIndex, [...existing, instance]);
+        return newMap;
+      });
+    },
+    [textBlocks, activeSlideIndex, textStylePreset]
+  );
+
+  /**
+   * Remove a text block instance from a slide
+   */
+  const handleRemoveTextBlockFromSlide = useCallback(
+    (instanceId: string, slideIndex: number) => {
+      setSlideTextBlocks((prev) => {
+        const newMap = new Map(prev);
+        const existing = newMap.get(slideIndex) ?? [];
+        newMap.set(
+          slideIndex,
+          existing.filter((inst) => inst.id !== instanceId)
+        );
+        return newMap;
+      });
+    },
+    []
+  );
+
+  /**
+   * Toggle lock on a text block instance
+   */
+  const handleToggleTextBlockLock = useCallback(
+    (instanceId: string, slideIndex: number) => {
+      setSlideTextBlocks((prev) => {
+        const newMap = new Map(prev);
+        const existing = newMap.get(slideIndex) ?? [];
+        newMap.set(
+          slideIndex,
+          existing.map((inst) =>
+            inst.id === instanceId ? { ...inst, locked: !inst.locked } : inst
+          )
+        );
+        return newMap;
+      });
+    },
+    []
   );
 
   const handleClearImages = useCallback(() => {
@@ -1081,8 +1238,9 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
               index={i}
               isSelected={selectedVariantIndex === i}
               images={variantImages}
+              slideCount={slideCount}
               onSelect={() => setSelectedVariantIndex(i)}
-              onRefresh={() => handleRefreshVariant(i)}
+              onRefresh={() => handleRefreshPlan()}
             />
           );
         })}
@@ -1314,6 +1472,30 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Regenerate layout action */}
+      <div className="magic-workspace__regen-actions">
+        <button
+          type="button"
+          className="magic-workspace__regen-btn"
+          onClick={() => handleRefreshLayoutOnly(activeSlideIndex)}
+          title="Regenerate layout keeping current images and text blocks"
+        >
+          <RefreshCw size={12} />
+          Regenerate Layout (keep content)
+        </button>
+        {slideCount > 1 && (
+          <button
+            type="button"
+            className="magic-workspace__regen-btn magic-workspace__regen-btn--secondary"
+            onClick={() => handleRefreshPlan()}
+            title={`Regenerate all ${slideCount} slides`}
+          >
+            <LayoutGrid size={12} />
+            Regenerate All Slides
+          </button>
+        )}
+      </div>
     </CollapsibleSection>
   );
 
@@ -1326,16 +1508,42 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
       <TextStylePresets active={textStylePreset} onChange={setTextStylePreset} />
 
       <div className="magic-workspace__text-blocks">
-        {textBlocks.map((block) => (
-          <TextBlockEditor
-            key={block.id}
-            block={block}
-            onUpdate={handleUpdateTextBlock}
-            onDelete={handleDeleteTextBlock}
-            onAiAction={handleAiAction}
-            isAiLoading={isAiLoading}
-          />
-        ))}
+        {textBlocks.map((block) => {
+          // Check if this block is attached to current slide
+          const isAttached = currentSlideTextBlocks.some((inst) => inst.blockId === block.id);
+          
+          return (
+            <div key={block.id} className="magic-workspace__text-block-wrapper">
+              <TextBlockEditor
+                block={block}
+                onUpdate={handleUpdateTextBlock}
+                onDelete={handleDeleteTextBlock}
+                onAiAction={handleAiAction}
+                isAiLoading={isAiLoading}
+              />
+              {/* Apply to slide button */}
+              <button
+                type="button"
+                className={`magic-workspace__apply-to-slide ${isAttached ? "magic-workspace__apply-to-slide--attached" : ""}`}
+                onClick={() => handleAttachTextBlockToSlide(block.id)}
+                disabled={isAttached}
+                title={isAttached ? `Attached to Slide ${activeSlideIndex + 1}` : `Apply to Slide ${activeSlideIndex + 1}`}
+              >
+                {isAttached ? (
+                  <>
+                    <Lock size={10} />
+                    Slide {activeSlideIndex + 1}
+                  </>
+                ) : (
+                  <>
+                    <Plus size={10} />
+                    Apply to Slide {activeSlideIndex + 1}
+                  </>
+                )}
+              </button>
+            </div>
+          );
+        })}
 
         <button
           type="button"
@@ -1346,6 +1554,44 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
           Add Text Block
         </button>
       </div>
+
+      {/* Attached text blocks for current slide */}
+      {currentSlideTextBlocks.length > 0 && (
+        <div className="magic-workspace__attached-blocks">
+          <div className="magic-workspace__attached-header">
+            <span>Slide {activeSlideIndex + 1} Text Blocks</span>
+            <span className="magic-workspace__attached-count">{currentSlideTextBlocks.length}</span>
+          </div>
+          {currentSlideTextBlocks.map((instance) => {
+            const block = textBlocks.find((b) => b.id === instance.blockId);
+            if (!block) return null;
+            return (
+              <div key={instance.id} className="magic-workspace__attached-item">
+                <span className="magic-workspace__attached-type">{block.type}</span>
+                <span className="magic-workspace__attached-preset">{instance.presetId}</span>
+                <div className="magic-workspace__attached-actions">
+                  <button
+                    type="button"
+                    className={`magic-workspace__attached-lock ${instance.locked ? "magic-workspace__attached-lock--active" : ""}`}
+                    onClick={() => handleToggleTextBlockLock(instance.id, activeSlideIndex)}
+                    title={instance.locked ? "Unlock position" : "Lock position"}
+                  >
+                    {instance.locked ? <Lock size={10} /> : <Unlock size={10} />}
+                  </button>
+                  <button
+                    type="button"
+                    className="magic-workspace__attached-remove"
+                    onClick={() => handleRemoveTextBlockFromSlide(instance.id, activeSlideIndex)}
+                    title="Remove from slide"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {textBlocks.length > 0 && (
         <div className="magic-workspace__style-controls">
@@ -1557,19 +1803,42 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
             {/* Slide strip */}
             {slideCount > 1 && selectedPlanPreview && (
               <div className="magic-workspace__slide-strip">
-                {selectedPlanPreview.map((variant, i) => (
-                  <div
-                    key={i}
-                    className={`magic-workspace__slide-thumb ${activeSlideIndex === i ? "magic-workspace__slide-thumb--active" : ""}`}
-                    onClick={() => setActiveSlideIndex(i)}
-                  >
-                    <LayoutPreviewSvg
-                      variant={variant}
-                      images={selectedImages}
-                      imageOffset={slideImageOffsets[i] ?? 0}
-                    />
-                  </div>
-                ))}
+                {selectedPlanPreview.map((variant, i) => {
+                  const slideBlocks = slideTextBlocks.get(i) ?? [];
+                  return (
+                    <div
+                      key={i}
+                      className={`magic-workspace__slide-thumb ${activeSlideIndex === i ? "magic-workspace__slide-thumb--active" : ""}`}
+                      onClick={() => setActiveSlideIndex(i)}
+                    >
+                      <LayoutPreviewSvg
+                        variant={variant}
+                        images={selectedImages}
+                        imageOffset={slideImageOffsets[i] ?? 0}
+                      />
+                      {/* Slide number badge */}
+                      <span className="magic-workspace__slide-number">{i + 1}</span>
+                      {/* Text blocks indicator */}
+                      {slideBlocks.length > 0 && (
+                        <span className="magic-workspace__slide-text-badge" title={`${slideBlocks.length} text block(s)`}>
+                          <Type size={10} />
+                        </span>
+                      )}
+                      {/* Per-slide refresh on hover */}
+                      <button
+                        type="button"
+                        className="magic-workspace__slide-refresh"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRefreshSlide(i);
+                        }}
+                        title="Regenerate this slide"
+                      >
+                        <RefreshCw size={10} />
+                      </button>
+                    </div>
+                  );
+                })}
                 <button
                   type="button"
                   className="magic-workspace__slide-add"
@@ -1805,13 +2074,23 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
           />
         )}
 
-        {/* Confirmation dialog */}
+        {/* Confirmation dialog for overwrite */}
         <ConfirmModal
           isOpen={showOverwriteConfirm}
           onRequestClose={() => setShowOverwriteConfirm(false)}
           onConfirm={handleConfirmOverwrite}
           message="This slide already has content. Applying this layout will add new frames on top of the existing content. Do you want to continue?"
           confirmLabel="Apply Layout"
+          cancelLabel="Cancel"
+        />
+
+        {/* Confirmation dialog for plan regeneration */}
+        <ConfirmModal
+          isOpen={showRegenConfirm}
+          onRequestClose={handleCancelRegen}
+          onConfirm={handleConfirmRegen}
+          message={`Regenerate all ${slideCount} slides? This will create new layouts for every slide in this plan.`}
+          confirmLabel={`Regenerate ${slideCount} Slides`}
           cancelLabel="Cancel"
         />
       </div>
