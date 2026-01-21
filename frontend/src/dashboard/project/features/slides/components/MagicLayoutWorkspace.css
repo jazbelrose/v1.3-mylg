@@ -138,7 +138,7 @@
    ===================================================== */
 .magic-workspace__content {
   display: grid;
-  grid-template-columns: 320px 1fr 340px;
+  grid-template-columns: 320px 1fr 380px;
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -170,8 +170,20 @@
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
+  min-width: 0;
   /* Ensure scrollbar doesn't overlap content */
   scrollbar-gutter: stable;
+  padding-bottom: 20px;
+}
+
+/* Ensure sections in right sidebar don't overflow */
+.magic-workspace__sidebar-right .magic-workspace__section {
+  flex-shrink: 0;
+}
+
+.magic-workspace__sidebar-right .magic-workspace__section-content {
+  padding: 0 16px 16px;
+  overflow: visible;
 }
 
 /* =====================================================
@@ -863,6 +875,11 @@
   gap: 10px;
 }
 
+/* Full-width settings for complex controls (Spacing, Radius with Auto+Input+Lock) */
+.magic-workspace__setting-card--full {
+  grid-column: 1 / -1;
+}
+
 .magic-workspace__setting-card {
   display: flex;
   flex-direction: column;
@@ -871,6 +888,8 @@
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 8px;
+  min-width: 0; /* Prevent overflow */
+  overflow: hidden;
 }
 
 .magic-workspace__setting-label {
@@ -885,10 +904,12 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0; /* Allow children to shrink */
 }
 
 .magic-workspace__setting-input {
   flex: 1;
+  min-width: 40px;
   height: 28px;
   padding: 0 8px;
   font-size: 12px;
@@ -936,6 +957,8 @@
   align-items: center;
   justify-content: center;
   width: 28px;
+  min-width: 28px;
+  flex-shrink: 0;
   height: 28px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -962,6 +985,7 @@
   align-items: center;
   justify-content: center;
   min-width: 52px;
+  flex-shrink: 0;
   height: 28px;
   padding: 0 8px;
   font-size: 10px;

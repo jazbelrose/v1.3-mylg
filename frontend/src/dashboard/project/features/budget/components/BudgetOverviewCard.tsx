@@ -79,6 +79,7 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
         role={overviewLoading ? "status" : undefined}
         aria-live={overviewLoading ? "polite" : undefined}
         aria-busy={overviewLoading}
+        style={{ position: "relative" }}
       >
         <span
           className="budget-overview-header"
@@ -94,6 +95,50 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
         >
           Budget
         </span>
+
+        {!overviewLoading && displayedRevision != null && (
+          <div style={{ position: "absolute", top: 0, right: 0 }}>
+            <RevisionPillTooltip
+              data={{
+                revisionNumber: Number(displayedRevision),
+                revisionName,
+                isClientVersion: isClientRevision,
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 8px",
+                  height: 22,
+                  borderRadius: 999,
+                  background: "rgba(255, 255, 255, 0.06)",
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  color: "var(--text-muted, rgba(255, 255, 255, 0.72))",
+                  fontSize: 11,
+                  lineHeight: 1.2,
+                  letterSpacing: "0.02em",
+                  textTransform: "uppercase",
+                }}
+              >
+                <span>{`REV ${displayedRevision}`}</span>
+                {isClientRevision && (
+                  <span
+                    aria-label="Published revision"
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: "#fbbf24",
+                      display: "inline-block",
+                    }}
+                  />
+                )}
+              </span>
+            </RevisionPillTooltip>
+          </div>
+        )}
 
         {overviewLoading ? (
           <>
@@ -123,7 +168,7 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 8,
+                  gap: 6,
                   marginTop: 12,
                   color: "var(--text-muted, #9aa0a6)",
                   fontSize: "0.9rem",
@@ -134,48 +179,6 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
                   <span>Open Budget</span>
                   <ChevronRight size={16} />
                 </span>
-                {displayedRevision != null && (
-                  <RevisionPillTooltip
-                    data={{
-                      revisionNumber: Number(displayedRevision),
-                      revisionName,
-                      isClientVersion: isClientRevision,
-                    }}
-                  >
-                    <span
-                      className="budget-overview-revision"
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "4px 8px",
-                        height: 22,
-                        borderRadius: 999,
-                        background: "rgba(255, 255, 255, 0.06)",
-                        border: "1px solid rgba(255, 255, 255, 0.12)",
-                        color: "var(--text-muted, rgba(255, 255, 255, 0.72))",
-                        fontSize: 11,
-                        lineHeight: 1.2,
-                        letterSpacing: "0.02em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      <span>{`REV ${displayedRevision}`}</span>
-                      {isClientRevision && (
-                        <span
-                          aria-label="Published revision"
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: "50%",
-                            background: "#fbbf24",
-                            display: "inline-block",
-                          }}
-                        />
-                      )}
-                    </span>
-                  </RevisionPillTooltip>
-                )}
               </div>
             )}
           </>

@@ -1226,7 +1226,7 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
           </div>
         </div>
 
-        <div className="magic-workspace__setting-card">
+        <div className="magic-workspace__setting-card magic-workspace__setting-card--full">
           <span className="magic-workspace__setting-label">Spacing</span>
           <div className="magic-workspace__setting-value">
             <button
@@ -1270,7 +1270,7 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
           </div>
         </div>
 
-        <div className="magic-workspace__setting-card">
+        <div className="magic-workspace__setting-card magic-workspace__setting-card--full">
           <span className="magic-workspace__setting-label">Radius</span>
           <div className="magic-workspace__setting-value">
             <button

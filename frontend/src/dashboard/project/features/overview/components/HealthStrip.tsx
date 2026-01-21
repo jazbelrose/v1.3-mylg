@@ -147,7 +147,7 @@ function BudgetTile({ projectId, projectTitle, stats }: BudgetTileProps) {
       : 'neutral';
 
   return (
-    <div className={styles.healthTile} onClick={handleClick} role="button" tabIndex={0}>
+    <div className={styles.healthTile} onClick={handleClick} role="button" tabIndex={0} style={{ position: 'relative' }}>
       <div className={styles.healthTileHeader}>
         <div className={styles.healthTileTitle}>
           <DollarSign className={styles.healthTileIcon} />
@@ -155,6 +155,12 @@ function BudgetTile({ projectId, projectTitle, stats }: BudgetTileProps) {
         </div>
         <div className={`${styles.statusDot} ${styles[statusClass]}`} />
       </div>
+
+      {revisionChip && (
+        <div style={{ position: 'absolute', top: 12, right: 12 }}>
+          {revisionChip}
+        </div>
+      )}
 
       <div className={styles.healthTileBody}>
         {stats && typeof stats.finalCost === 'number' && stats.finalCost > 0 ? (
@@ -175,11 +181,10 @@ function BudgetTile({ projectId, projectTitle, stats }: BudgetTileProps) {
         )}
       </div>
 
-      <div className={styles.healthTileCta} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div className={styles.healthTileCta} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           Open Budget <ChevronRight />
         </span>
-        {revisionChip}
       </div>
     </div>
   );
