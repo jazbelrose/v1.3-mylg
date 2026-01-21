@@ -22,6 +22,14 @@ export function getCallerFromEvent(event) {
   const groupsClaim = claims["cognito:groups"] || claims.groups;
   const groups = normalizeGroupClaim(groupsClaim).map((g) => g.toLowerCase());
 
+  // Debug: log userId extraction for HQ access issues
+  console.log("getCallerFromEvent: extracted userId", {
+    userId,
+    fromCustomUserId: !!claims["custom:userId"],
+    fromSub: !claims["custom:userId"] && !!claims.sub,
+    email,
+  });
+
   return { userId, email, groups, claims };
 }
 

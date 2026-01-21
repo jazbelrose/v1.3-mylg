@@ -7,10 +7,15 @@ export function isOrgAdminRole(role) {
 }
 
 export async function requireOrgMember({ ddb, tableName, orgId, userId }) {
-  if (!orgId || !userId) throw httpError(404, "Not found");
+  if (!orgId || !userId) {
+    console.error("requireOrgMember: missing orgId or userId", { orgId, userId });
+    throw httpError(404, "Not found");
+  }
 
   const pk = `ORG#${orgId}`;
   const sk = `USER#${userId}`;
+
+  console.log("requireOrgMember: looking up", { tableName, pk, sk });
 
   const res = await ddb.get({
     TableName: tableName,
@@ -19,8 +24,11 @@ export async function requireOrgMember({ ddb, tableName, orgId, userId }) {
 
   const item = res?.Item;
   if (!item || (item.status && String(item.status).toLowerCase() !== "active")) {
+    console.error("requireOrgMember: NOT FOUND or inactive", { pk, sk, itemExists: !!item, status: item?.status });
     throw httpError(404, "Not found");
   }
+
+  console.log("requireOrgMember: SUCCESS", { orgId, userId, role: item.role });
 
   return {
     orgId,
