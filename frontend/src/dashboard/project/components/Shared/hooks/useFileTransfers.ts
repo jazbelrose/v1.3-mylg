@@ -482,12 +482,18 @@ export const useFileTransfers = ({
       // Invalidate cache so next open gets fresh data
       const entityId = isOrgMode ? `org:${orgId}` : projectId;
       fileCache.invalidate(entityId, folderKey);
+
+      // In org mode, force refresh the file list to ensure UI is in sync
+      if (isOrgMode) {
+        await fetchS3Files(true);
+      }
     } catch (error) {
       console.error("Error during deletion:", error);
       updateNotification(notificationId, "error", "Failed to delete selected files. Please try again.");
     }
   }, [
     activeProject,
+    fetchS3Files,
     folderKey,
     isOrgMode,
     orgId,
