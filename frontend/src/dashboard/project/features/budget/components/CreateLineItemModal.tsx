@@ -557,9 +557,14 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     setItem((prev) => {
       const updated: ItemForm = { ...prev, [field]: value } as ItemForm;
 
-      // Auto elementId when category chosen
-      if (field === "category" && value) {
-        updated.elementId = getNextElementId(value);
+      // Auto elementId when category chosen (or cleared for UNCATEGORIZED)
+      if (field === "category") {
+        if (value) {
+          updated.elementId = getNextElementId(value);
+        } else {
+          // Clear elementId when switching to UNCATEGORIZED
+          updated.elementId = "";
+        }
       }
 
       // Recompute final cost and keep markup consistent when overriding costs

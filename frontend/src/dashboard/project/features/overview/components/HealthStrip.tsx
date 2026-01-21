@@ -18,6 +18,8 @@ import {
   formatRelativeTime,
 } from '../utils';
 import type { BudgetStats } from '@/dashboard/project/features/budget/context/types';
+import { useBudget } from '@/dashboard/project/features/budget/context/BudgetContext';
+import RevisionPillTooltip from '@/dashboard/project/features/budget/components/RevisionPillTooltip';
 import styles from "../OverviewHud.module.css";
 
 // ============================================================================
@@ -79,22 +81,28 @@ interface BudgetTileProps {
 function BudgetTile({ projectId, projectTitle, stats }: BudgetTileProps) {
   const navigate = useNavigate();
   const health = useMemo(() => computeBudgetHealth(stats), [stats]);
+  const { budgetHeader, clientBudgetHeader } = useBudget();
+
+  const displayedRevision =
+    (clientBudgetHeader as { revision?: number | null } | null)?.revision ??
+    ((budgetHeader as { clientRevisionId?: number | null } | null)?.clientRevisionId ??
+      (budgetHeader as { revision?: number | null } | null)?.revision ?? null);
+  const isClientRevision =
+    typeof (clientBudgetHeader as { revision?: number | null } | null)?.revision === 'number' ||
+    typeof (budgetHeader as { clientRevisionId?: number | null } | null)?.clientRevisionId === 'number';
+  const revisionName =
+    (clientBudgetHeader as { revisionName?: string | null } | null)?.revisionName ??
+    (budgetHeader as { revisionName?: string | null } | null)?.revisionName ?? null;
 
   const handleClick = () => {
     navigate(getProjectDashboardPath(projectId, projectTitle, '/budget'));
   };
 
-  const statusClass = health.status === 'over-budget' 
-    ? 'critical' 
-    : health.status === 'on-track' 
-      ? 'healthy' 
+  const statusClass = health.status === 'over-budget'
+    ? 'critical'
+    : health.status === 'on-track'
+      ? 'healthy'
       : 'neutral';
-
-  // Calculate bar percentages
-  const maxValue = Math.max(health.approved, health.actual, 1);
-  const approvedPercent = (health.approved / maxValue) * 100;
-  const actualPercent = (health.actual / maxValue) * 100;
-  const isOver = health.actual > health.approved;
 
   return (
     <div className={styles.healthTile} onClick={handleClick} role="button" tabIndex={0}>
@@ -102,56 +110,41 @@ function BudgetTile({ projectId, projectTitle, stats }: BudgetTileProps) {
         <div className={styles.healthTileTitle}>
           <DollarSign className={styles.healthTileIcon} />
           Budget
+          {displayedRevision != null && (
+            <RevisionPillTooltip
+              data={{
+                revisionNumber: Number(displayedRevision),
+                revisionName,
+                isClientVersion: isClientRevision,
+              }}
+            >
+              <span
+                style={{ marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 6px', borderRadius: 10, background: 'var(--bg-3, #f3f4f6)', color: 'var(--text-strong, #111827)', fontSize: 11, lineHeight: 1.2 }}
+              >
+                {isClientRevision && <span style={{ fontWeight: 600 }}>CLIENT</span>}
+                <span style={{ marginLeft: 4 }}>{`Rev.${displayedRevision}`}</span>
+              </span>
+            </RevisionPillTooltip>
+          )}
         </div>
         <div className={`${styles.statusDot} ${styles[statusClass]}`} />
       </div>
 
       <div className={styles.healthTileBody}>
-        {health.hasData ? (
+        {stats && typeof stats.finalCost === 'number' && stats.finalCost > 0 ? (
           <>
             <div className={styles.healthTileMetric}>
               <span className={styles.healthTilePrimary}>
-                {formatCurrency(health.actual)}
+                {formatCurrency(stats.finalCost)}
               </span>
               <span className={styles.healthTileSecondary}>
-                / {formatCurrency(health.approved)}
+                Final Cost
               </span>
-            </div>
-            
-            <div className={styles.miniBar}>
-              {!isOver && (
-                <>
-                  <div
-                    className={`${styles.miniBarSegment} ${styles.actual}`}
-                    style={{ width: `${actualPercent}%` }}
-                  />
-                  <div
-                    className={`${styles.miniBarSegment} ${styles.approved}`}
-                    style={{ width: `${approvedPercent - actualPercent}%`, opacity: 0.3 }}
-                  />
-                </>
-              )}
-              {isOver && (
-                <>
-                  <div
-                    className={`${styles.miniBarSegment} ${styles.approved}`}
-                    style={{ width: `${approvedPercent}%` }}
-                  />
-                  <div
-                    className={`${styles.miniBarSegment} ${styles.over}`}
-                    style={{ width: `${actualPercent - approvedPercent}%` }}
-                  />
-                </>
-              )}
-            </div>
-
-            <div className={styles.healthTileSubtext}>
-              Variance: {formatVariance(health.variance)}
             </div>
           </>
         ) : (
           <div className={styles.healthTileSubtext}>
-            Tracking starts when budget is set
+            Final Cost not set
           </div>
         )}
       </div>

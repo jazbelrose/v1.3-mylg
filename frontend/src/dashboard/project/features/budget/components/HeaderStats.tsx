@@ -11,7 +11,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import EditBallparkModal from "@/dashboard/project/features/budget/components/EditBallparkModal";
-import ClientInvoicePreviewModal from "@/dashboard/project/features/budget/ClientInvoicePreviewModal";
+import InvoicePreviewModal from "@/dashboard/project/features/budget/components/InvoicePreviewModal";
 import BudgetDonut, {
   type BudgetDonutSlice,
   type BudgetDonutDatum,
@@ -1200,7 +1200,7 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
         accentColor={accentHex}
       />
 
-      <ClientInvoicePreviewModal
+      <InvoicePreviewModal
         isOpen={isInvoicePreviewOpen}
         onRequestClose={closeInvoicePreview}
         revision={invoiceRevision as unknown as { revision?: number; [k: string]: unknown }}
