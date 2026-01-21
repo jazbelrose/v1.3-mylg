@@ -45,15 +45,15 @@ import {
 } from "../lib/magicLayoutGenerator";
 import {
   getTasteMode,
-  tasteModeIds,
-  type TasteModeId,
-} from "../lib/magicLayoutTypes";
+  getTasteModeIds,
+} from "../lib/tasteModes";
+import type { TasteModeId } from "../lib/magicLayoutTypes";
 import { useIsMobile, useIsTablet } from "../hooks/useMediaQuery";
 import {
   FileManagerV2,
   type FileItem,
 } from "@/dashboard/project/components/FileManager";
-import { ConfirmModal } from "@/shared/components/ConfirmModal";
+import ConfirmModal from "@/shared/ui/ConfirmModal";
 import "./MagicLayoutWorkspace.css";
 
 // =====================================================
@@ -917,7 +917,7 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
               onChange={(e) => setTasteMode(e.target.value as TasteModeId)}
               className="magic-workspace__setting-select"
             >
-              {tasteModeIds.map((id) => (
+              {getTasteModeIds().map((id) => (
                 <option key={id} value={id}>
                   {getTasteMode(id).name}
                 </option>
@@ -1473,7 +1473,7 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
                         }
                         className="magic-workspace__setting-select"
                       >
-                        {tasteModeIds.map((id) => (
+                        {getTasteModeIds().map((id) => (
                           <option key={id} value={id}>
                             {getTasteMode(id).name}
                           </option>
