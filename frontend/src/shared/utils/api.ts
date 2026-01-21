@@ -501,6 +501,15 @@ export function getEmbedUrl(
     return fallbackToOriginal ? getFileUrl(urlOrKey) : urlOrKey;
   }
 
+  // Skip transformation for PDF import page images (they don't have embeds yet)
+  // PDF imports use paths like:
+  //   - projects/{id}/gallery/{slug}/pages/page_N.jpg (old gallery flow)
+  //   - projects/{id}/slides/imports/{importId}/pages/page_N.jpg (slides import)
+  //   - projects/{id}/deck-versions/{versionId}/slides/imports/{importId}/pages/page_N.jpg
+  if (/\/pages\/page_\d+\.(jpg|jpeg|png)$/i.test(key)) {
+    return fallbackToOriginal ? getFileUrl(urlOrKey) : urlOrKey;
+  }
+
   // Transform path to embed path:
   // projects/{id}/files/name.jpg -> projects/{id}/files_embed/name.jpg
   // uploads/tasks/name.jpg -> uploads/tasks_embed/name.jpg
