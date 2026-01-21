@@ -10,6 +10,7 @@ import {
   normalizeFileUrl,
   projectFileDeleteUrl,
 } from "../../../../../shared/utils/api";
+import { deleteHqFiles } from "../../../../../hq/lib/hqApi";
 import { notify, notifyLoading, updateNotification } from "../../../../../shared/ui/ToastNotifications";
 import pLimit from "../../../../../shared/utils/pLimit";
 import type { Message } from "../../../../../app/contexts/DataProvider";
@@ -33,6 +34,8 @@ interface UseFileTransfersParams {
   removeReferences: (urls: string[], messages: Message[]) => Promise<void>;
   projectMessages: Record<string, Message[]>;
   canDelete: boolean;
+  /** When provided, operates in org mode instead of project mode */
+  orgId?: string;
 }
 
 export const useFileTransfers = ({
@@ -49,7 +52,11 @@ export const useFileTransfers = ({
   removeReferences,
   projectMessages,
   canDelete,
+  orgId,
 }: UseFileTransfersParams) => {
+  // Determine if we're in org mode
+  const isOrgMode = Boolean(orgId);
+  
   // Track drag enter/leave count to prevent flickering
   // (child elements trigger enter/leave events too)
   const dragCounterRef = useRef(0);
@@ -92,25 +99,28 @@ export const useFileTransfers = ({
       updateTimeoutRef.current = setTimeout(() => {
         const pending = pendingUpdateRef.current;
         pendingUpdateRef.current = null;
-        if (pending && activeProject?.projectId) {
+        if (pending && activeProject?.projectId && !isOrgMode) {
           updateFolderFiles(activeProject.projectId as string, pending).catch((err: unknown) =>
             console.error("Error updating files:", err)
           );
         }
       }, 500);
     },
-    [folderKey, activeProject?.projectId, updateFolderFiles]
+    [folderKey, activeProject?.projectId, updateFolderFiles, isOrgMode]
   );
 
   const fetchS3Files = useCallback(async (skipCache = false): Promise<FileItem[]> => {
-    const projectId = activeProject?.projectId as string | undefined;
-    if (!projectId) return [];
+    // In org mode, use orgId; otherwise use projectId
+    const entityId = isOrgMode ? orgId : (activeProject?.projectId as string | undefined);
+    if (!entityId) return [];
+    
+    const cacheKey = isOrgMode ? `org:${entityId}` : entityId;
     
     // Check cache first (unless skip requested)
     if (!skipCache) {
-      const cached = fileCache.getCached(projectId, folderKey);
-      if (cached && !fileCache.isStale(projectId, folderKey)) {
-        filesPerf.mark('fetchS3Files:cache-hit', { projectId, folderKey, fileCount: cached.files.length });
+      const cached = fileCache.getCached(cacheKey, folderKey);
+      if (cached && !fileCache.isStale(cacheKey, folderKey)) {
+        filesPerf.mark('fetchS3Files:cache-hit', { entityId, folderKey, fileCount: cached.files.length });
         startTransition(() => {
           setSelectedFiles(cached.files);
         });
@@ -128,12 +138,14 @@ export const useFileTransfers = ({
       }
     }
     
-    filesPerf.mark('fetchS3Files:api-start', { projectId, folderKey });
+    filesPerf.mark('fetchS3Files:api-start', { entityId, folderKey });
     
-    const prefixes =
-      folderKey === "uploads"
-        ? ["uploads/", "lexical/", "chat_uploads/"].map((dir) => `projects/${projectId}/${dir}`)
-        : [`projects/${projectId}/${folderKey}/`];
+    // Build S3 prefixes based on mode
+    const prefixes = isOrgMode
+      ? [`orgs/${entityId}/uploads/`]
+      : folderKey === "uploads"
+        ? ["uploads/", "lexical/", "chat_uploads/"].map((dir) => `projects/${entityId}/${dir}`)
+        : [`projects/${entityId}/${folderKey}/`];
 
     try {
       setIsLoading(true);
@@ -161,7 +173,7 @@ export const useFileTransfers = ({
       const merged = Array.from(new Map(files.map((f) => [f.url, f])).values());
       
       // Update cache
-      fileCache.setCache(projectId, folderKey, merged);
+      fileCache.setCache(cacheKey, folderKey, merged);
       
       // Use startTransition to prevent blocking UI when processing large file lists
       startTransition(() => {
@@ -179,12 +191,12 @@ export const useFileTransfers = ({
     } finally {
       setIsLoading(false);
     }
-  }, [activeProject?.projectId, folderKey, setIsLoading, setSelectedFiles, fileCache]);
+  }, [activeProject?.projectId, folderKey, setIsLoading, setSelectedFiles, fileCache, isOrgMode, orgId]);
 
   const loadFiles = useCallback(async (forceRefresh = false) => {
     filesPerf.mark('loadFiles:start');
     const files = await fetchS3Files(forceRefresh);
-    if (!files.length) {
+    if (!files.length && !isOrgMode) {
       const rawFiles = (activeProject?.[folderKey] as FileItem[]) || [];
       const normalized = normalizeFiles(rawFiles);
       startTransition(() => {
@@ -217,9 +229,12 @@ export const useFileTransfers = ({
   }, []);
 
   const uploadFileToS3 = useCallback(
-    (projectId: string, file: File) =>
+    (entityId: string, file: File) =>
       uploadQueue(async () => {
-        const filename = `projects/${projectId}/${folderKey}/${file.name}`;
+        // In org mode, use orgs/ prefix; otherwise use projects/ prefix
+        const filename = isOrgMode
+          ? `orgs/${entityId}/uploads/${file.name}`
+          : `projects/${entityId}/${folderKey}/${file.name}`;
         const uploadTask = uploadData({
           key: filename,
           data: file,
@@ -232,7 +247,7 @@ export const useFileTransfers = ({
         const fileUrl = getFileUrl(storageKey);
         return { fileName: file.name, url: normalizeFileUrl(fileUrl) };
       }),
-    [folderKey, uploadQueue]
+    [folderKey, uploadQueue, isOrgMode]
   );
 
   const uploadFiles = useCallback(
@@ -242,9 +257,10 @@ export const useFileTransfers = ({
         setIsLoading(false);
         return;
       }
-      const projectId = activeProject?.projectId as string | undefined;
-      if (!projectId) {
-        notify("error", "Unable to determine the active project. Please refresh and try again.");
+      // In org mode, use orgId; otherwise use projectId
+      const entityId = isOrgMode ? orgId : (activeProject?.projectId as string | undefined);
+      if (!entityId) {
+        notify("error", isOrgMode ? "Unable to determine the organization." : "Unable to determine the active project. Please refresh and try again.");
         setIsLoading(false);
         return;
       }
@@ -262,7 +278,7 @@ export const useFileTransfers = ({
 
       await Promise.all(
         files.map((file, idx) =>
-          uploadFileToS3(projectId, file)
+          uploadFileToS3(entityId, file)
             .then((info) => {
               const oldUrl = placeholders[idx]!.url;
               placeholders[idx]!.url = info.url;
@@ -287,16 +303,18 @@ export const useFileTransfers = ({
         return finalFiles;
       });
 
-      if (folderKey !== "uploads") {
+      // Only update local project state in project mode
+      if (!isOrgMode && folderKey !== "uploads") {
         setLocalActiveProject((prev: Project) => ({ ...prev, [folderKey]: finalFiles }));
       }
 
       updateNotification(notificationId, "success", "Files uploaded successfully");
 
-      if (folderKey !== "uploads") {
+      // Only update project API in project mode
+      if (!isOrgMode && folderKey !== "uploads") {
         const payload = finalFiles.map((f) => ({ fileName: f.fileName, url: f.url }));
         try {
-          await updateFolderFiles(projectId, payload);
+          await updateFolderFiles(entityId, payload);
         } catch (error) {
           console.error("Error updating file metadata:", error);
           notify("warning", "Files uploaded but metadata update failed");
@@ -304,7 +322,8 @@ export const useFileTransfers = ({
       }
       
       // Invalidate cache so next open gets fresh data
-      fileCache.invalidate(projectId, folderKey);
+      const cacheKey = isOrgMode ? `org:${entityId}` : entityId;
+      fileCache.invalidate(cacheKey, folderKey);
       
       setIsLoading(false);
     },
@@ -317,6 +336,8 @@ export const useFileTransfers = ({
       updateFolderFiles,
       uploadFileToS3,
       fileCache,
+      isOrgMode,
+      orgId,
     ]
   );
 
@@ -410,22 +431,34 @@ export const useFileTransfers = ({
     const fileUrlsToDelete = Array.from(selectedItems);
     if (!fileUrlsToDelete.length) return;
     const fileKeysToDelete = fileUrlsToKeys(fileUrlsToDelete);
-    if (!activeProject?.projectId) return;
-    const projectId = activeProject.projectId as string;
+    
+    // In org mode, we don't need a projectId
+    if (!isOrgMode && !activeProject?.projectId) return;
+    const projectId = activeProject?.projectId as string;
     setIsConfirmingDelete(false);
 
-    const messages = projectMessages[projectId] || [];
-    await removeReferences(fileUrlsToDelete, messages);
+    // In project mode, remove message references
+    if (!isOrgMode && projectId) {
+      const messages = projectMessages[projectId] || [];
+      await removeReferences(fileUrlsToDelete, messages);
+    }
 
     const notificationId = notifyLoading("Deleting files...");
     try {
-      await apiFetch(projectFileDeleteUrl(projectId), {
-        method: "POST",
-        body: JSON.stringify({
-          fileKeys: fileKeysToDelete,
-        }),
-        headers: { "Content-Type": "application/json" },
-      });
+      // Use project delete endpoint (works for both - S3 keys are passed directly)
+      // For org mode, the keys are already in orgs/{orgId}/uploads/ format
+      if (!isOrgMode && projectId) {
+        await apiFetch(projectFileDeleteUrl(projectId), {
+          method: "POST",
+          body: JSON.stringify({
+            fileKeys: fileKeysToDelete,
+          }),
+          headers: { "Content-Type": "application/json" },
+        });
+      } else if (isOrgMode && orgId) {
+        // Use the dedicated HQ files delete endpoint
+        await deleteHqFiles(orgId, fileKeysToDelete);
+      }
 
       let remaining: FileItem[] = [];
       setSelectedFiles((prev) => {
@@ -433,17 +466,21 @@ export const useFileTransfers = ({
         return remaining;
       });
 
-      if (folderKey !== "uploads") {
-        setLocalActiveProject((prev: Project) => ({ ...prev, [folderKey]: remaining }));
+      // Only update project state in project mode
+      if (!isOrgMode) {
+        if (folderKey !== "uploads") {
+          setLocalActiveProject((prev: Project) => ({ ...prev, [folderKey]: remaining }));
+        }
+        scheduleFolderUpdate(remaining.map((u) => ({ fileName: u.fileName, url: u.url })));
       }
-      scheduleFolderUpdate(remaining.map((u) => ({ fileName: u.fileName, url: u.url })));
 
       setSelectedItems(new Set());
       setIsSelectMode(false);
       updateNotification(notificationId, "success", "Files deleted successfully");
       
       // Invalidate cache so next open gets fresh data
-      fileCache.invalidate(projectId, folderKey);
+      const entityId = isOrgMode ? `org:${orgId}` : projectId;
+      fileCache.invalidate(entityId, folderKey);
     } catch (error) {
       console.error("Error during deletion:", error);
       updateNotification(notificationId, "error", "Failed to delete selected files. Please try again.");
@@ -451,6 +488,8 @@ export const useFileTransfers = ({
   }, [
     activeProject,
     folderKey,
+    isOrgMode,
+    orgId,
     projectMessages,
     removeReferences,
     scheduleFolderUpdate,

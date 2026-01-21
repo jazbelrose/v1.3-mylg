@@ -622,6 +622,7 @@
   align-items: stretch;
   flex: 1 1 auto;
   min-height: 0;
+  position: relative;
 }
 
 .content {
@@ -634,6 +635,8 @@
   overflow-y: auto;
   padding-right: 4px;
 }
+
+/* Right panel (docked chat) styles handled by chat-panel.css */
 
 .mobileWelcomeHeader {
   margin: 0 0 16px;

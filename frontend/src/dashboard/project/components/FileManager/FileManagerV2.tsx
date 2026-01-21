@@ -33,6 +33,7 @@ import {
   Grid,
   Upload,
   Plus,
+  FolderPlus,
   ChevronDown,
   X,
   PanelLeftClose,
@@ -122,6 +123,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       selectionMode = 'none',
       onFileSelect,
       fileTypeFilter = 'all',
+      orgId,
     },
     ref
   ) => {
@@ -136,8 +138,10 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
     } = useData();
     const { ws } = useSocket() || {};
 
-    const canUpload = isAdmin || isBuilder || isDesigner || folder === 'uploads';
-    const canDelete = isAdmin || isBuilder || isDesigner;
+    // In org mode, everyone with access can upload/delete
+    const isOrgMode = Boolean(orgId);
+    const canUpload = isOrgMode || isAdmin || isBuilder || isDesigner || folder === 'uploads';
+    const canDelete = isOrgMode || isAdmin || isBuilder || isDesigner;
 
     // State from shared hook
     const state = useFileManagerState({
@@ -260,6 +264,9 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
     
     // Track selected file index for keyboard navigation
     const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+    
+    // Search input ref for keyboard shortcut
+    const searchInputRef = useRef<HTMLInputElement>(null);
     
     // Container size for virtualized grid
     const contentAreaRef = useRef<HTMLDivElement>(null);
@@ -455,6 +462,13 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
           setSelectedItems(new Set());
           return;
         }
+
+        // / to focus search (power-user shortcut)
+        if (e.key === '/') {
+          e.preventDefault();
+          searchInputRef.current?.focus();
+          return;
+        }
       };
 
       document.addEventListener('keydown', handleKeyDown);
@@ -527,6 +541,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       removeReferences,
       projectMessages: projectMessages as Record<string, Message[]>,
       canDelete,
+      orgId,
     });
 
     // Wrap bulk download to track zipping state
@@ -1181,11 +1196,12 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                 )}
               </div>
 
-              {/* CENTER ZONE: Search */}
+              {/* CENTER ZONE: Search + Type Filter */}
               <div className={styles.toolbarCenter}>
                 <div className={styles.searchWrapper}>
                   <Search size={14} className={styles.searchIcon} />
                   <input
+                    ref={searchInputRef}
                     type="text"
                     placeholder="Search files..."
                     value={searchTerm}
@@ -1193,39 +1209,56 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                     className={styles.searchInput}
                   />
                 </div>
+                {/* Type filter - inline chip style */}
+                <Dropdown
+                  label="All types"
+                  options={filterOptionsList}
+                  value={filterOption}
+                  onChange={setFilterOption}
+                />
               </div>
 
-              {/* RIGHT ZONE: View toggle + Filter + Upload + Close */}
+              {/* RIGHT ZONE: View toggle → Details → New Folder → Upload → Close */}
               <div className={styles.toolbarRight}>
                 {/* View toggle */}
                 <button
                   type="button"
                   className={`${styles.toolbarBtn} ${viewMode === 'list' ? styles.active : ''}`}
                   onClick={toggleViewMode}
-                  aria-label="Toggle view"
+                  aria-label={viewMode === 'list' ? 'Switch to grid view' : 'Switch to list view'}
+                  title={viewMode === 'list' ? 'Grid view' : 'List view'}
                 >
-                  {viewMode === 'list' ? <List size={18} /> : <Grid size={18} />}
+                  {viewMode === 'list' ? <Grid size={18} /> : <List size={18} />}
                 </button>
 
-                {/* Filter dropdown */}
-                <Dropdown
-                  label="Filter"
-                  options={filterOptionsList}
-                  value={filterOption}
-                  onChange={setFilterOption}
-                />
-
-                {/* Inspector toggle */}
+                {/* Details panel toggle - single button with state */}
                 <button
                   type="button"
                   className={`${styles.toolbarBtn} ${inspectorOpen ? styles.active : ''}`}
                   onClick={() => setInspectorOpen(!inspectorOpen)}
                   aria-label={inspectorOpen ? 'Hide details' : 'Show details'}
+                  title={inspectorOpen ? 'Hide details' : 'Show details'}
                 >
                   {inspectorOpen ? <PanelRightClose size={18} /> : <PanelRight size={18} />}
                 </button>
 
-                {/* Upload button - toned down */}
+                {/* Divider before actions */}
+                <span className={styles.toolbarDivider} aria-hidden="true" />
+
+                {/* New Folder button */}
+                {canCreateFolder && (
+                  <button
+                    type="button"
+                    className={styles.toolbarBtn}
+                    onClick={handleCreateFolder}
+                    aria-label="New folder"
+                    title="New Folder"
+                  >
+                    <FolderPlus size={18} />
+                  </button>
+                )}
+
+                {/* Upload button */}
                 {canUpload && (
                   <>
                     <input
@@ -1245,6 +1278,9 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                     </button>
                   </>
                 )}
+
+                {/* Close divider */}
+                <span className={styles.toolbarDivider} aria-hidden="true" />
 
                 {/* Close button */}
                 <button
@@ -1268,8 +1304,6 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                   rootFolder={folderTreeRoot}
                   systemFolders={folderTreeSystem}
                   customFolders={folderTreeCustom}
-                  canCreateFolder={canCreateFolder}
-                  onCreateFolder={handleCreateFolder}
                   isCollapsed={sidebarCollapsed}
                 />
               )}

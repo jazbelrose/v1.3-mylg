@@ -15,7 +15,7 @@ export interface MessagesValue {
     emoji: string,
     reactorId: string,
     conversationId: string,
-    conversationType: "dm" | "project",
+    conversationType: "dm" | "project" | "org",
     ws?: WebSocket
   ) => void;
 }

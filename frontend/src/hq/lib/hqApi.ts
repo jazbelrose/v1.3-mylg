@@ -448,3 +448,28 @@ export async function applyHqTransactionsBulk(
     body: JSON.stringify(input),
   });
 }
+
+/* ------------ Org Files API ------------ */
+
+export type HqFileDeleteResponse = {
+  ok: boolean;
+  orgId: string;
+  deleted: string[];
+  errors: Array<{ key: string; code: string; message: string }>;
+};
+
+/**
+ * POST /hq/files/delete
+ * Deletes org-scoped files from S3.
+ */
+export async function deleteHqFiles(
+  orgId: string,
+  fileKeys: string[]
+): Promise<HqFileDeleteResponse> {
+  const base = getHqServiceBaseUrl();
+  return apiFetch<HqFileDeleteResponse>(`${base}/hq/files/delete?orgId=${encodeURIComponent(orgId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fileKeys }),
+  });
+}

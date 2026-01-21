@@ -502,24 +502,26 @@
 .treeItemWrapper {
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .treeItem {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 7px 12px 7px 14px;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.7);
   font-size: 0.85rem;
   border-radius: 6px;
   margin: 1px 8px;
   transition: background-color 0.15s ease, color 0.15s ease;
+  position: relative;
 }
 
 .treeItem:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: white;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .treeItem:focus-visible {
@@ -527,44 +529,65 @@
   outline-offset: -2px;
 }
 
+/* Selected state with left accent bar */
 .treeItemSelected {
-  background: rgba(250, 51, 86, 0.15);
+  background: rgba(250, 51, 86, 0.1);
   color: white;
 }
 
+.treeItemSelected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  background: #fa3356;
+  border-radius: 0 2px 2px 0;
+}
+
 .treeItemSelected:hover {
-  background: rgba(250, 51, 86, 0.2);
+  background: rgba(250, 51, 86, 0.15);
 }
 
 .treeItemChevron {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   padding: 0;
   background: none;
   border: none;
   color: inherit;
   cursor: pointer;
-  opacity: 0.5;
+  opacity: 0.4;
   transition: opacity 0.15s ease;
+  flex-shrink: 0;
+  margin-right: 2px;
 }
 
 .treeItemChevron:hover {
-  opacity: 1;
+  opacity: 0.8;
 }
 
 .treeItemChevronPlaceholder {
-  width: 16px;
-  height: 16px;
+  /* No placeholder needed - icon alignment handles it */
+  display: none;
 }
 
 .treeItemIcon {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.7;
+  width: 18px;
+  height: 18px;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.treeItemSelected .treeItemIcon {
+  opacity: 0.8;
 }
 
 .treeItemLabel {
@@ -572,6 +595,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 400;
+}
+
+.treeItemSelected .treeItemLabel {
+  font-weight: 500;
 }
 
 .treeItemCount {
@@ -681,7 +709,7 @@
   gap: 8px;
   flex: 1;
   justify-content: center;
-  max-width: 400px;
+  max-width: 480px;
   margin: 0 auto;
 }
 
@@ -690,6 +718,14 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+
+/* Toolbar divider between groups */
+.toolbarDivider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0 4px;
 }
 
 /* Project Context Chip - Premium feel */

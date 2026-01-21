@@ -12,6 +12,8 @@ export interface FileManagerProps {
   selectionMode?: FileSelectionMode;
   onFileSelect?: (files: FileItem[]) => void;
   fileTypeFilter?: 'images' | 'all';
+  /** When provided, operates in org mode instead of project mode */
+  orgId?: string;
 }
 
 export interface FileItem {

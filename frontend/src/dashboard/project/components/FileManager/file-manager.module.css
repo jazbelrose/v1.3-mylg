@@ -671,62 +671,76 @@
 .dropdown {
   position: relative;
   display: inline-block;
-  margin-left: 4px;
-  /* Set a fixed or min-width, or inherit from parent for flex behavior */
-  min-width: 130px; /* Adjust as needed */
-  width: 170px; /* Or 100% if inside a flexbox container */
-  /* If inside a flex parent: width: 100%; */
 }
+
 .dropdownTrigger {
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  color: white;
-  padding: 4px 8px;
-  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid transparent;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 7px 10px;
+  border-radius: 8px;
   cursor: pointer;
-  width: 100%; /* Makes trigger fill the dropdown */
-  font-weight: normal;
+  font-size: 0.8rem;
+  font-weight: 400;
   display: flex;
   align-items: center;
-  justify-content: space-between; /* Icon on right */
-  white-space: nowrap; /* Prevents wrapping */
-  overflow: hidden;    /* Prevents overflow */
-  text-overflow: ellipsis; /* Adds ... if too long */
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
 }
+
+.dropdownTrigger:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.dropdownTrigger::after {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid currentColor;
+  opacity: 0.6;
+}
+
 .dropdownMenu {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  background: #0c0c0c;
+  background: #1c1c1e;
   color: white;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
   z-index: 1100;
-  min-width: 100%; /* Matches trigger width */
-  width: 100%;
+  min-width: 140px;
   list-style: none;
   margin: 0;
-  padding: 0;
-  /* Optionally add max-width if needed */
+  padding: 4px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .dropdownOption {
-  padding: 4px 8px;
+  padding: 8px 12px;
   cursor: pointer;
   display: block;
   width: 100%;
   box-sizing: border-box;
-  font-weight: normal;
+  font-size: 0.85rem;
+  font-weight: 400;
+  border-radius: 4px;
+  transition: background-color 0.1s ease;
 }
 
 .dropdownOption:hover,
 .dropdownOptionActive {
-  background: #FA3356;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .dropdownOptionSelected {
-  background: #FA3356;
-  font-weight: normal;
+  background: rgba(250, 51, 86, 0.2);
+  color: #fa3356;
+  font-weight: 500;
 }
 
 .fileTable {

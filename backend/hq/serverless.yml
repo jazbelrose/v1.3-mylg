@@ -42,6 +42,12 @@ provider:
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.env.HQ_TABLE}
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.env.ORG_MEMBERS_TABLE}
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.env.ORG_MEMBERS_TABLE}/index/*
+        - Effect: Allow
+          Action:
+            - s3:DeleteObject
+            - s3:DeleteObjects
+          Resource:
+            - arn:aws:s3:::${self:custom.env.FILE_BUCKET}/orgs/*
 
 functions:
   hqRouter:

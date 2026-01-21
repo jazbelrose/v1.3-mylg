@@ -2,9 +2,9 @@
  * FolderTree - Left sidebar navigation tree
  * 
  * Features:
- * - Collapsible folder tree with expand/collapse chevrons
- * - Highlights current folder
- * - Supports pinned, recents, and shared sections
+ * - Clean section headers (not clickable pills)
+ * - Folder list with subtle selection indicator
+ * - Supports custom and system folders
  */
 
 import React, { useState, useCallback } from 'react';
@@ -22,6 +22,7 @@ import {
   PenTool,
   Layout,
   Plus,
+  Files,
 } from 'lucide-react';
 import styles from './file-manager-v2.module.css';
 
@@ -59,21 +60,21 @@ export interface FolderTreeProps {
   onToggleCollapse?: () => void;
 }
 
-const getFolderIcon = (key: string, isOpen: boolean = false, size = 16): React.ReactNode => {
+const getFolderIcon = (key: string, isOpen: boolean = false, size = 15): React.ReactNode => {
   switch (key) {
     case 'uploads':
-      return <Upload size={size} />;
+      return <Files size={size} strokeWidth={1.5} />;
     case 'invoices':
     case 'documents':
-      return <FileText size={size} />;
+      return <FileText size={size} strokeWidth={1.5} />;
     case 'downloads':
-      return <Download size={size} />;
+      return <Download size={size} strokeWidth={1.5} />;
     case 'drawings':
-      return <PenTool size={size} />;
+      return <PenTool size={size} strokeWidth={1.5} />;
     case 'floorplans':
-      return <Layout size={size} />;
+      return <Layout size={size} strokeWidth={1.5} />;
     default:
-      return isOpen ? <FolderOpen size={size} /> : <Folder size={size} />;
+      return isOpen ? <FolderOpen size={size} strokeWidth={1.5} /> : <Folder size={size} strokeWidth={1.5} />;
   }
 };
 
@@ -133,7 +134,7 @@ function TreeItem({ item, isSelected, onSelect, depth, isCollapsed }: TreeItemPr
     <div className={styles.treeItemWrapper}>
       <div
         className={`${styles.treeItem} ${isSelected ? styles.treeItemSelected : ''}`}
-        style={{ paddingLeft: `${12 + depth * 12}px` }}
+        style={{ paddingLeft: `${14 + depth * 16}px` }}
         onClick={handleSelect}
         onKeyDown={handleKeyDown}
         role="treeitem"
@@ -141,17 +142,15 @@ function TreeItem({ item, isSelected, onSelect, depth, isCollapsed }: TreeItemPr
         aria-selected={isSelected}
         aria-expanded={hasChildren ? isExpanded : undefined}
       >
-        {hasChildren ? (
+        {hasChildren && (
           <button
             type="button"
             className={styles.treeItemChevron}
             onClick={handleToggle}
             aria-label={isExpanded ? 'Collapse' : 'Expand'}
           >
-            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            {isExpanded ? <ChevronDown size={12} strokeWidth={1.5} /> : <ChevronRight size={12} strokeWidth={1.5} />}
           </button>
-        ) : (
-          <span className={styles.treeItemChevronPlaceholder} />
         )}
         <span className={styles.treeItemIcon}>
           {item.icon || getFolderIcon(item.key, isSelected || isExpanded)}
@@ -191,16 +190,19 @@ export function FolderTree({
   isCollapsed = false,
   onToggleCollapse,
 }: FolderTreeProps) {
+  // Combine all folders for a cleaner structure
+  const hasFolders = systemFolders.length > 0 || customFolders.length > 0;
+  
   return (
     <nav
       className={`${styles.folderTree} ${isCollapsed ? styles.folderTreeCollapsed : ''}`}
       role="tree"
       aria-label="Folder navigation"
     >
-      {/* Root */}
+      {/* All Files (root) - styled as a regular item, not a header */}
       <div className={styles.treeSection}>
         <TreeItem
-          item={rootFolder}
+          item={{ ...rootFolder, name: 'All Files' }}
           isSelected={currentFolder === rootFolder.key}
           onSelect={onFolderSelect}
           depth={0}
@@ -208,10 +210,15 @@ export function FolderTree({
         />
       </div>
 
-      {/* System Folders */}
-      {systemFolders.length > 0 && (
+      {/* Folders section */}
+      {hasFolders && (
         <div className={styles.treeSection}>
-          {!isCollapsed && <div className={styles.treeSectionLabel}>Folders</div>}
+          {!isCollapsed && (
+            <div className={styles.treeSectionLabel}>
+              <span>Folders</span>
+            </div>
+          )}
+          {/* System folders first */}
           {systemFolders.map((folder) => (
             <TreeItem
               key={folder.key}
@@ -222,13 +229,7 @@ export function FolderTree({
               isCollapsed={isCollapsed}
             />
           ))}
-        </div>
-      )}
-
-      {/* Custom Folders */}
-      {customFolders.length > 0 && (
-        <div className={styles.treeSection}>
-          {!isCollapsed && <div className={styles.treeSectionLabel}>Custom</div>}
+          {/* Custom folders */}
           {customFolders.map((folder) => (
             <TreeItem
               key={folder.key}
@@ -247,7 +248,7 @@ export function FolderTree({
         <div className={styles.treeSection}>
           {!isCollapsed && (
             <div className={styles.treeSectionLabel}>
-              <Star size={12} /> Pinned
+              <Star size={11} strokeWidth={1.5} /> Pinned
             </div>
           )}
           {pinnedFolders.map((folder) => (
@@ -268,7 +269,7 @@ export function FolderTree({
         <div className={styles.treeSection}>
           {!isCollapsed && (
             <div className={styles.treeSectionLabel}>
-              <Clock size={12} /> Recent
+              <Clock size={11} strokeWidth={1.5} /> Recent
             </div>
           )}
           {recentFolders.map((folder) => (
@@ -284,20 +285,6 @@ export function FolderTree({
         </div>
       )}
 
-      {/* Create Folder Button */}
-      {canCreateFolder && (
-        <div className={styles.treeFooter}>
-          <button
-            type="button"
-            className={styles.createFolderBtn}
-            onClick={onCreateFolder}
-            aria-label="Create new folder"
-          >
-            <Plus size={14} />
-            {!isCollapsed && <span>New Folder</span>}
-          </button>
-        </div>
-      )}
     </nav>
   );
 }

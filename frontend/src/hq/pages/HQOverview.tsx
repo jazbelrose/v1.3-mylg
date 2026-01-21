@@ -1,9 +1,13 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { MessageCircle, Folder } from "lucide-react";
 import HQLayout from "../components/HQLayout";
 import HQCard from "../components/HQCard";
 import AddAccountModal from "@/hq/components/AddAccountModal";
 import ImportCsvModal from "@/hq/components/ImportCsvModal";
+import OrgChatPanel from "@/hq/components/OrgChatPanel";
+import OrgMessagesThread from "@/hq/components/OrgMessagesThread";
+import OrgFilesOverlay from "@/hq/components/OrgFilesOverlay";
 import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
@@ -231,6 +235,12 @@ const HQOverview: React.FC = () => {
   const [isApplyOpen, setIsApplyOpen] = React.useState(false);
   const [selectedRecurring, setSelectedRecurring] = React.useState<HqRecurringCommitmentsResponse["items"][number] | null>(null);
   const [isRecurringOpen, setIsRecurringOpen] = React.useState(false);
+
+  // Org chat and files panel state
+  const [isChatOpen, setIsChatOpen] = React.useState(false);
+  const [chatOpenSignal, setChatOpenSignal] = React.useState(0);
+  const [isChatFloating, setIsChatFloating] = React.useState(false);
+  const [isFilesOpen, setIsFilesOpen] = React.useState(false);
 
   const [chartRange, setChartRange] = React.useState<HqChartSeriesRange>("1Y");
   const [chartCollapsed, setChartCollapsed] = React.useState(false);
@@ -675,8 +685,51 @@ const HQOverview: React.FC = () => {
       .slice(0, 8);
   }, [transactions]);
 
+  const handleOpenChat = React.useCallback(() => {
+    if (!hasOrg) return;
+    setIsChatOpen(true);
+    setChatOpenSignal((prev) => prev + 1);
+  }, [hasOrg]);
+
+  const handleCloseChat = React.useCallback(() => {
+    setIsChatOpen(false);
+  }, []);
+
+  const handleOpenFiles = React.useCallback(() => {
+    if (!hasOrg) return;
+    setIsFilesOpen(true);
+  }, [hasOrg]);
+
+  const handleCloseFiles = React.useCallback(() => {
+    setIsFilesOpen(false);
+  }, []);
+
   const actions = (
     <div className={styles.actions}>
+      <button
+        type="button"
+        className={`${styles.iconButton} ${isChatOpen ? styles.iconButtonActive : ""}`}
+        aria-label="Open HQ chat"
+        title="HQ chat"
+        onClick={handleOpenChat}
+        disabled={!hasOrg}
+      >
+        <span className={styles.iconButtonIcon} aria-hidden>
+          <MessageCircle size={16} strokeWidth={1.8} />
+        </span>
+      </button>
+      <button
+        type="button"
+        className={`${styles.iconButton} ${isFilesOpen ? styles.iconButtonActive : ""}`}
+        aria-label="Open HQ files"
+        title="HQ files"
+        onClick={handleOpenFiles}
+        disabled={!hasOrg}
+      >
+        <span className={styles.iconButtonIcon} aria-hidden>
+          <Folder size={16} strokeWidth={1.8} />
+        </span>
+      </button>
       {canAdmin ? (
         <>
           <button type="button" className={styles.secondaryButton} onClick={openImport}>
@@ -737,11 +790,42 @@ const HQOverview: React.FC = () => {
     return items.slice(0, 4);
   }, [accounts, totals.runwayMonths, totals.uncategorizedCount]);
 
+  // Docked chat panel (rendered in layout when not floating)
+  const dockedChatPanel = hasOrg && isChatOpen && !isChatFloating ? (
+    <div
+      style={{
+        flex: "0 0 320px",
+        width: 320,
+        minWidth: 280,
+        maxWidth: 400,
+        height: "100%",
+        minHeight: 0,
+        marginLeft: 12,
+        background: "rgba(0, 0, 0, 0.8)",
+        borderRadius: 20,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <OrgMessagesThread
+        orgId={activeOrgId}
+        open
+        setOpen={() => {/* noop when docked */}}
+        floating={false}
+        setFloating={setIsChatFloating}
+        startDrag={() => setIsChatFloating(true)}
+        onCloseChat={handleCloseChat}
+      />
+    </div>
+  ) : null;
+
   return (
     <HQLayout
       title="HQ"
       description="Accounts, ledger, burn, runway, and anomalies at a glance."
       actions={actions}
+      rightPanel={dockedChatPanel}
     >
       <div className={styles.page}>
         <section className={styles.hero} aria-label="HQ overview">
@@ -1295,6 +1379,23 @@ const HQOverview: React.FC = () => {
               setIsApplyOpen(true);
             }}
           />
+
+          {/* Org Chat Panel (floating mode only - docked is in layout) */}
+          {isChatOpen && isChatFloating && (
+            <OrgChatPanel
+              orgId={activeOrgId}
+              initialFloating={true}
+              onFloatingChange={setIsChatFloating}
+              initialOpen={true}
+              openSignal={chatOpenSignal}
+              onCloseChat={handleCloseChat}
+            />
+          )}
+
+          {/* Org Files Overlay */}
+          {isFilesOpen && (
+            <OrgFilesOverlay orgId={activeOrgId} onClose={handleCloseFiles} />
+          )}
         </>
       ) : null}
     </HQLayout>

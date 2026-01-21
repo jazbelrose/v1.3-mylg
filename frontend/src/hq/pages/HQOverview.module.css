@@ -12,6 +12,47 @@
   justify-content: flex-end;
 }
 
+.iconButton {
+  height: 38px;
+  width: 38px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.iconButtonIcon {
+  display: inline-flex;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.iconButtonIcon :global(svg) {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+}
+
+.iconButton:hover,
+.iconButton:focus-visible {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.iconButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.iconButtonActive {
+  border-color: var(--color-accent, #0066ff);
+  background: rgba(0, 102, 255, 0.15);
+}
+
 .actionsRange {
   display: flex;
   gap: 8px;

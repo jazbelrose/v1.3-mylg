@@ -25,6 +25,8 @@ type HQLayoutProps = {
   description?: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
+  /** Optional right panel (e.g., docked chat) rendered inside contentArea flex */
+  rightPanel?: React.ReactNode;
 };
 
 type ViewportFlags = {
@@ -46,6 +48,7 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   description,
   actions,
   children,
+  rightPanel,
 }) => {
   const { isAdmin } = useUser();
   const { orgs, activeOrgId, activeOrgRole, setActiveOrgId, isLoading: orgsLoading, createOrg, deleteOrg } = useOrg();
@@ -753,6 +756,7 @@ const HQLayout: React.FC<HQLayoutProps> = ({
         </div>
         <div className={styles.contentArea}>
           <div className={styles.content}>{children}</div>
+          {rightPanel}
         </div>
       </div>
     </main>

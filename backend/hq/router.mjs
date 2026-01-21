@@ -5,11 +5,13 @@ import { requireOrgMember, requireOrgAdmin } from "/opt/nodejs/utils/orgAuth.mjs
 
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
+import { S3Client, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
 import { createHash } from "node:crypto";
 
 /* ------------ ENV ------------ */
 const REGION = process.env.AWS_REGION || "us-west-2";
+const FILE_BUCKET = process.env.FILE_BUCKET || "mylg-files-v12";
 
 const HQ_TABLE = process.env.HQ_TABLE || "HqLedger";
 const ORG_MEMBERS_TABLE = process.env.ORG_MEMBERS_TABLE || "OrgMembers";
@@ -22,6 +24,9 @@ const HQ_LEDGER_VERSION = 2;
 const ddb = DynamoDBDocument.from(new DynamoDBClient({ region: REGION }), {
   marshallOptions: { removeUndefinedValues: true },
 });
+
+/* ------------ S3 ------------ */
+const s3 = new S3Client({ region: REGION });
 
 /* ------------ utils ------------ */
 const M = (e) => e?.requestContext?.http?.method?.toUpperCase?.() || e?.httpMethod?.toUpperCase?.() || "GET";
@@ -3153,6 +3158,82 @@ const deleteImportRun = async (e, C, { importRunId }) => {
   return json(200, C, { ok: true, deletedTransactions: deletedTxns, importRunId });
 };
 
+/* ------------ Org Files S3 ------------ */
+
+/**
+ * Helper to derive thumbnail key from a file key.
+ * Mirrors logic in projects/router.mjs.
+ */
+const getThumbnailKey = (key) => {
+  if (!key || typeof key !== "string") return null;
+  const lastDot = key.lastIndexOf(".");
+  if (lastDot === -1) return null;
+  const base = key.slice(0, lastDot);
+  const ext = key.slice(lastDot + 1).toLowerCase();
+  // Only images/PDFs get thumbnails
+  if (!["jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff", "pdf"].includes(ext)) return null;
+  return `${base}_thumb.webp`;
+};
+
+/**
+ * POST /hq/files/delete
+ * Body: { fileKeys: string[] }
+ * Deletes S3 objects for an org. File keys must start with orgs/{orgId}/
+ */
+const deleteOrgFiles = async (e, C) => {
+  const orgId = await requireOrgMember(e);
+  const body = B(e);
+  const keys = Array.isArray(body.fileKeys) ? body.fileKeys.filter(Boolean) : [];
+
+  if (!keys.length) return json(400, C, { error: "fileKeys must be a non-empty array" });
+
+  // Validate all keys belong to this org (security check)
+  const orgPrefix = `orgs/${orgId}/`;
+  const invalidKeys = keys.filter((k) => !k.startsWith(orgPrefix));
+  if (invalidKeys.length) {
+    return json(403, C, { error: "Cannot delete files outside org scope", invalidKeys });
+  }
+
+  // Build list of objects to delete: original files + their thumbnails
+  const uniqueKeys = [...new Set(keys)];
+  const objects = [];
+
+  for (const key of uniqueKeys) {
+    objects.push({ Key: key });
+    const thumbKey = getThumbnailKey(key);
+    if (thumbKey) {
+      objects.push({ Key: thumbKey });
+    }
+  }
+
+  try {
+    const result = await s3.send(
+      new DeleteObjectsCommand({
+        Bucket: FILE_BUCKET,
+        Delete: { Objects: objects },
+      }),
+    );
+
+    const deleted = (result.Deleted || []).map((item) => item.Key).filter(Boolean);
+    const errors = (result.Errors || []).map((err) => ({
+      key: err.Key,
+      code: err.Code,
+      message: err.Message,
+    }));
+
+    return json(200, C, {
+      ok: errors.length === 0,
+      orgId,
+      deleted,
+      errors,
+    });
+  } catch (err) {
+    console.error("delete_org_files_error", { orgId, keys, err });
+    const message = err?.message || "Failed to delete files";
+    return json(500, C, { error: message });
+  }
+};
+
 /* ------------ Routes ------------ */
 const routes = [
   { m: "GET", r: /^\/hq\/health$/i, h: health },
@@ -3185,6 +3266,8 @@ const routes = [
   { m: "POST", r: /^\/hq\/accounts\/?$/i, h: createAccount },
   { m: "PATCH", r: /^\/hq\/accounts\/(?<accountId>[^/]+)\/?$/i, h: patchAccount },
   { m: "DELETE", r: /^\/hq\/accounts\/(?<accountId>[^/]+)\/?$/i, h: deleteAccount },
+
+  { m: "POST", r: /^\/hq\/files\/delete\/?$/i, h: deleteOrgFiles },
 
   { m: "DELETE", r: /^\/hq\/reset\/?$/i, h: resetHq },
 ];

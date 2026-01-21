@@ -645,6 +645,7 @@ const handleSendMessage = async (payload) => {
   let tableName;
   if (conversationType === "dm") tableName = process.env.MESSAGES_TABLE;
   else if (conversationType === "project") tableName = process.env.PROJECT_MESSAGES_TABLE;
+  else if (conversationType === "org") tableName = process.env.MESSAGES_TABLE;
   else return { statusCode: 400, body: "Invalid conversation type" };
 
   // For DM: sort pair for stable conversationId
@@ -652,6 +653,11 @@ const handleSendMessage = async (payload) => {
   if (conversationType === "dm") {
     const sortedIds = conversationId.replace("dm#", "").split("___").sort();
     finalConversationId = `dm#${sortedIds.join("___")}`;
+  }
+  // For org: ensure canonical prefix
+  if (conversationType === "org") {
+    const trimmed = String(conversationId || "").trim();
+    finalConversationId = trimmed.startsWith("org#") ? trimmed : `org#${trimmed}`;
   }
 
   const [uid1, uid2] = finalConversationId.replace("dm#", "").split("___");
@@ -692,8 +698,8 @@ const handleSendMessage = async (payload) => {
     text: text && !cleanAttachments.length ? text : "", // only keep text if it's not a file
     timestamp,
     conversationId: finalConversationId,
-    GSI1PK: `USER#${recipientId}`,
-    GSI1SK: timestamp,
+    // GSI for DM recipient inbox queries; omit for org/project
+    ...(conversationType === "dm" && recipientId ? { GSI1PK: `USER#${recipientId}`, GSI1SK: timestamp } : {}),
     optimisticId: payload.optimisticId || undefined,
     reactions: {},
     attachments: cleanAttachments,
@@ -768,6 +774,15 @@ const handleSendMessage = async (payload) => {
 
     await saveProjectNotifications(projectId, summary, messageItem.messageId, senderId);
     return { statusCode: 200, body: "Project message sent" };
+  }
+
+  if (conversationType === "org") {
+    await broadcastToConversation(finalConversationId, {
+      action: "newMessage",
+      conversationType: "org",
+      ...messageItem,
+    });
+    return { statusCode: 200, body: "Org message sent" };
   }
 
   await Promise.all([
@@ -862,6 +877,17 @@ const handleDeleteMessage = async (payload) => {
 
     await broadcastToConversation(conversationId, eventPayload);
     await deleteNotificationsByDedupeId(messageId);
+  } else if (conversationType === "org") {
+    try {
+      await dynamoDb.send(new DeleteCommand({
+        TableName: process.env.MESSAGES_TABLE,
+        Key: { conversationId, messageId },
+      }));
+      console.log("✅ Org message deleted from DB:", messageId);
+    } catch (err) {
+      console.error("❌ Failed to delete org message from DB:", err);
+    }
+    await broadcastToConversation(conversationId, eventPayload);
   } else {
     return { statusCode: 400, body: "Invalid conversationType" };
   }
@@ -935,6 +961,26 @@ const handleEditMessage = async (payload) => {
     }
 
     await broadcastToConversation(conversationId, eventPayload);
+  } else if (conversationType === "org") {
+    try {
+      await dynamoDb.send(new UpdateCommand({
+        TableName: process.env.MESSAGES_TABLE,
+        Key: { conversationId, messageId },
+        UpdateExpression: "SET #t = :text, edited = :edited, editedAt = :editedAt, editedBy = :editedBy",
+        ExpressionAttributeNames: { "#t": "text" },
+        ExpressionAttributeValues: {
+          ":text": text,
+          ":edited": true,
+          ":editedAt": editedAt || new Date().toISOString(),
+          ":editedBy": editedBy,
+        },
+      }));
+      console.log("✅ Org message updated in DB:", messageId);
+    } catch (err) {
+      console.error("❌ Failed to update org message in DB:", err);
+    }
+
+    await broadcastToConversation(conversationId, eventPayload);
   } else {
     return { statusCode: 400, body: "Invalid conversationType" };
   }
@@ -958,6 +1004,9 @@ const handleToggleReaction = async (payload) => {
     tableName = process.env.PROJECT_MESSAGES_TABLE;
     const projectId = String(conversationId).replace("project#", "");
     key = { projectId, messageId };
+  } else if (conversationType === "org") {
+    tableName = process.env.MESSAGES_TABLE;
+    key = { conversationId, messageId };
   } else {
     return { statusCode: 400, body: "Invalid conversationType" };
   }

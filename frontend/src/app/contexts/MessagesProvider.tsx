@@ -93,7 +93,7 @@ const NormalMessagesProvider: React.FC<PropsWithChildren> = ({ children }) => {
     emoji: string,
     reactorId: string,
     conversationId: string,
-    conversationType: "dm" | "project",
+    conversationType: "dm" | "project" | "org",
     ws?: WebSocket
   ) => {
     if (!msgId || !emoji || !reactorId) return;
