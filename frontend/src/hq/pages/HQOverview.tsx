@@ -236,11 +236,26 @@ const HQOverview: React.FC = () => {
   const [selectedRecurring, setSelectedRecurring] = React.useState<HqRecurringCommitmentsResponse["items"][number] | null>(null);
   const [isRecurringOpen, setIsRecurringOpen] = React.useState(false);
 
-  // Org chat and files panel state
-  const [isChatOpen, setIsChatOpen] = React.useState(false);
+  // Org chat and files panel state - persist to localStorage
+  const [isChatOpen, setIsChatOpen] = React.useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("hq_chat_open") === "true";
+  });
   const [chatOpenSignal, setChatOpenSignal] = React.useState(0);
-  const [isChatFloating, setIsChatFloating] = React.useState(false);
+  const [isChatFloating, setIsChatFloating] = React.useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("hq_chat_floating") === "true";
+  });
   const [isFilesOpen, setIsFilesOpen] = React.useState(false);
+
+  // Persist chat state to localStorage
+  React.useEffect(() => {
+    localStorage.setItem("hq_chat_open", String(isChatOpen));
+  }, [isChatOpen]);
+
+  React.useEffect(() => {
+    localStorage.setItem("hq_chat_floating", String(isChatFloating));
+  }, [isChatFloating]);
 
   const [chartRange, setChartRange] = React.useState<HqChartSeriesRange>("1Y");
   const [chartCollapsed, setChartCollapsed] = React.useState(false);

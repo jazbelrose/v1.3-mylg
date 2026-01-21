@@ -141,8 +141,9 @@ export const useFileTransfers = ({
     filesPerf.mark('fetchS3Files:api-start', { entityId, folderKey });
     
     // Build S3 prefixes based on mode
+    // For org mode, include both uploads and chat_uploads for backwards compatibility
     const prefixes = isOrgMode
-      ? [`orgs/${entityId}/uploads/`]
+      ? [`orgs/${entityId}/uploads/`, `orgs/${entityId}/chat_uploads/`]
       : folderKey === "uploads"
         ? ["uploads/", "lexical/", "chat_uploads/"].map((dir) => `projects/${entityId}/${dir}`)
         : [`projects/${entityId}/${folderKey}/`];

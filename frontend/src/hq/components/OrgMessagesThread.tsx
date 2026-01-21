@@ -25,6 +25,7 @@ import {
   ChevronDown,
   ChevronUp,
   Dock,
+  FileText,
   Move,
   Paperclip,
   Plus,
@@ -61,10 +62,13 @@ import Modal from "@/shared/ui/ModalWithStack";
 import ConfirmModal from "@/shared/ui/ConfirmModal";
 import PromptModal from "@/shared/ui/PromptModal";
 import PDFPreview from "@/dashboard/project/components/Shared/PDFPreview";
+import NoteEditorModal from "@/dashboard/features/messages/components/NoteEditorModal";
 import {
+  apiFetch,
   getFileUrl,
   normalizeFileUrl,
   fileUrlsToKeys,
+  MESSAGES_THREADS_URL,
 } from "@/shared/utils/api";
 import { getFileNameFromUrl } from "@/shared/utils/fileUtils";
 
@@ -97,6 +101,9 @@ type Message = {
   senderId?: string;
   username?: string;
   type?: string;
+  noteId?: string;
+  noteTitle?: string;
+  format?: string;
   text?: string;
   timestamp: string;
   optimisticId?: string;
@@ -268,8 +275,14 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
   const [selectedPreviewFile, setSelectedPreviewFile] = useState<FileObj | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Message | null>(null);
   const [editTarget, setEditTarget] = useState<Message | null>(null);
+  const [noteEditorState, setNoteEditorState] = useState<
+    | { isOpen: false }
+    | { isOpen: true; mode: "create" }
+    | { isOpen: true; mode: "open"; fileUrl: string; fileName: string; initialTitle?: string | null }
+  >({ isOpen: false });
 
-  const folderKey = "chat_uploads";
+  // Use 'uploads' folder so files appear in HQ Files immediately
+  const folderKey = "uploads";
 
   const getMessageKey = useCallback((msg: Message) => {
     return (msg.messageId || msg.optimisticId || String(msg.timestamp)) as string;
@@ -383,7 +396,95 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
     };
   }, [showActionMenu]);
 
+  // Note helper functions
+  const sanitizeFileStem = (raw: string) => {
+    const cleaned = String(raw || "")
+      .trim()
+      .replace(/[^\w\s-]+/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return cleaned.slice(0, 60) || "note";
+  };
+
+  const makeNotePreview = (md: string) => {
+    const trimmed = String(md || "").trim();
+    if (!trimmed) return "";
+    const lines = trimmed.split(/\r\n|\r|\n/).slice(0, 6).join("\n");
+    return lines.length > 400 ? `${lines.slice(0, 400)}…` : lines;
+  };
+
+  const openCreateNote = () => {
+    setShowActionMenu(false);
+    setShowEmojiPicker(false);
+    setNoteEditorState({ isOpen: true, mode: "create" });
+  };
+
+  const createNote = async ({ title, markdown }: { title: string; markdown: string }) => {
+    if (!orgId) throw new Error("Missing orgId.");
+    if (!ws) throw new Error("WebSocket unavailable.");
+    if (!userData?.userId) throw new Error("Missing user info.");
+
+    const noteId =
+      (typeof crypto !== "undefined" && "randomUUID" in crypto && typeof crypto.randomUUID === "function")
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    const fileStem = sanitizeFileStem(title);
+    const s3FileName = `${fileStem}-${noteId}.md`;
+    const displayFileName = `${title}.md`;
+
+    const baseKey = `orgs/${orgId}/${folderKey}/notes/${s3FileName}`;
+    const storedKey = `public/${baseKey}`;
+
+    const uploadTask = uploadData({
+      key: baseKey,
+      data: new Blob([markdown], { type: "text/markdown" }),
+      options: { accessLevel: "public" },
+    });
+    await uploadTask.result;
+
+    const uploadedUrl = getFileUrl(storedKey);
+    const timestamp = new Date().toISOString();
+    const optimisticId = `${Date.now()}-${noteId}`;
+
+    const messageData: Message = {
+      action: "sendMessage",
+      conversationType: "org",
+      conversationId: `org#${orgId}`,
+      orgId,
+      senderId: userData.userId,
+      username: user?.firstName || "Someone",
+      text: makeNotePreview(markdown),
+      timestamp,
+      optimisticId,
+      type: "note",
+      noteId,
+      noteTitle: title,
+      format: "markdown",
+      file: { fileName: displayFileName, url: uploadedUrl, finalUrl: uploadedUrl, key: storedKey },
+      attachments: [{ fileName: displayFileName, url: uploadedUrl, key: storedKey, mimeType: "text/markdown" }],
+    };
+
+    const optimisticMessage: Message = { ...messageData, optimistic: true };
+    setOrgMessages((prev) => {
+      const msgs = Array.isArray(prev[orgId]) ? prev[orgId] : [];
+      const merged = mergeAndDedupeMessages(msgs, [optimisticMessage]) as Message[];
+      setWithTTL(omKey(orgId), merged);
+      return { ...prev, [orgId]: merged };
+    });
+
+    ws.send(JSON.stringify(normalizeMessage(messageData, "sendMessage")));
+  };
+
   const openPreviewModal = (file: FileObj) => {
+    const ext = file.fileName.split(".").pop()?.toLowerCase() || "";
+    const url = file.finalUrl || file.url;
+    // Handle markdown/text files with NoteEditorModal like ProjectMessagesThread
+    if ((ext === "md" || ext === "markdown" || ext === "txt") && url && !url.startsWith("blob:")) {
+      setNoteEditorState({ isOpen: true, mode: "open", fileUrl: url, fileName: file.fileName });
+      return;
+    }
     setSelectedPreviewFile(file);
     setPreviewModalOpen(true);
   };
@@ -405,10 +506,11 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
           const oid = data.orgId || (data.conversationId || "").replace("org#", "");
           if (oid !== orgId) return;
 
-          if (data.action === "sendMessage" || data.action === "message") {
+          if (data.action === "sendMessage" || data.action === "message" || data.action === "newMessage") {
             const newMsg: Message = {
               ...data,
               timestamp: data.timestamp || new Date().toISOString(),
+              optimistic: false, // Mark as confirmed from server
             };
             setOrgMessages((prev) => {
               const msgs = Array.isArray(prev[orgId]) ? prev[orgId] : [];
@@ -496,16 +598,46 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
     sendWhenReady();
   }, [ws, orgId]);
 
-  // Fetch messages on mount (no REST endpoint yet - rely on WS for now)
+  // Fetch messages on mount from REST API
   useEffect(() => {
     if (!orgId) {
       setIsLoading(false);
       return;
     }
-    // TODO: Add REST fetch for org messages if needed
-    // For now just mark as loaded after cache check
-    setIsLoading(false);
-  }, [orgId]);
+
+    // Check if we already have messages for this org (from cache or prior load)
+    if (orgMessages[orgId]?.length) {
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchOrgMessages = async () => {
+      setIsLoading(true);
+      try {
+        // Use the messages threads endpoint with org# prefix
+        const conversationId = `org#${orgId}`;
+        const url = `${MESSAGES_THREADS_URL}/${encodeURIComponent(conversationId)}/messages`;
+        const data = await apiFetch<{ messages?: Message[]; conversationId?: string }>(url);
+        
+        const items = Array.isArray(data?.messages) ? data.messages : [];
+        
+        setOrgMessages((prev) => {
+          const existing = Array.isArray(prev[orgId]) ? prev[orgId] : [];
+          if (existing.length) return prev; // Don't overwrite if we already have messages
+          const merged = mergeAndDedupeMessages(existing, items) as Message[];
+          setWithTTL(omKey(orgId), merged);
+          return { ...prev, [orgId]: merged };
+        });
+      } catch (err) {
+        console.error("Error fetching org messages:", err);
+        // Not critical - messages will come via WebSocket
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOrgMessages();
+  }, [orgId, orgMessages]);
 
   // Scroll handling
   const prevCountRef = useRef(0);
@@ -1050,6 +1182,10 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
                         <Paperclip size={14} />
                         <span>File</span>
                       </button>
+                      <button type="button" className="message-action-menu-button" onClick={openCreateNote} role="menuitem">
+                        <FileText size={14} />
+                        <span>Note</span>
+                      </button>
                       <button type="button" className="message-action-menu-button" onClick={toggleEmojiPicker} role="menuitem">
                         <Smile size={14} />
                         <span>Emoji</span>
@@ -1161,6 +1297,21 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
         defaultValue={editTarget?.text || ""}
         className="messages-modal-content"
         overlayClassName="messages-modal-overlay"
+      />
+
+      {/* Note Editor Modal */}
+      <NoteEditorModal
+        isOpen={noteEditorState.isOpen}
+        mode={noteEditorState.isOpen ? noteEditorState.mode : "create"}
+        projectId={orgId}
+        canEdit={true}
+        openFile={
+          noteEditorState.isOpen && noteEditorState.mode === "open"
+            ? { fileUrl: noteEditorState.fileUrl, fileName: noteEditorState.fileName, initialTitle: noteEditorState.initialTitle }
+            : undefined
+        }
+        onCreate={createNote}
+        onRequestClose={() => setNoteEditorState({ isOpen: false })}
       />
     </>
   );
