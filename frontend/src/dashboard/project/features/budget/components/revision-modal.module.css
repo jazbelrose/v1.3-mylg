@@ -166,9 +166,9 @@
 .revRow {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px 18px;
-  border-radius: 14px;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: color-mix(in srgb, var(--revision-surface) 90%, transparent);
   transition: border-color 0.2s ease, background 0.2s ease;
@@ -190,119 +190,120 @@
 
 .revHeader {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
   width: 100%;
-}
-
-.revMainInfo {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  flex: 1;
-  min-width: 0;
+  min-height: 28px;
 }
 
 .revLabel {
   display: flex;
   align-items: center;
-  gap: 8px;
   flex-shrink: 0;
-  padding-top: 2px;
 }
 
 .revLabel input {
   accent-color: var(--revision-accent);
   width: 16px;
   height: 16px;
+  cursor: pointer;
 }
 
-.activeIndicator {
-  display: none;
-}
-
-.revNameBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  flex: 1;
-}
-
-.revPrimaryName {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #ffffff;
-  line-height: 1.3;
-}
-
-.revMeta {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.metaSeparator {
-  color: rgba(255, 255, 255, 0.25);
-}
-
-.editingIndicator {
-  color: #60a5fa;
-  font-style: italic;
-}
-
-.revHeaderRight {
+/* Single-line content area */
+.revContent {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.revPrimaryName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 80px;
+}
+
+/* Inline chips */
+.revChip {
   flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 3px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
-.revLabel input {
-  accent-color: var(--revision-accent);
-}
-
-.revNumber {
-  font-size: 0.95rem;
-  letter-spacing: 0.02em;
-}
-
-.revBadges {
-  margin-left: auto;
+.clientChip {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.clientBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  background: rgba(251, 191, 36, 0.2);
-  border-radius: 6px;
+  gap: 4px;
   font-size: 0.7rem;
   font-weight: 600;
   color: #fbbf24;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  background: rgba(251, 191, 36, 0.15);
+  padding: 3px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.clientChip svg {
+  font-size: 0.6rem;
+}
+
+.editingChip {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.12);
+  padding: 3px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* Timestamp */
+.revTimestamp {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.timestampDot {
+  color: rgba(255, 255, 255, 0.2);
+  margin-right: 6px;
+}
+
+/* Right-side actions */
+.revActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .setClientButton {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: rgba(255, 255, 255, 0.8);
-  padding: 5px 12px;
-  border-radius: 8px;
-  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.7rem;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  white-space: nowrap;
 }
 
 .setClientButton:hover {

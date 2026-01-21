@@ -2,12 +2,10 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Modal from "@/shared/ui/ModalWithStack";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faCheck,
   faClone,
   faEllipsisV,
   faFileCsv,
   faFileInvoice,
-  faFilePdf,
   faPen,
   faPlus,
   faStar,
@@ -454,95 +452,87 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
                     key={rev.revision}
                     className={`${styles.revRow} ${isActive ? styles.activeRow : ""} ${isClient ? styles.clientRow : ""}`}
                   >
-                    {/* Top row: Radio + Name + Badges + Menu */}
+                    {/* Single-line row: Radio + Name + Chips + Actions */}
                     <div className={styles.revHeader}>
-                      <div className={styles.revMainInfo}>
-                        <label className={styles.revLabel}>
+                      <label className={styles.revLabel}>
+                        <input
+                          type="radio"
+                          name="revision"
+                          value={rev.revision}
+                          checked={selected === rev.revision}
+                          onChange={() => setSelected(rev.revision)}
+                        />
+                      </label>
+
+                      {isRenaming ? (
+                        <form
+                          className={styles.renameForm}
+                          onSubmit={handleRenameSubmit}
+                          onClick={(event) => event.stopPropagation()}
+                        >
                           <input
-                            type="radio"
-                            name="revision"
-                            value={rev.revision}
-                            checked={selected === rev.revision}
-                            onChange={() => setSelected(rev.revision)}
+                            ref={nameInputRef}
+                            className={styles.renameInput}
+                            value={nameDraft}
+                            onChange={(event) => setNameDraft(event.target.value)}
+                            placeholder="Add a descriptive name"
+                            onKeyDown={handleRenameKeyDown}
+                            disabled={isSavingName}
                           />
-                          {isActive && (
-                            <span className={styles.activeIndicator}>
-                              <FontAwesomeIcon icon={faCheck} />
+                          <div className={styles.renameActions}>
+                            <button
+                              type="submit"
+                              className={styles.renameActionButton}
+                              disabled={isSavingName}
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.renameActionButton}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                resetRenameState();
+                              }}
+                              disabled={isSavingName}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <div className={styles.revContent}>
+                          {/* Primary name (truncates) */}
+                          <span className={styles.revPrimaryName}>
+                            {rev.revisionName || `Revision ${rev.revision}`}
+                          </span>
+
+                          {/* Inline chips */}
+                          <span className={styles.revChip}>Rev.{rev.revision}</span>
+
+                          {isClient && (
+                            <span className={styles.clientChip}>
+                              <FontAwesomeIcon icon={faStar} />
+                              Client
                             </span>
                           )}
-                        </label>
 
-                        <div className={styles.revNameBlock}>
-                          {isRenaming ? (
-                            <form
-                              className={styles.renameForm}
-                              onSubmit={handleRenameSubmit}
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <input
-                                ref={nameInputRef}
-                                className={styles.renameInput}
-                                value={nameDraft}
-                                onChange={(event) => setNameDraft(event.target.value)}
-                                placeholder="Add a descriptive name"
-                                onKeyDown={handleRenameKeyDown}
-                                disabled={isSavingName}
-                              />
-                              <div className={styles.renameActions}>
-                                <button
-                                  type="submit"
-                                  className={styles.renameActionButton}
-                                  disabled={isSavingName}
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  type="button"
-                                  className={styles.renameActionButton}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    resetRenameState();
-                                  }}
-                                  disabled={isSavingName}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </form>
-                          ) : (
-                            <>
-                              <span className={styles.revPrimaryName}>
-                                {rev.revisionName || `Rev.${rev.revision}`}
-                              </span>
-                              <span className={styles.revMeta}>
-                                Rev.{rev.revision}
-                                {savedTimestamp && (
-                                  <>
-                                    <span className={styles.metaSeparator}>•</span>
-                                    Saved {savedTimestamp}
-                                  </>
-                                )}
-                                {isActive && !savedTimestamp && (
-                                  <>
-                                    <span className={styles.metaSeparator}>•</span>
-                                    <span className={styles.editingIndicator}>Editing…</span>
-                                  </>
-                                )}
-                              </span>
-                            </>
+                          {isActive && (
+                            <span className={styles.editingChip}>Editing</span>
+                          )}
+
+                          {/* Timestamp (subtle) */}
+                          {savedTimestamp && (
+                            <span className={styles.revTimestamp}>
+                              <span className={styles.timestampDot}>•</span>
+                              {savedTimestamp}
+                            </span>
                           )}
                         </div>
-                      </div>
+                      )}
 
-                      <div className={styles.revHeaderRight}>
-                        {/* Client Version Badge */}
-                        {isClient && (
-                          <span className={styles.clientBadge}>
-                            <FontAwesomeIcon icon={faStar} />
-                            <span>Client</span>
-                          </span>
-                        )}
-
+                      {/* Right-side actions */}
+                      <div className={styles.revActions}>
                         {/* Set as Client action (for selected non-client revision) */}
                         {isAdmin && !isClient && selected === rev.revision && (
                           <button
@@ -705,17 +695,6 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
                         {rev.revisionNote}
                       </div>
                     ) : null}
-
-                    {/* Invoice status row (subtle) */}
-                    <div className={styles.revFooter}>
-                      <span
-                        className={
-                          hasInvoice ? styles.invoiceStatusReady : styles.invoiceStatusEmpty
-                        }
-                      >
-                        {hasInvoice ? "Invoice saved" : "No invoice"}
-                      </span>
-                    </div>
                   </div>
                 );
               })
