@@ -3176,16 +3176,24 @@ const getThumbnailKey = (key) => {
 };
 
 /**
- * POST /hq/files/delete
+ * POST /hq/files/delete?orgId=...
  * Body: { fileKeys: string[] }
  * Deletes S3 objects for an org. File keys must start with orgs/{orgId}/
  */
 const deleteOrgFiles = async (e, C) => {
-  const orgId = await requireOrgMember(e);
-  const body = B(e);
-  const keys = Array.isArray(body.fileKeys) ? body.fileKeys.filter(Boolean) : [];
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
 
-  if (!keys.length) return json(400, C, { error: "fileKeys must be a non-empty array" });
+  const body = B(e);
+  const rawKeys = Array.isArray(body.fileKeys) ? body.fileKeys.filter(Boolean) : [];
+
+  if (!rawKeys.length) return json(400, C, { error: "fileKeys must be a non-empty array" });
+
+  // Normalize keys: strip "public/" prefix if present (frontend may send either format)
+  const keys = rawKeys.map((k) => (k.startsWith("public/") ? k.slice(7) : k));
 
   // Validate all keys belong to this org (security check)
   const orgPrefix = `orgs/${orgId}/`;

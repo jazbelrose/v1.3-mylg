@@ -598,6 +598,9 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
     sendWhenReady();
   }, [ws, orgId]);
 
+  // Track which orgs we've already fetched to prevent duplicate requests
+  const fetchedOrgsRef = useRef<Set<string>>(new Set());
+
   // Fetch messages on mount from REST API
   useEffect(() => {
     if (!orgId) {
@@ -605,11 +608,21 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
       return;
     }
 
-    // Check if we already have messages for this org (from cache or prior load)
-    if (orgMessages[orgId]?.length) {
+    // Check if we already fetched this org
+    if (fetchedOrgsRef.current.has(orgId)) {
       setIsLoading(false);
       return;
     }
+
+    // Check if we already have messages for this org (from cache or prior load)
+    if (orgMessages[orgId]?.length) {
+      fetchedOrgsRef.current.add(orgId);
+      setIsLoading(false);
+      return;
+    }
+
+    // Mark as fetched early to prevent duplicate requests
+    fetchedOrgsRef.current.add(orgId);
 
     const fetchOrgMessages = async () => {
       setIsLoading(true);
@@ -617,7 +630,9 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
         // Use the messages threads endpoint with org# prefix
         const conversationId = `org#${orgId}`;
         const url = `${MESSAGES_THREADS_URL}/${encodeURIComponent(conversationId)}/messages`;
-        const data = await apiFetch<{ messages?: Message[]; conversationId?: string }>(url);
+        const data = await apiFetch<{ messages?: Message[]; conversationId?: string }>(url, {
+          skipRateLimit: true,  // Avoid rate limit issues for initial load
+        });
         
         const items = Array.isArray(data?.messages) ? data.messages : [];
         
@@ -637,7 +652,7 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
     };
 
     fetchOrgMessages();
-  }, [orgId, orgMessages]);
+  }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps -- orgMessages checked via ref to prevent loops
 
   // Scroll handling
   const prevCountRef = useRef(0);

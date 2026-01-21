@@ -754,7 +754,11 @@ async function deleteNotificationsByDedupeId(dedupeId) {
 }
 
 const handleSendMessage = async (payload) => {
-  const { conversationType, conversationId, senderId, username, text, timestamp, title, attachments } = payload || {};
+  const { 
+    conversationType, conversationId, senderId, username, text, timestamp, title, attachments,
+    // Note-related fields
+    type, noteId, noteTitle, format, file
+  } = payload || {};
 
   if (!conversationType || !conversationId || !senderId || (!text && !attachments) || !timestamp) {
     console.error("❌ Missing required message fields");
@@ -810,11 +814,23 @@ const handleSendMessage = async (payload) => {
       };
     });
 
+  // Normalize file object for storage (if provided for notes)
+  const cleanFile = file ? {
+    fileName: file.fileName,
+    url: file.url || file.finalUrl,
+    finalUrl: file.finalUrl || file.url,
+    key: file.key,
+  } : undefined;
+
+  // For notes, preserve text even when attachments exist (it's the preview)
+  const isNote = type === "note";
+  const preservedText = isNote ? (text || "") : (text && !cleanAttachments.length ? text : "");
+
   const messageItem = {
     messageId: `MESSAGE#${String(timestamp).padStart(13, "0")}#${uuid()}`,
     senderId,
     username,
-    text: text && !cleanAttachments.length ? text : "", // only keep text if it's not a file
+    text: preservedText,
     timestamp,
     conversationId: finalConversationId,
     // GSI for DM recipient inbox queries; omit for org/project
@@ -823,6 +839,12 @@ const handleSendMessage = async (payload) => {
     reactions: {},
     attachments: cleanAttachments,
     ...(conversationType === "dm" && recipientId ? { recipientId } : {}),
+    // Note-related fields (only if present)
+    ...(type ? { type } : {}),
+    ...(noteId ? { noteId } : {}),
+    ...(noteTitle ? { noteTitle } : {}),
+    ...(format ? { format } : {}),
+    ...(cleanFile ? { file: cleanFile } : {}),
   };
 
   if (conversationType === "project") {
