@@ -1,8 +1,8 @@
 import type { BudgetTaskLinkType } from "@/shared/utils/budgetTaskLinks";
 
-export const BUDGET_SPELLBOOK_ENGINE_VERSION = "budget-spellbook@1.4.0";
+export const BUDGET_SPELLBOOK_ENGINE_VERSION = "budget-spellbook@1.5.0";
 export const BUDGET_SPELLBOOK_SCHEMA_VERSION = 1 as const;
-export const BUDGET_SPELLBOOK_DEFAULTS_VERSION = "budget-spellbook-defaults@2026-01-19";
+export const BUDGET_SPELLBOOK_DEFAULTS_VERSION = "budget-spellbook-defaults@2026-01-20";
 
 export type BudgetSpellbookCrewModel = "internal" | "outsourced" | "mixed";
 export type BudgetSpellbookEventType = "corporate" | "brand activation" | "wedding" | "conference";
@@ -100,6 +100,24 @@ export type BudgetSpellbookLineDraft = {
 
 export type BudgetSpellbookInputSpan = { start: number; end: number; text: string };
 
+/** Source attribution for traceability */
+export type RecognizedItemSource = "user-provided" | "system-default" | "inferred";
+
+/** A recognized line item extracted from user input with cost data */
+export type RecognizedLineItem = {
+  id: string;
+  description: string;
+  cost: number | null;
+  quantity: number;
+  unit: string;
+  source: RecognizedItemSource;
+  confidence: number;
+  span: BudgetSpellbookInputSpan | null;
+  originalText: string;
+  suggestedCategory: BudgetSpellbookLineDraft["category"] | null;
+  included: boolean;
+};
+
 export type BudgetSpellbookInferred = {
   installDays: number | null;
   markupTarget: number | null;
@@ -119,6 +137,10 @@ export type BudgetSpellbookParseResult = {
   inferred: BudgetSpellbookInferred;
   spans: Partial<Record<keyof BudgetSpellbookInferred, BudgetSpellbookInputSpan>>;
   shoppingList: string[];
+  /** Extracted line items with costs from user input */
+  recognizedItems: RecognizedLineItem[];
+  /** True if we found parseable cost data */
+  hasStructuredInput: boolean;
 };
 
 export type BudgetSpellbookGeneratorOptions = {
@@ -483,6 +505,246 @@ const firstSpan = (input: string, regex: RegExp): BudgetSpellbookInputSpan | nul
   return { start: m.index, end: m.index + m[0].length, text: m[0] };
 };
 
+/**
+ * Infers a budget category from a description string.
+ */
+const inferCategoryFromDescription = (desc: string): BudgetSpellbookLineDraft["category"] | null => {
+  const lower = desc.toLowerCase();
+
+  if (/\b(scenic|fab|build|set\s*wall|backdrop|structure|frame)\b/.test(lower)) return "FABRICATION";
+  if (/\b(drape|pipe\s*&\s*drape|rental|tent|table|chair|linen)\b/.test(lower)) return "RENTALS";
+  if (/\b(graphic|sign|vinyl|print|banner|directional|signage)\b/.test(lower)) return "GRAPHICS";
+  if (/\b(av|audio|video|projector|screen|speaker|mic|sound)\b/.test(lower)) return "AUDIO-VISUAL";
+  if (/\b(uplight|light|gobo|pin\s*spot|lighting|led|wash)\b/.test(lower)) return "LIGHTING";
+  if (/\b(labor|crew|install|strike|tech|stagehand|loader)\b/.test(lower)) return "LABOR";
+  if (/\b(travel|hotel|flight|per\s*diem|lodging|airfare)\b/.test(lower)) return "TRAVEL";
+  if (/\b(truck|freight|delivery|shipping|sprinter|box\s*truck)\b/.test(lower)) return "TRUCKING";
+  if (/\b(permit|insurance|cert|license|fee)\b/.test(lower)) return "PERMITS-INSURANCE";
+  if (/\b(design|proof|render|creative|artwork)\b/.test(lower)) return "DESIGN";
+  if (/\b(decor|floral|prop|centerpiece|arrangement)\b/.test(lower)) return "DECOR";
+  if (/\b(pm|producer|management|coord|supervision|oversight)\b/.test(lower)) return "PRODUCTION-MGMT";
+  if (/\b(parking|fuel|toll|gas|mileage)\b/.test(lower)) return "PARKING-FUEL-TOLLS";
+  if (/\b(contingency|misc|buffer|reserve)\b/.test(lower)) return "CONTINGENCY-MISC";
+
+  return null;
+};
+
+/**
+ * Infers an area group from a category.
+ */
+const inferAreaGroupFromCategory = (
+  category: BudgetSpellbookLineDraft["category"] | null,
+): BudgetSpellbookLineDraft["areaGroup"] => {
+  if (!category) return "VENUE";
+  if (category === "FABRICATION" || category === "GRAPHICS") return "SHOP";
+  if (category === "TRAVEL" || category === "TRUCKING" || category === "PARKING-FUEL-TOLLS") return "TRAVEL";
+  if (category === "PRODUCTION-MGMT" || category === "DESIGN" || category === "PERMITS-INSURANCE") return "PRE-PRO";
+  return "VENUE";
+};
+
+/**
+ * Infers an invoice group from a category and crew model.
+ */
+const inferInvoiceGroupFromCategory = (
+  category: BudgetSpellbookLineDraft["category"] | null,
+  crewModel: BudgetSpellbookCrewModel,
+): BudgetSpellbookLineDraft["invoiceGroup"] => {
+  if (!category) return "PRODUCTION";
+  if (category === "TRAVEL" || category === "PARKING-FUEL-TOLLS") return "CLIENT REIMBURSABLE";
+  if (category === "TRUCKING" || category === "RENTALS" || category === "LIGHTING" || category === "AUDIO-VISUAL") {
+    return "VENDORS";
+  }
+  if (category === "GRAPHICS" || category === "DESIGN") {
+    return crewModel === "internal" ? "PRODUCTION" : "VENDORS";
+  }
+  if (category === "LABOR" || category === "PRODUCTION-MGMT" || category === "FABRICATION") {
+    return crewModel === "outsourced" ? "VENDORS" : "PRODUCTION";
+  }
+  return "PRODUCTION";
+};
+
+/**
+ * Deduplicates recognized items by similar description + cost.
+ */
+const dedupeRecognizedItems = (items: RecognizedLineItem[]): RecognizedLineItem[] => {
+  const seen = new Map<string, RecognizedLineItem>();
+  for (const item of items) {
+    const key = `${item.description.toLowerCase().trim()}|${item.cost}`;
+    const existing = seen.get(key);
+    if (!existing || item.confidence > existing.confidence) {
+      seen.set(key, item);
+    }
+  }
+  return Array.from(seen.values());
+};
+
+/**
+ * Extracts line items with costs from user input.
+ * Supports formats:
+ *   - "Step and Repeat Photo Opportunity $3,138"
+ *   - "Scenic Build 6500"
+ *   - "Drape rental - $1,200.00"
+ *   - Multi-line "Description\n$1,234"
+ *   - "4 Days @ $520" patterns
+ */
+const extractRecognizedLineItems = (input: string): RecognizedLineItem[] => {
+  const normalized = normalizeText(input);
+  const items: RecognizedLineItem[] = [];
+  let idCounter = 0;
+
+  // Pattern 1: Description followed by currency ($X,XXX or $X,XXX.XX)
+  const currencyPattern = /([A-Za-z][^$\n]{2,80}?)\s*\$\s*([\d,]+(?:\.\d{1,2})?)/g;
+
+  // Pattern 2: Description followed by bare number (4+ digits, likely cost)
+  const bareNumberPattern = /([A-Za-z][^\d\n]{2,80}?)\s+(\d{1,3}(?:,\d{3})+|\d{4,})\s*(?:$|\n|[,;.])/g;
+
+  // Pattern 3: Lines with "qty x unit @ $cost" or "qty Days @ $cost" format
+  const qtyUnitCostPattern = /(\d+)\s*(?:x\s*)?([A-Za-z]+)\s*[@at]\s*\$?([\d,]+(?:\.\d{1,2})?)/gi;
+
+  // Extract currency-prefixed costs
+  let match: RegExpExecArray | null;
+  while ((match = currencyPattern.exec(normalized)) !== null) {
+    const description = match[1].trim().replace(/[-–—:]+$/, "").trim();
+    const costStr = match[2].replace(/,/g, "");
+    const cost = parseFloat(costStr);
+
+    if (description.length >= 3 && Number.isFinite(cost) && cost > 0) {
+      items.push({
+        id: `recognized-${idCounter++}`,
+        description,
+        cost,
+        quantity: 1,
+        unit: "Lot",
+        source: "user-provided",
+        confidence: 0.88,
+        span: { start: match.index, end: match.index + match[0].length, text: match[0] },
+        originalText: match[0].trim(),
+        suggestedCategory: inferCategoryFromDescription(description),
+        included: true,
+      });
+    }
+  }
+
+  // Extract bare numbers (only if no currency match for same description)
+  const seenDescriptions = new Set(items.map((i) => i.description.toLowerCase()));
+  while ((match = bareNumberPattern.exec(normalized)) !== null) {
+    const description = match[1].trim().replace(/[-–—:]+$/, "").trim();
+    const costStr = match[2].replace(/,/g, "");
+    const cost = parseFloat(costStr);
+
+    if (
+      description.length >= 3 &&
+      Number.isFinite(cost) &&
+      cost >= 100 && // Bare numbers < 100 are likely quantities
+      !seenDescriptions.has(description.toLowerCase())
+    ) {
+      items.push({
+        id: `recognized-${idCounter++}`,
+        description,
+        cost,
+        quantity: 1,
+        unit: "Lot",
+        source: "user-provided",
+        confidence: 0.72, // Lower confidence for bare numbers
+        span: { start: match.index, end: match.index + match[0].length, text: match[0] },
+        originalText: match[0].trim(),
+        suggestedCategory: inferCategoryFromDescription(description),
+        included: true,
+      });
+    }
+  }
+
+  // Extract qty x unit @ cost patterns
+  while ((match = qtyUnitCostPattern.exec(normalized)) !== null) {
+    const quantity = parseInt(match[1], 10);
+    const unit = match[2];
+    const costStr = match[3].replace(/,/g, "");
+    const cost = parseFloat(costStr);
+
+    if (Number.isFinite(cost) && cost > 0 && Number.isFinite(quantity) && quantity > 0) {
+      // Try to find description before this match
+      const before = normalized.slice(Math.max(0, match.index - 80), match.index);
+      const descMatch = before.match(/([A-Za-z][^,\n]{2,60}?)\s*$/);
+      const description = descMatch ? descMatch[1].trim() : `Item (${quantity} ${unit})`;
+
+      // Skip if we already have this description
+      if (!seenDescriptions.has(description.toLowerCase())) {
+        items.push({
+          id: `recognized-${idCounter++}`,
+          description,
+          cost,
+          quantity,
+          unit: unit.charAt(0).toUpperCase() + unit.slice(1).toLowerCase(),
+          source: "user-provided",
+          confidence: 0.85,
+          span: { start: match.index, end: match.index + match[0].length, text: match[0] },
+          originalText: match[0].trim(),
+          suggestedCategory: inferCategoryFromDescription(description),
+          included: true,
+        });
+        seenDescriptions.add(description.toLowerCase());
+      }
+    }
+  }
+
+  // Dedupe by similar descriptions
+  return dedupeRecognizedItems(items);
+};
+
+/**
+ * Converts recognized line items to budget line drafts.
+ */
+const buildLinesFromRecognizedItems = (
+  items: RecognizedLineItem[],
+  options: BudgetSpellbookGeneratorOptions,
+): BudgetSpellbookLineDraft[] => {
+  return items
+    .filter((item) => item.included && item.cost != null)
+    .map((item) => {
+      const category = item.suggestedCategory ?? "CONTINGENCY-MISC";
+      const areaGroup = inferAreaGroupFromCategory(category);
+      const invoiceGroup = inferInvoiceGroupFromCategory(category, options.crewModel);
+
+      return {
+        id: item.id,
+        fingerprint: "",
+        category,
+        description: item.description.toUpperCase(),
+        quantity: item.quantity,
+        unit: item.unit,
+        itemBudgetedCost: item.cost!,
+        itemMarkUp: clamp(options.markupTarget, 0, 2),
+        areaGroup,
+        invoiceGroup,
+        packageLabel: "User Provided",
+        meta: {
+          source: "shopping-list" as const,
+          confidence: item.confidence,
+          ruleId: item.id,
+          anchors: item.span ? [anchorInputSpan(item.span, "explicit")] : [],
+        },
+      };
+    });
+};
+
+/**
+ * Checks if a default line overlaps with a user-provided item (by similar description).
+ */
+const hasOverlappingUserItem = (
+  line: BudgetSpellbookLineDraft,
+  userLines: BudgetSpellbookLineDraft[],
+): boolean => {
+  const lineDescLower = line.description.toLowerCase();
+  return userLines.some((userLine) => {
+    const userDescLower = userLine.description.toLowerCase();
+    // Check for significant word overlap
+    const lineWords = lineDescLower.split(/\s+/).filter((w) => w.length >= 3);
+    const userWords = new Set(userDescLower.split(/\s+/).filter((w) => w.length >= 3));
+    const overlap = lineWords.filter((w) => userWords.has(w)).length;
+    return overlap >= 2 || lineDescLower.includes(userDescLower) || userDescLower.includes(lineDescLower);
+  });
+};
+
 export function parseBudgetSpellbookInput(input: string): BudgetSpellbookParseResult {
   const normalized = normalizeText(input);
   const fragments = splitToFragments(normalized);
@@ -514,6 +776,10 @@ export function parseBudgetSpellbookInput(input: string): BudgetSpellbookParseRe
     firstSpan(normalized, /\bcontingency\b[^\d]{0,20}(\d{1,2}(?:\.\d+)?)\s*%/i) ??
     firstSpan(normalized, /(\d{1,2}(?:\.\d+)?)\s*%[^\n]{0,22}\bcontingency\b/i);
 
+  // Extract recognized line items with costs
+  const recognizedItems = extractRecognizedLineItems(normalized);
+  const hasStructuredInput = recognizedItems.length > 0;
+
   return {
     input: normalized,
     inferred: {
@@ -538,6 +804,8 @@ export function parseBudgetSpellbookInput(input: string): BudgetSpellbookParseRe
       ...(contingencySpan ? { contingencyPct: contingencySpan } : {}),
     },
     shoppingList,
+    recognizedItems,
+    hasStructuredInput,
   };
 }
 
@@ -1118,13 +1386,21 @@ export function buildBudgetSpellbookVariants(
   parsed: BudgetSpellbookParseResult,
   options: BudgetSpellbookGeneratorOptions,
 ): BudgetSpellbookVariant[] {
+  // 1. Convert recognized user items to budget lines (these take priority)
+  const userProvidedLines = buildLinesFromRecognizedItems(parsed.recognizedItems, options);
+
+  // 2. Build default template lines
+  const defaultLines = buildProducerStandard(parsed, options).map((line) => toInvoiceGroups(line, options.crewModel));
+
+  // 3. Filter out defaults that overlap with user-provided items
+  const filteredDefaults = defaultLines.filter((line) => !hasOverlappingUserItem(line, userProvidedLines));
+
+  // 4. Merge: user items first, then filtered defaults
+  const combinedLines = [...userProvidedLines, ...filteredDefaults];
+
   const producerStandard = tagOriginVariant(
     "producer-standard",
-    decorateLinesWithConfidence(
-    buildProducerStandard(parsed, options).map((line) => toInvoiceGroups(line, options.crewModel)),
-    parsed,
-    options,
-    ),
+    decorateLinesWithConfidence(combinedLines, parsed, options),
   );
 
   const inferredDays = parsed.inferred.installDays ?? 1;

@@ -926,6 +926,36 @@ const performReviewTransition = async (e, C, { projectId, taskId }, actionOverri
     const thread = [...getTaskThread(task), entry];
 
     if (status === "done") {
+      const needsCanonicalization =
+        task.archived ||
+        (typeof task.status === "string" &&
+          normalizeTaskStatus(task.status) === "done" &&
+          task.status !== "done");
+
+      if (needsCanonicalization) {
+        const updated = await dalUpdateTaskStatus({
+          ddb,
+          tableName: TASKS_TABLE,
+          projectId,
+          taskId,
+          nextStatus: "done",
+          actorId,
+          now,
+          options: {
+            force: true,
+            completedAt: task.completedAt || task.reviewedAt || now,
+            reviewedAt: task.reviewedAt || task.completedAt || now,
+            note,
+            additionalUpdates: {
+              reviewState: "done",
+              currentSubmissionId: submissionId,
+              thread,
+            },
+          },
+        });
+        return json(200, C, updated);
+      }
+
       const updated = await dalUpdateTaskFields({
         ddb,
         tableName: TASKS_TABLE,

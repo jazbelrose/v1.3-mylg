@@ -1164,6 +1164,70 @@
   text-align: center;
 }
 
+/* Virtualized list view container */
+.virtualizedListContainer {
+  width: 100%;
+  overflow: hidden;
+}
+
+.virtualizedListContainer table {
+  width: 100%;
+}
+
+.listThead {
+  background: var(--bg-panel, #1a1c22);
+}
+
+/* Virtualized list header wrapper - sticky above scrolling body */
+.listHeaderWrapper {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-panel, #1a1c22);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.listHeaderWrapper table {
+  margin-bottom: 0;
+}
+
+/* Virtuoso item wrapper removes default spacing */
+.virtualizedListContainer [data-virtuoso-scroller] {
+  overflow-x: hidden !important;
+}
+
+.virtualizedListContainer [data-item-index] table {
+  margin: 0;
+  border-spacing: 0;
+}
+
+/* List row optimizations during scroll */
+.listRowScrolling {
+  transition: none !important;
+}
+
+.listRowScrolling:hover {
+  background: transparent;
+}
+
+/* List thumbnail placeholder during scroll */
+.listThumbPlaceholder {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.listThumbPlaceholderIcon {
+  width: 16px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
 /* ============================================================================
    GRID VIEW
    ============================================================================ */

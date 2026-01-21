@@ -54,6 +54,8 @@ import { QuickLookModal } from './QuickLookModal';
 import { BulkActionBar } from './BulkActionBar';
 import { FileInspector, FileDetails } from './FileInspector';
 import { FileListView, FileListItem, SortField, SortDirection } from './FileListView';
+import { VirtualizedListView } from './VirtualizedListView';
+import type { ListRowItem } from './OptimizedListRow';
 import { FileGridView } from './FileGridView';
 import { VirtualizedFileGrid, type VirtualizedFileGridProps } from './VirtualizedFileGrid';
 import { OptimizedFileGrid } from './OptimizedFileGrid';
@@ -915,6 +917,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       setListItemCount(prev => Math.min(prev + LIST_BATCH_SIZE, displayedFiles.length));
     }, [displayedFiles.length]);
     
+    // For non-virtualized (legacy) list view
     const listItems: FileListItem[] = useMemo(
       () =>
         visibleListFiles.map((file) => ({
@@ -929,6 +932,24 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
           kind: file.kind,
         })),
       [visibleListFiles]
+    );
+    
+    // For virtualized list view - use ALL files (virtualization handles rendering)
+    const virtualizedListItems: ListRowItem[] = useMemo(
+      () =>
+        displayedFiles.map((file) => ({
+          id: file.url,
+          fileName: file.fileName,
+          url: file.url,
+          thumbnailUrl: getThumbnailUrl(file.url) || undefined,
+          mimeType: file.kind,
+          sizeBytes: file.size,
+          updatedAt: file.lastModified
+            ? new Date(file.lastModified).toISOString()
+            : undefined,
+          kind: file.kind,
+        })),
+      [displayedFiles]
     );
 
     // Handle sort change from list view
@@ -1380,51 +1401,39 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                       </div>
                     </div>
                   ) : viewMode === 'list' ? (
-                    <>
-                      <FileListView
-                        files={listItems}
-                        selectedItems={selectedItems}
-                        onSelectionChange={handleSelectionChange}
-                        onFileClick={(file, index, e) => {
-                          const originalFile = visibleListFiles[index];
-                          if (originalFile) {
-                            handleFileClickWithInspector(originalFile, index, e);
-                          }
-                        }}
-                        onFileDoubleClick={(file, index) => {
-                          const originalFile = visibleListFiles[index];
-                          if (originalFile) {
-                            handleFileDoubleClick(originalFile, index);
-                          }
-                        }}
-                        onDownload={(file) => {
-                          const originalFile = displayedFiles.find((f) => f.url === file.url);
-                          if (originalFile) handleDownloadSingle(originalFile);
-                        }}
-                        onContextMenu={(e, file) => {
-                          const originalFile = displayedFiles.find((f) => f.url === file.url);
-                          handleContextMenu(e, originalFile);
-                        }}
-                        onActionSheet={(file) => {
-                          const originalFile = displayedFiles.find((f) => f.url === file.url);
-                          if (originalFile) handleActionSheet(originalFile);
-                        }}
-                        sortField={sortField}
-                        sortDirection={sortDirection}
-                        onSortChange={handleSortChange}
-                        canDelete={canDelete}
-                      />
-                      {hasMoreListItems && (
-                        <button
-                          type="button"
-                          className={styles.loadMoreRow}
-                          onClick={handleLoadMoreList}
-                        >
-                          <span>Load {Math.min(LIST_BATCH_SIZE, remainingListCount)} more</span>
-                          <span className={styles.loadMoreBadge}>+{remainingListCount}</span>
-                        </button>
-                      )}
-                    </>
+                    <VirtualizedListView
+                      files={virtualizedListItems}
+                      selectionStore={selectionStore}
+                      onSelectionChange={handleSelectionChange}
+                      onFileClick={(file, index, e) => {
+                        const originalFile = displayedFiles[index];
+                        if (originalFile) {
+                          handleFileClickWithInspector(originalFile, index, e);
+                        }
+                      }}
+                      onFileDoubleClick={(file, index) => {
+                        const originalFile = displayedFiles[index];
+                        if (originalFile) {
+                          handleFileDoubleClick(originalFile, index);
+                        }
+                      }}
+                      onDownload={(file) => {
+                        const originalFile = displayedFiles.find((f) => f.url === file.url);
+                        if (originalFile) handleDownloadSingle(originalFile);
+                      }}
+                      onContextMenu={(e, file) => {
+                        const originalFile = displayedFiles.find((f) => f.url === file.url);
+                        handleContextMenu(e, originalFile);
+                      }}
+                      onActionSheet={(file) => {
+                        const originalFile = displayedFiles.find((f) => f.url === file.url);
+                        if (originalFile) handleActionSheet(originalFile);
+                      }}
+                      sortField={sortField}
+                      sortDirection={sortDirection}
+                      onSortChange={handleSortChange}
+                      canDelete={canDelete}
+                    />
                   ) : containerSize.width > 0 && containerSize.height > 0 ? (
                     <OptimizedFileGrid
                       items={gridItems}

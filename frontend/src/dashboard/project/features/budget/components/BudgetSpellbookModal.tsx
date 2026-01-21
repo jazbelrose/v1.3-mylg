@@ -13,6 +13,7 @@ import {
   type BudgetSpellbookParseResult,
   type BudgetSpellbookVariant,
   type BudgetSpellbookVariantId,
+  type RecognizedLineItem,
 } from "../lib/budgetSpellbook";
 import { defaultPlanDraftAssumptions, type PlanDraftAssumptions, type PlanDraftOutputs } from "../lib/planDraft";
 import { buildRfpProposalPackMarkdownFromDraft } from "../lib/rfpPack";
@@ -86,6 +87,9 @@ export default function BudgetSpellbookModal({
   const [isApplying, setIsApplying] = useState(false);
   const [copiedAt, setCopiedAt] = useState(0);
 
+  // Track which recognized items are included (by id)
+  const [excludedItemIds, setExcludedItemIds] = useState<Set<string>>(new Set());
+
   const [activeTab, setActiveTab] = useState<"budget" | "plan" | "assumptions">(initialTab);
 
   const [outputs, setOutputs] = useState<PlanDraftOutputs>(() => {
@@ -148,7 +152,37 @@ export default function BudgetSpellbookModal({
     [crewModel, eventType, includeTravelTrucking, resolvedContingency, resolvedMarkupTarget, venueCity],
   );
 
-  const parseResult = useMemo(() => parseBudgetSpellbookInput(text), [text]);
+  const rawParseResult = useMemo(() => parseBudgetSpellbookInput(text), [text]);
+
+  // Apply excluded items state to parse result
+  const parseResult = useMemo<BudgetSpellbookParseResult>(() => {
+    if (excludedItemIds.size === 0) return rawParseResult;
+    return {
+      ...rawParseResult,
+      recognizedItems: rawParseResult.recognizedItems.map((item) => ({
+        ...item,
+        included: !excludedItemIds.has(item.id),
+      })),
+    };
+  }, [rawParseResult, excludedItemIds]);
+
+  // Reset excluded items when text changes significantly (new items detected)
+  useEffect(() => {
+    setExcludedItemIds(new Set());
+  }, [text]);
+
+  // Toggle a recognized item's inclusion
+  const toggleRecognizedItem = useCallback((itemId: string) => {
+    setExcludedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  }, []);
 
   // Note: Plan time is controlled by a Focus Block window (Plan tab).
   const variants = useMemo(() => buildBudgetSpellbookVariants(parseResult, options), [options, parseResult]);
@@ -318,6 +352,61 @@ export default function BudgetSpellbookModal({
               </div>
             )}
           </div>
+
+          {/* What We Found Panel - shows extracted line items with costs */}
+          {parseResult.recognizedItems.length > 0 && (
+            <div className={styles.recognizedPanel}>
+              <div className={styles.recognizedHeader}>
+                <span className={styles.recognizedTitle}>What we found</span>
+                <span className={styles.recognizedCount}>
+                  {parseResult.recognizedItems.filter((i) => i.included).length} of{" "}
+                  {parseResult.recognizedItems.length} items
+                </span>
+              </div>
+              <div className={styles.recognizedList}>
+                {parseResult.recognizedItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`${styles.recognizedItem} ${item.included ? styles.recognizedItemActive : ""}`}
+                  >
+                    <button
+                      type="button"
+                      className={styles.recognizedCheck}
+                      onClick={() => toggleRecognizedItem(item.id)}
+                      aria-label={item.included ? "Exclude item" : "Include item"}
+                    >
+                      {item.included ? "✓" : ""}
+                    </button>
+                    <div className={styles.recognizedContent}>
+                      <div className={styles.recognizedDesc}>{item.description}</div>
+                      <div className={styles.recognizedMeta}>
+                        {item.cost != null ? formatMoney(item.cost) : "No cost"}
+                        {item.suggestedCategory && (
+                          <span className={styles.recognizedCategory}>• {item.suggestedCategory}</span>
+                        )}
+                        <span
+                          className={styles.recognizedSource}
+                          title={`Confidence: ${Math.round(item.confidence * 100)}%`}
+                        >
+                          • {item.source === "user-provided" ? "Your input" : "Suggested"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* No structured input fallback - suggest adding costs */}
+          {parseResult.shoppingList.length > 0 && parseResult.recognizedItems.length === 0 && (
+            <div className={styles.noStructuredInput}>
+              <div className={styles.noStructuredTitle}>No costs detected</div>
+              <div className={styles.noStructuredHint}>
+                Add amounts like "Scenic Build $3,500" or "Drape 1200" to import specific line items.
+              </div>
+            </div>
+          )}
         </div>
 
         <div className={styles.rightPane}>
