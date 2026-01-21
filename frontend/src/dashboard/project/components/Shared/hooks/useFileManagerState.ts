@@ -217,7 +217,10 @@ export const useFileManagerState = ({
     const startTime = performance.now();
     const searchLower = deferredSearchTerm.toLowerCase();
     
-    let filtered = deferredSelectedFiles.filter(
+    // Use selectedFiles directly (not deferred) to ensure immediate updates after delete
+    // The deferred value was causing deleted files to still appear until React's
+    // concurrent rendering caught up
+    let filtered = selectedFiles.filter(
       (f) =>
         f.fileName.toLowerCase().includes(searchLower) &&
         (filterOption === "all" || f.kind === filterOption)
@@ -237,13 +240,11 @@ export const useFileManagerState = ({
     if (import.meta.env.DEV && typeof window !== 'undefined') {
       const duration = performance.now() - startTime;
       const perf = (window as unknown as { __filesPerf?: { trackFilterSort: (a: number, b: number, c: number) => void } }).__filesPerf;
-      perf?.trackFilterSort(deferredSelectedFiles.length, result.length, duration);
+      perf?.trackFilterSort(selectedFiles.length, result.length, duration);
     }
     
     return result;
-    // Use filesVersionKey instead of deferredSelectedFiles for more stable memoization
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filesVersionKey, deferredSearchTerm, filterOption, sortFiles, isSelectionEnabled, fileTypeFilter]);
+  }, [selectedFiles, deferredSearchTerm, filterOption, sortFiles, isSelectionEnabled, fileTypeFilter]);
 
   const toggleViewMode = useCallback(() => {
     const newMode: ViewMode = viewMode === "grid" ? "list" : "grid";
