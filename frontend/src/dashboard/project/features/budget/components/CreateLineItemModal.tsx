@@ -101,6 +101,7 @@ export interface CreateLineItemModalProps {
 }
 
 const CATEGORY_OPTIONS = [
+  "", // Uncategorized option
   "AUDIO-VISUAL",
   "CLIENT-SERVICES-VIP",
   "CONTINGENCY-MISC",
@@ -1110,12 +1111,13 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     let control: React.ReactNode;
 
     if (fieldDef.type === "select") {
+      const isCategory = fieldName === "category";
       const selectElement = (
         <select {...baseProps}>
           <option hidden value="" />
           {(fieldDef.options ?? []).map((option) => (
-            <option key={option} value={option}>
-              {option}
+            <option key={option || "__uncategorized__"} value={option}>
+              {option || (isCategory ? "Uncategorized (Standalone)" : "")}
             </option>
           ))}
         </select>

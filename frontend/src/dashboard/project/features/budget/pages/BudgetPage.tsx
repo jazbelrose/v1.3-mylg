@@ -598,6 +598,31 @@ const BudgetPageContent = () => {
     return union > 0 ? intersection / union : 0;
   };
 
+  /**
+   * Process API calls in batches to avoid rate limiting.
+   * Each batch runs in parallel, batches run sequentially with a small delay.
+   */
+  const processBatched = async <T, R>(
+    items: T[],
+    processor: (item: T, idx: number) => Promise<R>,
+    batchSize = 5,
+    delayMs = 100,
+  ): Promise<R[]> => {
+    const results: R[] = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map((item, batchIdx) => processor(item, i + batchIdx))
+      );
+      results.push(...batchResults);
+      // Small delay between batches to avoid rate limiting
+      if (i + batchSize < items.length) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+    return results;
+  };
+
   const allocateElementKeySequence = useCallback(
     (count: number) => {
       const slug = slugify((activeProject?.title as string) || "");
@@ -684,7 +709,13 @@ const BudgetPageContent = () => {
 
         if (shouldApplyBudget) {
           if (request.applyMode === "replace") {
-            await Promise.all(linesOnly.map((it) => deleteBudgetItem(projectId, String(it.budgetItemId))));
+            // Use batched processing to avoid rate limits when deleting many items
+            await processBatched(
+              linesOnly,
+              async (it) => deleteBudgetItem(projectId, String(it.budgetItemId)),
+              5,
+              100,
+            );
           }
 
           const remaining = request.applyMode === "replace" ? [] : [...linesOnly];
@@ -758,17 +789,19 @@ const BudgetPageContent = () => {
           const elementKeys = allocateElementKeySequence(toCreate.length);
           const elementIds = allocateElementIds(toCreate.map((d) => String(d.payload.category)));
 
-          createdItems = await Promise.all(
-          toCreate.map((entry, idx) =>
-            createBudgetItem(projectId, budgetId, {
+          // Use batched processing to avoid API rate limits
+          createdItems = await processBatched(
+            toCreate,
+            async (entry, idx) => createBudgetItem(projectId, budgetId, {
               ...entry.payload,
               elementKey: elementKeys[idx],
               elementId: elementIds[idx],
               budgetItemId: `LINE-${uuid()}`,
               revision,
             }),
-          ),
-        );
+            5, // batch size
+            150, // delay between batches
+          );
 
         createdItems.forEach((item, idx) => {
           const draftId = toCreate[idx]?.draftId;
@@ -776,21 +809,25 @@ const BudgetPageContent = () => {
           if (draftId && budgetItemId) draftIdToBudgetItemId.set(draftId, budgetItemId);
         });
 
-          updatedItems = await Promise.all(
-          toUpdate.map(({ existing, draft, draftId }) => {
-            const existingId = String((existing as any)?.budgetItemId ?? "");
-            if (draftId && existingId) draftIdToBudgetItemId.set(draftId, existingId);
-            return updateBudgetItem(projectId, String(existing.budgetItemId), {
-              ...draft,
-              itemFinalCost: toLineFinalCost(
-                draft.quantity,
-                resolveBaseCostForExistingLine(existing, draft.itemBudgetedCost),
-                draft.itemMarkUp,
-              ),
-              revision,
-            });
-          }),
-        );
+          // Use batched processing for updates too
+          updatedItems = await processBatched(
+            toUpdate,
+            async ({ existing, draft, draftId }) => {
+              const existingId = String((existing as any)?.budgetItemId ?? "");
+              if (draftId && existingId) draftIdToBudgetItemId.set(draftId, existingId);
+              return updateBudgetItem(projectId, String(existing.budgetItemId), {
+                ...draft,
+                itemFinalCost: toLineFinalCost(
+                  draft.quantity,
+                  resolveBaseCostForExistingLine(existing, draft.itemBudgetedCost),
+                  draft.itemMarkUp,
+                ),
+                revision,
+              });
+            },
+            5,
+            150,
+          );
 
         const nextLines = (() => {
           const byId = new Map<string, Record<string, unknown>>();
@@ -1210,6 +1247,39 @@ const BudgetPageContent = () => {
     }
   };
 
+  const handleRevisionNoteChange = async (
+    revision: { budgetItemId?: string; revision: number },
+    nextNote: string,
+  ) => {
+    if (!activeProject?.projectId || !revision?.budgetItemId) return;
+
+    const normalized = nextNote.trim();
+    try {
+      await updateBudgetItem(activeProject.projectId, revision.budgetItemId, {
+        revisionNote: normalized || null,
+        revision: revision.revision,
+      });
+
+      setRevisions((prev) =>
+        prev.map((item) =>
+          item.budgetItemId === revision.budgetItemId
+            ? { ...item, revisionNote: normalized || null }
+            : item,
+        ),
+      );
+
+      setBudgetHeader((prev) =>
+        prev && prev.budgetItemId === revision.budgetItemId
+          ? { ...prev, revisionNote: normalized || null }
+          : prev,
+      );
+
+      emitBudgetUpdate();
+    } catch (error) {
+      console.error("Failed to update revision note", error);
+    }
+  };
+
   const handleRevisionInvoiceSaved = (
     revision: { budgetItemId?: string; revision: number },
     invoice: { invoiceDetails: InvoiceDetailsPayload },
@@ -1373,6 +1443,8 @@ const BudgetPageContent = () => {
                                   )
                                 }
                                 onOpenRevisionModal={() => stateManager.setRevisionModalOpen(true)}
+                                onSwitchRevision={handleSwitchRevision}
+                                revisions={revisions}
                                 onBallparkChange={handleBallparkChange}
                                 onCreateBudget={handleCreateInitialBudget}
                               />
@@ -1540,6 +1612,7 @@ const BudgetPageContent = () => {
                               onDelete={(rev) => handleDeleteRevision(rev.revision)}
                               onSetClient={(rev) => handleSetClientRevision(rev)}
                               onRename={handleRenameRevision}
+                              onRevisionNoteChange={handleRevisionNoteChange}
                               onInvoiceSaved={handleRevisionInvoiceSaved}
                               isAdmin={canEdit}
                               activeProject={activeProject}

@@ -1,0 +1,117 @@
+.triggerWrapper {
+  display: inline-flex;
+  position: relative;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 15000;
+  transform: translateX(-50%);
+  min-width: 200px;
+  max-width: 320px;
+  padding: 14px 16px;
+  background: linear-gradient(160deg, rgba(24, 24, 28, 0.98), rgba(16, 16, 20, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  color: #f8f9fc;
+  font-size: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: tooltipFadeIn 0.15s ease-out;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.tooltipTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.tooltipMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.revisionTag {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.separator {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.clientLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #fbbf24;
+  font-weight: 500;
+}
+
+.internalLabel {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.starIcon {
+  font-size: 0.7rem;
+}
+
+.saveStatus {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.revisionNote {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.65);
+  font-style: italic;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border-left: 2px solid rgba(250, 51, 86, 0.5);
+}
+
+.copyButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-top: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  align-self: flex-start;
+}
+
+.copyButton:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.copyButton:active {
+  background: rgba(255, 255, 255, 0.18);
+}

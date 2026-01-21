@@ -94,6 +94,9 @@
 }
 
 .revisionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: var(--budget-accent-soft);
   border: 1px solid transparent;
   border-radius: 9999px;

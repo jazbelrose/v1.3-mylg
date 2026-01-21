@@ -125,7 +125,7 @@
 
 .modalBody {
   flex: 1 1 auto;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
 }
@@ -133,7 +133,9 @@
 .modalList {
   flex: 1 1 auto;
   overflow-y: auto;
+  overflow-x: visible;
   padding-right: clamp(6px, 1vw, 12px);
+  padding-bottom: 220px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -164,41 +166,100 @@
 .revRow {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 18px 22px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   background: color-mix(in srgb, var(--revision-surface) 90%, transparent);
-  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.25);
-  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease,
-    box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
 .revRow:hover {
-  border-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.12);
   background: color-mix(in srgb, var(--revision-surface-strong) 92%, transparent);
-  transform: translateY(-2px);
-  box-shadow: 0 24px 44px rgba(0, 0, 0, 0.35);
 }
 
 .activeRow {
-  border-color: color-mix(in srgb, var(--revision-accent) 70%, transparent);
-  background: color-mix(in srgb, var(--revision-accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--revision-accent) 50%, transparent);
+  background: color-mix(in srgb, var(--revision-accent) 10%, transparent);
+}
+
+.clientRow {
+  border-color: rgba(251, 191, 36, 0.3);
 }
 
 .revHeader {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   width: 100%;
+}
+
+.revMainInfo {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
 }
 
 .revLabel {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.revLabel input {
+  accent-color: var(--revision-accent);
+  width: 16px;
+  height: 16px;
+}
+
+.activeIndicator {
+  display: none;
+}
+
+.revNameBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.revPrimaryName {
+  font-size: 0.95rem;
   font-weight: 600;
   color: #ffffff;
+  line-height: 1.3;
+}
+
+.revMeta {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.metaSeparator {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.editingIndicator {
+  color: #60a5fa;
+  font-style: italic;
+}
+
+.revHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .revLabel input {
@@ -218,42 +279,174 @@
   flex-wrap: wrap;
 }
 
-.clientBadge,
-.editingBadge {
+.clientBadge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 6px;
-  color: #fff;
-  border-radius: 4px;
+  gap: 5px;
+  padding: 4px 10px;
+  background: rgba(251, 191, 36, 0.2);
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #fbbf24;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.setClientButton {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+  padding: 5px 12px;
+  border-radius: 8px;
   font-size: 0.75rem;
-  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
-.clientBadge {
-  background-color: #fa3356;
+.setClientButton:hover {
+  background: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
 }
 
-.editingBadge {
-  background-color: #297aff;
+/* Overflow Menu */
+.menuWrapper {
+  position: relative;
 }
 
-.revNameRow {
+.menuButton {
+  background: transparent;
+  border: 1px solid transparent;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.menuButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.overflowMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 9999;
+  min-width: 180px;
+  padding: 6px;
+  background: linear-gradient(160deg, rgba(28, 28, 32, 0.98), rgba(20, 20, 24, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
+}
+
+.menuItem {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: left;
+}
+
+.menuItem:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.menuItem:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.menuItemDanger {
+  color: #f87171;
+}
+
+.menuItemDanger:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.menuDivider {
+  height: 1px;
+  margin: 6px 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Revision Note */
+.revisionNote {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  border-left: 2px solid rgba(250, 51, 86, 0.4);
+}
+
+.noteForm {
+  display: flex;
+  align-items: center;
   gap: 10px;
   width: 100%;
 }
 
-.revNameText {
+.noteInput {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #ffffff;
   font-size: 0.85rem;
-  color: #f7f7f7;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.revNamePlaceholder {
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.45);
-  font-style: italic;
+.noteInput:focus {
+  outline: none;
+  border-color: #fa3356;
+  box-shadow: 0 0 0 1px rgba(250, 51, 86, 0.3);
+}
+
+.noteInput:disabled {
+  opacity: 0.6;
+}
+
+.noteActions {
+  display: flex;
+  gap: 8px;
+}
+
+.noteActionButton {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: #ffffff;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.noteActionButton:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.noteActionButton:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .renameForm {
@@ -314,42 +507,98 @@
 .revFooter {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
-}
-
-.invoiceStatusWrapper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.75rem;
 }
 
 .invoiceStatusReady {
+  font-size: 0.72rem;
   color: #38bdf8;
   font-weight: 500;
 }
 
 .invoiceStatusEmpty {
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.invoiceStatusMeta {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .modalFooter {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  padding-top: clamp(18px, 4vw, 24px);
-  padding-bottom: clamp(10px, 3vw, 18px);
+  padding-top: clamp(16px, 3vw, 20px);
+  padding-bottom: clamp(8px, 2vw, 14px);
   border-top: 1px solid var(--revision-border);
   margin-top: clamp(12px, 3vw, 20px);
+}
+
+.footerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.footerButtonTertiary {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.footerButtonTertiary:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.footerButtonSecondary {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.footerButtonSecondary:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.footerButtonPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #fa3356, #e02045);
+  border: none;
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  box-shadow: 0 8px 20px rgba(250, 51, 86, 0.3);
+}
+
+.footerButtonPrimary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(250, 51, 86, 0.4);
+  filter: brightness(1.08);
+}
+
+.footerButtonPrimary:active {
+  transform: translateY(0);
 }
 
 

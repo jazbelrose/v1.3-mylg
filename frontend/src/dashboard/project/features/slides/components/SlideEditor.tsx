@@ -5,7 +5,7 @@ import LexicalEditor from "@/dashboard/project/features/editor/components/Brief/
 import SlideToolbar from "./SlideToolbar";
 import SlideContextMenu, { type ContextMenuPosition } from "./SlideContextMenu";
 import LayoutGeneratorPanel from "./LayoutGeneratorPanel";
-import MagicLayoutPanel from "./MagicLayoutPanel";
+import MagicLayoutWorkspace from "./MagicLayoutWorkspace";
 import { Slide } from "@/app/contexts/DataProvider";
 import { useSlidePersistence } from "../hooks/useSlidePersistence";
 import { useEditTracking } from "../hooks/useEditTracking";
@@ -564,7 +564,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
               onClose={handleCloseLayoutPanel}
               onApply={handleApplyLayout}
             />
-            <MagicLayoutPanel
+            <MagicLayoutWorkspace
               open={magicPanelOpen}
               onClose={handleCloseMagicPanel}
               onApply={handleApplyMagicLayout}

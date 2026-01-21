@@ -511,19 +511,51 @@ const firstSpan = (input: string, regex: RegExp): BudgetSpellbookInputSpan | nul
 const inferCategoryFromDescription = (desc: string): BudgetSpellbookLineDraft["category"] | null => {
   const lower = desc.toLowerCase();
 
-  if (/\b(scenic|fab|build|set\s*wall|backdrop|structure|frame)\b/.test(lower)) return "FABRICATION";
-  if (/\b(drape|pipe\s*&\s*drape|rental|tent|table|chair|linen)\b/.test(lower)) return "RENTALS";
-  if (/\b(graphic|sign|vinyl|print|banner|directional|signage)\b/.test(lower)) return "GRAPHICS";
-  if (/\b(av|audio|video|projector|screen|speaker|mic|sound)\b/.test(lower)) return "AUDIO-VISUAL";
-  if (/\b(uplight|light|gobo|pin\s*spot|lighting|led|wash)\b/.test(lower)) return "LIGHTING";
+  // Order matters - more specific patterns first
+  
+  // Production Management (infrastructure, logistics, setup)
+  if (/\b(infrastructure|installation|setup|logistics|pickups|delivery\s*&|coordination)\b/.test(lower)) return "PRODUCTION-MGMT";
+  
+  // Trucking/Shipping
+  if (/\b(truck|trucking|freight|shipping|sprinter|box\s*truck|shopping|movements)\b/.test(lower)) return "TRUCKING";
+  
+  // Rentals/Equipment (booths, furniture, chandeliers, dance floor, PA)
+  if (/\b(vr|virtual\s*reality|booth|inflatable|bounce\s*house|ball\s*pit|furniture|sofa|ottoman|bench|cafe\s*table|chandelier|rental|tent|table|chair|linen|seating|dance\s*floor|lounge)\b/.test(lower)) return "RENTALS";
+  
+  // Audio-Visual (PA, DJ, music, sound)
+  if (/\b(av|audio|video|projector|screen|speaker|mic|sound|pa\s*system|dj|music|entertainment)\b/.test(lower)) return "AUDIO-VISUAL";
+  
+  // Fabrication (custom builds, backdrops, structures, tunnels, displays, stations)
+  if (/\b(scenic|fab|build|set\s*wall|backdrop|structure|frame|tunnel|display|station|step\s*and\s*repeat|step-and-repeat|architectural|enclosure)\b/.test(lower)) return "FABRICATION";
+  
+  // Decor (decorative elements, florals, treatment, dressing)
+  if (/\b(decor|floral|prop|centerpiece|arrangement|balloon|treatment|dressing|ceiling|finishing\s*touch|carpet|star\s*pathway)\b/.test(lower)) return "DECOR";
+  
+  // Drapery (specific rental - check before general drape)
+  if (/\b(drape|drapery|pipe\s*&\s*drape|draped)\b/.test(lower)) return "RENTALS";
+  
+  // Graphics/Signage (cards, posters, collage, polaroid)
+  if (/\b(graphic|sign|vinyl|print|banner|directional|signage|card|poster|collage|polaroid)\b/.test(lower)) return "GRAPHICS";
+  
+  // Lighting (LED, uplights, gobo, wash)
+  if (/\b(uplight|gobo|pin\s*spot|lighting|led\s*(?!balloon)|wash|light\s*(?!station))\b/.test(lower)) return "LIGHTING";
+  
+  // Labor
   if (/\b(labor|crew|install|strike|tech|stagehand|loader)\b/.test(lower)) return "LABOR";
+  
+  // Travel
   if (/\b(travel|hotel|flight|per\s*diem|lodging|airfare)\b/.test(lower)) return "TRAVEL";
-  if (/\b(truck|freight|delivery|shipping|sprinter|box\s*truck)\b/.test(lower)) return "TRUCKING";
+  
+  // Permits
   if (/\b(permit|insurance|cert|license|fee)\b/.test(lower)) return "PERMITS-INSURANCE";
+  
+  // Design
   if (/\b(design|proof|render|creative|artwork)\b/.test(lower)) return "DESIGN";
-  if (/\b(decor|floral|prop|centerpiece|arrangement)\b/.test(lower)) return "DECOR";
-  if (/\b(pm|producer|management|coord|supervision|oversight)\b/.test(lower)) return "PRODUCTION-MGMT";
+  
+  // Parking/Fuel/Tolls
   if (/\b(parking|fuel|toll|gas|mileage)\b/.test(lower)) return "PARKING-FUEL-TOLLS";
+  
+  // Contingency
   if (/\b(contingency|misc|buffer|reserve)\b/.test(lower)) return "CONTINGENCY-MISC";
 
   return null;
@@ -569,7 +601,9 @@ const inferInvoiceGroupFromCategory = (
 const dedupeRecognizedItems = (items: RecognizedLineItem[]): RecognizedLineItem[] => {
   const seen = new Map<string, RecognizedLineItem>();
   for (const item of items) {
-    const key = `${item.description.toLowerCase().trim()}|${item.cost}`;
+    // Normalize description for deduplication
+    const normalizedDesc = item.description.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30);
+    const key = `${normalizedDesc}|${item.cost}`;
     const existing = seen.get(key);
     if (!existing || item.confidence > existing.confidence) {
       seen.set(key, item);
@@ -579,115 +613,278 @@ const dedupeRecognizedItems = (items: RecognizedLineItem[]): RecognizedLineItem[
 };
 
 /**
- * Extracts line items with costs from user input.
- * Supports formats:
- *   - "Step and Repeat Photo Opportunity $3,138"
- *   - "Scenic Build 6500"
- *   - "Drape rental - $1,200.00"
- *   - Multi-line "Description\n$1,234"
- *   - "4 Days @ $520" patterns
+ * Cleans up a raw text segment to extract a usable item name.
+ * Handles:
+ *   - Concatenated spreadsheet columns: "CategoryItemNameDescription"
+ *   - Leading/trailing punctuation and whitespace
+ *   - Dimension suffixes that should be removed
+ */
+const cleanupItemName = (raw: string): string => {
+  let text = raw.trim();
+  
+  // Remove leading bullets, numbers, dashes
+  text = text.replace(/^[\s\-–—•·▪◦○●\d.)\]]+\s*/, "");
+  
+  // Remove trailing punctuation
+  text = text.replace(/[\s\-–—:;,.(]+$/, "");
+  
+  // Remove common category prefixes that get concatenated (spreadsheet headers)
+  // Only strip these if they're followed by at least 5 characters of real content
+  // This prevents stripping "Item A" but allows stripping "ItemScenic Backdrop..."
+  const prefixPatterns = [
+    /^(?:Infrastructure\s*&\s*Setup|Entrance\s*Experience|Focal\s*Areas?|Photo\s*Opportunities?|Interactive\s*Activations?|Additional\s*Fun(?:\s*for\s*Kids)?|Entertainment\s*&\s*Ambiance|Decor\s*&\s*Finishing\s*Touches?|Setup|Category|Description|Line\s*Item|Budget\s*Item)(?=[A-Z][a-z])/i,
+  ];
+  for (const pattern of prefixPatterns) {
+    text = text.replace(pattern, "").trim();
+  }
+  
+  // If still too long, try to find a natural break point
+  if (text.length > 60) {
+    // Look for where a title-case name transitions to lowercase description
+    // E.g., "Step and Repeat Photo Opportunity10 ft high" → "Step and Repeat Photo Opportunity"
+    
+    // Pattern: Title words followed by a digit (dimension)
+    const dimMatch = text.match(/^(.{10,55}?)\s*\d+\s*(?:ft|inch|x|'|"|cm|m\b)/i);
+    if (dimMatch) return dimMatch[1].trim();
+    
+    // Pattern: Uppercase/Title case words followed by lowercase sentence
+    // Find where a capital word ends and lowercase begins that looks like description start
+    const descriptionStarters = /(?:^|\s)(includes?|features?|with|for|full|custom|complete|all|themed|assorted|decorative|our|the|a|an|labor|setup|staff)\s/i;
+    const descMatch = text.match(descriptionStarters);
+    if (descMatch && descMatch.index && descMatch.index >= 10 && descMatch.index <= 55) {
+      return text.slice(0, descMatch.index).trim();
+    }
+    
+    // Pattern: CamelCase boundary (lowercase followed by uppercase)
+    // E.g., "EnvironmentFull" → break before "Full"
+    const camelMatch = text.match(/^(.{10,50}?[a-z])([A-Z][a-z]{2,})/);
+    if (camelMatch) return camelMatch[1].trim();
+    
+    // Fallback: truncate at word boundary
+    const truncated = text.slice(0, 55);
+    const lastSpace = truncated.lastIndexOf(" ");
+    if (lastSpace > 15) return truncated.slice(0, lastSpace).trim();
+  }
+  
+  return text.trim();
+};
+
+/**
+ * Parses a cost string that may include:
+ *   - Currency symbol: $3,138 or $1,200.00
+ *   - Ranges: $5,000–$7,000 or $5,000-$7,000
+ *   - Bare numbers: 3138 or 3,138
+ * Returns the cost (higher value for ranges) and whether it was a range.
+ */
+const parseCost = (costText: string): { cost: number; isRange: boolean } => {
+  // Clean up the cost text
+  const cleaned = costText.replace(/\s+/g, "");
+  
+  // Check for range patterns
+  const rangeMatch = cleaned.match(/\$?([\d,]+(?:\.\d{1,2})?)[–\-—to]+\$?([\d,]+(?:\.\d{1,2})?)/i);
+  if (rangeMatch) {
+    const low = parseFloat(rangeMatch[1].replace(/,/g, ""));
+    const high = parseFloat(rangeMatch[2].replace(/,/g, ""));
+    return { cost: Math.max(low, high), isRange: true };
+  }
+  
+  // Single value
+  const singleMatch = cleaned.match(/\$?([\d,]+(?:\.\d{1,2})?)/);
+  if (singleMatch) {
+    return { cost: parseFloat(singleMatch[1].replace(/,/g, "")), isRange: false };
+  }
+  
+  return { cost: 0, isRange: false };
+};
+
+/**
+ * Smart line-by-line parser that handles various input formats.
+ * Splits input into logical "chunks" and looks for cost associations.
+ */
+const parseInputIntoChunks = (input: string): Array<{ text: string; start: number; end: number }> => {
+  const chunks: Array<{ text: string; start: number; end: number }> = [];
+  
+  // Split on newlines first
+  const lines = input.split(/\n/);
+  let pos = 0;
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.length >= 3) {
+      chunks.push({ text: trimmed, start: pos, end: pos + line.length });
+    }
+    pos += line.length + 1; // +1 for the newline
+  }
+  
+  return chunks;
+};
+
+/**
+ * MAGICAL extraction - handles many different input formats:
+ * 
+ * Format 1: "Description $Cost" or "Description: $Cost"
+ * Format 2: "Description - $Cost" or "Description — $Cost"
+ * Format 3: "Description    $Cost" (tab-separated)
+ * Format 4: "$Cost Description" (cost first)
+ * Format 5: "Description\n$Cost" (cost on next line)
+ * Format 6: "• Description $Cost" (bulleted lists)
+ * Format 7: "1. Description $Cost" (numbered lists)
+ * Format 8: Spreadsheet paste: "Col1Col2Col3$Cost"
+ * Format 9: Ranges: "Description $5,000–$7,000"
+ * Format 10: Bare numbers: "Description 5000" (4+ digits)
+ * Format 11: Email/prose with inline costs
  */
 const extractRecognizedLineItems = (input: string): RecognizedLineItem[] => {
   const normalized = normalizeText(input);
   const items: RecognizedLineItem[] = [];
   let idCounter = 0;
-
-  // Pattern 1: Description followed by currency ($X,XXX or $X,XXX.XX)
-  const currencyPattern = /([A-Za-z][^$\n]{2,80}?)\s*\$\s*([\d,]+(?:\.\d{1,2})?)/g;
-
-  // Pattern 2: Description followed by bare number (4+ digits, likely cost)
-  const bareNumberPattern = /([A-Za-z][^\d\n]{2,80}?)\s+(\d{1,3}(?:,\d{3})+|\d{4,})\s*(?:$|\n|[,;.])/g;
-
-  // Pattern 3: Lines with "qty x unit @ $cost" or "qty Days @ $cost" format
-  const qtyUnitCostPattern = /(\d+)\s*(?:x\s*)?([A-Za-z]+)\s*[@at]\s*\$?([\d,]+(?:\.\d{1,2})?)/gi;
-
-  // Extract currency-prefixed costs
-  let match: RegExpExecArray | null;
-  while ((match = currencyPattern.exec(normalized)) !== null) {
-    const description = match[1].trim().replace(/[-–—:]+$/, "").trim();
-    const costStr = match[2].replace(/,/g, "");
-    const cost = parseFloat(costStr);
-
-    if (description.length >= 3 && Number.isFinite(cost) && cost > 0) {
-      items.push({
-        id: `recognized-${idCounter++}`,
-        description,
+  
+  // Strategy: Find all costs first, then look backward/around for descriptions
+  
+  // Find all cost occurrences (with optional ranges)
+  const costPattern = /\$\s*([\d,]+(?:\.\d{1,2})?)(?:\s*[–\-—]\s*\$?\s*([\d,]+(?:\.\d{1,2})?))?/g;
+  const costs: Array<{ 
+    match: string; 
+    cost: number; 
+    isRange: boolean; 
+    start: number; 
+    end: number 
+  }> = [];
+  
+  let costMatch: RegExpExecArray | null;
+  while ((costMatch = costPattern.exec(normalized)) !== null) {
+    const { cost, isRange } = parseCost(costMatch[0]);
+    if (cost > 0) {
+      costs.push({
+        match: costMatch[0],
         cost,
-        quantity: 1,
-        unit: "Lot",
-        source: "user-provided",
-        confidence: 0.88,
-        span: { start: match.index, end: match.index + match[0].length, text: match[0] },
-        originalText: match[0].trim(),
-        suggestedCategory: inferCategoryFromDescription(description),
-        included: true,
+        isRange,
+        start: costMatch.index,
+        end: costMatch.index + costMatch[0].length,
       });
     }
   }
-
-  // Extract bare numbers (only if no currency match for same description)
-  const seenDescriptions = new Set(items.map((i) => i.description.toLowerCase()));
-  while ((match = bareNumberPattern.exec(normalized)) !== null) {
-    const description = match[1].trim().replace(/[-–—:]+$/, "").trim();
-    const costStr = match[2].replace(/,/g, "");
-    const cost = parseFloat(costStr);
-
-    if (
-      description.length >= 3 &&
-      Number.isFinite(cost) &&
-      cost >= 100 && // Bare numbers < 100 are likely quantities
-      !seenDescriptions.has(description.toLowerCase())
-    ) {
-      items.push({
-        id: `recognized-${idCounter++}`,
-        description,
-        cost,
-        quantity: 1,
-        unit: "Lot",
-        source: "user-provided",
-        confidence: 0.72, // Lower confidence for bare numbers
-        span: { start: match.index, end: match.index + match[0].length, text: match[0] },
-        originalText: match[0].trim(),
-        suggestedCategory: inferCategoryFromDescription(description),
-        included: true,
-      });
+  
+  // For each cost, find the best description
+  for (let i = 0; i < costs.length; i++) {
+    const costInfo = costs[i];
+    const prevCostEnd = i > 0 ? costs[i - 1].end : 0;
+    
+    // Look at text between this cost and previous cost (or start)
+    const beforeText = normalized.slice(prevCostEnd, costInfo.start);
+    
+    // Try to extract a meaningful description
+    let description = "";
+    let confidence = 0.88;
+    
+    // Check if there's a clear line/segment before the cost
+    const segments = beforeText.split(/\n/).filter((s) => s.trim().length > 0);
+    
+    if (segments.length > 0) {
+      // Take the last segment (closest to the cost)
+      const lastSegment = segments[segments.length - 1].trim();
+      
+      // Clean it up
+      description = cleanupItemName(lastSegment);
+      
+      // If the segment was very long (concatenated spreadsheet), lower confidence
+      if (lastSegment.length > 100) confidence = 0.78;
     }
+    
+    // If no good description found, skip this cost
+    if (description.length < 3) continue;
+    
+    // Check if description is mostly just punctuation or numbers
+    const alphaRatio = (description.match(/[a-zA-Z]/g) || []).length / description.length;
+    if (alphaRatio < 0.5) continue;
+    
+    items.push({
+      id: `recognized-${idCounter++}`,
+      description,
+      cost: costInfo.cost,
+      quantity: 1,
+      unit: "Lot",
+      source: "user-provided",
+      confidence: costInfo.isRange ? confidence - 0.05 : confidence,
+      span: { 
+        start: Math.max(0, costInfo.start - description.length - 10), 
+        end: costInfo.end, 
+        text: `${description} ${costInfo.match}` 
+      },
+      originalText: `${description} ${costInfo.match}`,
+      suggestedCategory: inferCategoryFromDescription(description),
+      included: true,
+    });
   }
-
-  // Extract qty x unit @ cost patterns
-  while ((match = qtyUnitCostPattern.exec(normalized)) !== null) {
-    const quantity = parseInt(match[1], 10);
-    const unit = match[2];
-    const costStr = match[3].replace(/,/g, "");
+  
+  // Also look for bare numbers (no $ sign) that look like costs
+  // Only if they're 4+ digits and follow text
+  const barePattern = /([A-Za-z][^$\n]{3,80}?)\s+(\d{1,3}(?:,\d{3})+|\d{4,})(?:\s*$|\s*\n|[,;.])/g;
+  const seenDescriptions = new Set(items.map((i) => i.description.toLowerCase().slice(0, 20)));
+  
+  let bareMatch: RegExpExecArray | null;
+  while ((bareMatch = barePattern.exec(normalized)) !== null) {
+    const rawDesc = bareMatch[1].trim();
+    const description = cleanupItemName(rawDesc);
+    const costStr = bareMatch[2].replace(/,/g, "");
     const cost = parseFloat(costStr);
-
-    if (Number.isFinite(cost) && cost > 0 && Number.isFinite(quantity) && quantity > 0) {
-      // Try to find description before this match
-      const before = normalized.slice(Math.max(0, match.index - 80), match.index);
-      const descMatch = before.match(/([A-Za-z][^,\n]{2,60}?)\s*$/);
-      const description = descMatch ? descMatch[1].trim() : `Item (${quantity} ${unit})`;
-
-      // Skip if we already have this description
-      if (!seenDescriptions.has(description.toLowerCase())) {
-        items.push({
-          id: `recognized-${idCounter++}`,
-          description,
-          cost,
-          quantity,
-          unit: unit.charAt(0).toUpperCase() + unit.slice(1).toLowerCase(),
-          source: "user-provided",
-          confidence: 0.85,
-          span: { start: match.index, end: match.index + match[0].length, text: match[0] },
-          originalText: match[0].trim(),
-          suggestedCategory: inferCategoryFromDescription(description),
-          included: true,
-        });
-        seenDescriptions.add(description.toLowerCase());
-      }
-    }
+    
+    // Skip if too small or we already have this description
+    if (cost < 100) continue;
+    if (seenDescriptions.has(description.toLowerCase().slice(0, 20))) continue;
+    
+    items.push({
+      id: `recognized-${idCounter++}`,
+      description,
+      cost,
+      quantity: 1,
+      unit: "Lot",
+      source: "user-provided",
+      confidence: 0.68, // Lower confidence for bare numbers
+      span: { start: bareMatch.index, end: bareMatch.index + bareMatch[0].length, text: bareMatch[0] },
+      originalText: bareMatch[0].trim(),
+      suggestedCategory: inferCategoryFromDescription(description),
+      included: true,
+    });
   }
-
-  // Dedupe by similar descriptions
+  
+  // Look for "qty x unit @ cost" patterns
+  const qtyPattern = /(\d+)\s*(?:x\s*)?([A-Za-z]+)\s*[@at]\s*\$?([\d,]+(?:\.\d{1,2})?)/gi;
+  let qtyMatch: RegExpExecArray | null;
+  
+  while ((qtyMatch = qtyPattern.exec(normalized)) !== null) {
+    const quantity = parseInt(qtyMatch[1], 10);
+    const unit = qtyMatch[2];
+    const cost = parseFloat(qtyMatch[3].replace(/,/g, ""));
+    
+    if (!Number.isFinite(cost) || cost <= 0) continue;
+    if (!Number.isFinite(quantity) || quantity <= 0) continue;
+    
+    // Try to find a description before this
+    const beforeText = normalized.slice(Math.max(0, qtyMatch.index - 80), qtyMatch.index);
+    const descParts = beforeText.split(/\n/).filter((s) => s.trim());
+    const description = descParts.length > 0 
+      ? cleanupItemName(descParts[descParts.length - 1])
+      : `${quantity} ${unit}`;
+    
+    if (seenDescriptions.has(description.toLowerCase().slice(0, 20))) continue;
+    
+    items.push({
+      id: `recognized-${idCounter++}`,
+      description,
+      cost,
+      quantity,
+      unit: unit.charAt(0).toUpperCase() + unit.slice(1).toLowerCase(),
+      source: "user-provided",
+      confidence: 0.85,
+      span: { start: qtyMatch.index, end: qtyMatch.index + qtyMatch[0].length, text: qtyMatch[0] },
+      originalText: qtyMatch[0].trim(),
+      suggestedCategory: inferCategoryFromDescription(description),
+      included: true,
+    });
+  }
+  
+  // Deduplicate and return
   return dedupeRecognizedItems(items);
 };
 

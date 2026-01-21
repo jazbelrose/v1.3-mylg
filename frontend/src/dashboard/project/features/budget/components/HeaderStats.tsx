@@ -16,6 +16,8 @@ import BudgetDonut, {
   type BudgetDonutSlice,
   type BudgetDonutDatum,
 } from "@/dashboard/project/features/budget/components/BudgetDonut";
+import RevisionPillTooltip from "@/dashboard/project/features/budget/components/RevisionPillTooltip";
+import RevisionQuickSwitcher from "@/dashboard/project/features/budget/components/RevisionQuickSwitcher";
 import { useSocket } from "@/app/contexts/useSocket";
 
 import { updateBudgetItem, type BudgetInvoiceDetails } from "@/shared/utils/api";
@@ -71,6 +73,7 @@ export interface BudgetHeaderData {
   clientRevisionId?: number | string | null;
   createdAt?: string | number | Date | null;
   revisionName?: string | null;
+  revisionNote?: string | null;
   invoiceFileKey?: string | null;
   invoiceFileUrl?: string | null;
   invoiceDetails?: BudgetInvoiceDetails | null;
@@ -119,6 +122,13 @@ interface MetricConfig {
   disablePointer?: boolean;
 }
 
+interface RevisionForSwitcher {
+  revision: number;
+  revisionName?: string | null;
+  clientRevisionId?: number | null;
+  revisionNote?: string | null;
+}
+
 interface BudgetHeaderProps {
   activeProject?: ProjectLike | null;
   budgetHeader?: BudgetHeaderData | null;
@@ -127,6 +137,8 @@ interface BudgetHeaderProps {
   budgetItems?: BudgetItem[];
   onBallparkChange?: (val: number) => void;
   onOpenRevisionModal: () => void;
+  onSwitchRevision?: (revision: number) => void;
+  revisions?: RevisionForSwitcher[];
   onCreateBudget?: () => Promise<Record<string, unknown> | null> | void;
   initialMetric?: MetricTitle;
 }
@@ -270,6 +282,8 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
   budgetItems = [],
   onBallparkChange,
   onOpenRevisionModal,
+  onSwitchRevision,
+  revisions = [],
   onCreateBudget,
   initialMetric,
 }) => {
@@ -883,14 +897,40 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
             <FontAwesomeIcon icon={faFileInvoiceDollar} />
           </button>
           {budgetHeader ? (
-            <button
-              type="button"
-              className={summaryStyles.revisionButton}
-              onClick={onOpenRevisionModal}
-              disabled={!budgetHeader}
+            <RevisionPillTooltip
+              data={{
+                revisionNumber: budgetHeader.revision,
+                revisionName: budgetHeader.revisionName,
+                isClientVersion: budgetHeader.clientRevisionId != null && 
+                  Number(budgetHeader.clientRevisionId) === budgetHeader.revision,
+                savedAt: budgetHeader.invoiceDetails?.savedAt,
+                isAutosaved: false,
+                hasUnsavedChanges: false,
+              }}
             >
-              {`Rev.${budgetHeader?.revision ?? 1}`}
-            </button>
+              <RevisionQuickSwitcher
+                revisions={revisions.map((r) => ({
+                  revision: r.revision,
+                  revisionName: r.revisionName,
+                  isClientVersion: r.clientRevisionId != null && 
+                    Number(r.clientRevisionId) === r.revision,
+                  isActive: r.revision === budgetHeader.revision,
+                  isEditing: r.revision === budgetHeader.revision,
+                  revisionNote: r.revisionNote,
+                }))}
+                activeRevision={budgetHeader.revision}
+                currentRevisionName={budgetHeader.revisionName}
+                isClientVersion={budgetHeader.clientRevisionId != null && 
+                  Number(budgetHeader.clientRevisionId) === budgetHeader.revision}
+                onSwitch={(rev) => onSwitchRevision?.(rev)}
+                onManageRevisions={onOpenRevisionModal}
+                disabled={!budgetHeader}
+              >
+                <span className={summaryStyles.revisionButton}>
+                  {`Rev.${budgetHeader.revision}`}
+                </span>
+              </RevisionQuickSwitcher>
+            </RevisionPillTooltip>
           ) : (
             <button
               type="button"
@@ -1061,14 +1101,50 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
             <FontAwesomeIcon icon={faFileInvoiceDollar} />
           </button>
         </div>
-        <button
-          type="button"
-          className={mobileStyles.revisionButton}
-          onClick={onOpenRevisionModal}
-          disabled={!budgetHeader}
-        >
-          {`Rev.${budgetHeader?.revision ?? 1}`}
-        </button>
+        {budgetHeader ? (
+          <RevisionPillTooltip
+            data={{
+              revisionNumber: budgetHeader.revision,
+              revisionName: budgetHeader.revisionName,
+              isClientVersion: budgetHeader.clientRevisionId != null && 
+                Number(budgetHeader.clientRevisionId) === budgetHeader.revision,
+              savedAt: budgetHeader.invoiceDetails?.savedAt,
+              isAutosaved: false,
+              hasUnsavedChanges: false,
+            }}
+          >
+            <RevisionQuickSwitcher
+              revisions={revisions.map((r) => ({
+                revision: r.revision,
+                revisionName: r.revisionName,
+                isClientVersion: r.clientRevisionId != null && 
+                  Number(r.clientRevisionId) === r.revision,
+                isActive: r.revision === budgetHeader.revision,
+                isEditing: r.revision === budgetHeader.revision,
+                revisionNote: r.revisionNote,
+              }))}
+              activeRevision={budgetHeader.revision}
+              currentRevisionName={budgetHeader.revisionName}
+              isClientVersion={budgetHeader.clientRevisionId != null && 
+                Number(budgetHeader.clientRevisionId) === budgetHeader.revision}
+              onSwitch={(rev) => onSwitchRevision?.(rev)}
+              onManageRevisions={onOpenRevisionModal}
+              disabled={!budgetHeader}
+            >
+              <span className={mobileStyles.revisionButton}>
+                {`Rev.${budgetHeader.revision}`}
+              </span>
+            </RevisionQuickSwitcher>
+          </RevisionPillTooltip>
+        ) : (
+          <button
+            type="button"
+            className={mobileStyles.revisionButton}
+            onClick={() => onCreateBudget && onCreateBudget()}
+          >
+            Create Budget
+          </button>
+        )}
       </div>
 
       <div className={mobileStyles.summaryLayout}>

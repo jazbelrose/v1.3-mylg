@@ -2,13 +2,16 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Modal from "@/shared/ui/ModalWithStack";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faCheck,
   faClone,
+  faEllipsisV,
   faFileCsv,
   faFileInvoice,
+  faFilePdf,
   faPen,
   faPlus,
+  faStar,
   faTrash,
-  faUser,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { saveAs } from "file-saver";
@@ -28,6 +31,7 @@ type Revision = {
   revision: number;
   clientRevisionId?: number | null;
   revisionName?: string | null;
+  revisionNote?: string | null;
   invoiceFileKey?: string | null;
   invoiceFileUrl?: string | null;
   invoiceDetails?: InvoiceDetailsPayload | null;
@@ -52,6 +56,7 @@ type RevisionModalProps = {
   onDelete?: (revision: Revision) => void;
   onSetClient?: (revision: number) => void;
   onRename?: (revision: Revision, name: string) => void | Promise<void>;
+  onRevisionNoteChange?: (revision: Revision, note: string) => void | Promise<void>;
   onInvoiceSaved?: (revision: Revision, invoice: RevisionInvoiceAttachment) => void | Promise<void>;
   isAdmin?: boolean;
   activeProject?: Project | null;
@@ -80,6 +85,7 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
   onDelete,
   onSetClient,
   onRename,
+  onRevisionNoteChange,
   onInvoiceSaved,
   isAdmin = false,
   activeProject = null,
@@ -92,7 +98,13 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
   const [renaming, setRenaming] = useState<Revision | null>(null);
   const [nameDraft, setNameDraft] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
+  const [editingNote, setEditingNote] = useState<Revision | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [openMenuRevision, setOpenMenuRevision] = useState<number | null>(null);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const noteInputRef = useRef<HTMLInputElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const invoiceFetchIdRef = useRef(0);
 
   const closeInvoicePreview = () => {
@@ -119,9 +131,21 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
     setIsSavingName(false);
   };
 
+  const resetNoteState = () => {
+    setEditingNote(null);
+    setNoteDraft("");
+    setIsSavingNote(false);
+  };
+
+  const closeMenu = useCallback(() => {
+    setOpenMenuRevision(null);
+  }, []);
+
   const handleClose = () => {
     if (previewRevision) closeInvoicePreview();
     resetRenameState();
+    resetNoteState();
+    closeMenu();
     onRequestClose?.();
   };
 
@@ -132,8 +156,10 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       resetRenameState();
+      resetNoteState();
+      closeMenu();
     }
-  }, [isOpen]);
+  }, [isOpen, closeMenu]);
 
   useEffect(() => {
     if (renaming) {
@@ -141,6 +167,27 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
       nameInputRef.current?.focus();
     }
   }, [renaming]);
+
+  useEffect(() => {
+    if (editingNote) {
+      setNoteDraft(editingNote.revisionNote ?? "");
+      noteInputRef.current?.focus();
+    }
+  }, [editingNote]);
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (openMenuRevision === null) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        closeMenu();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openMenuRevision, closeMenu]);
 
   const handleSwitch = async () => {
     if (onSwitch && selected != null) await onSwitch(selected);
@@ -270,6 +317,57 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
     }
   };
 
+  const handleNoteToggle = (rev: Revision) => {
+    const isSame =
+      editingNote &&
+      ((editingNote.budgetItemId && rev.budgetItemId && editingNote.budgetItemId === rev.budgetItemId) ||
+        editingNote.revision === rev.revision);
+
+    if (isSame) {
+      resetNoteState();
+    } else {
+      closeMenu();
+      setEditingNote(rev);
+    }
+  };
+
+  const handleNoteSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!editingNote) return;
+    if (!onRevisionNoteChange) {
+      resetNoteState();
+      return;
+    }
+
+    const trimmed = noteDraft.trim();
+    if (trimmed === (editingNote.revisionNote ?? "")) {
+      resetNoteState();
+      return;
+    }
+
+    try {
+      setIsSavingNote(true);
+      await onRevisionNoteChange(editingNote, trimmed);
+      resetNoteState();
+    } catch (error) {
+      console.error("Failed to update revision note", error);
+      setIsSavingNote(false);
+    }
+  };
+
+  const handleNoteKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      resetNoteState();
+    }
+  };
+
+  const handleMenuToggle = (revision: number) => {
+    setOpenMenuRevision((prev) => (prev === revision ? null : revision));
+  };
+
   const handleInvoiceSavedInternal = (result: RevisionInvoiceSaveResult) => {
     if (!previewRevision) return;
     const invoice: RevisionInvoiceAttachment = {
@@ -343,154 +441,280 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
                     rev.budgetItemId &&
                     renaming.budgetItemId === rev.budgetItemId) ||
                     renaming.revision === rev.revision);
+                const isEditingNote =
+                  editingNote &&
+                  ((editingNote.budgetItemId &&
+                    rev.budgetItemId &&
+                    editingNote.budgetItemId === rev.budgetItemId) ||
+                    editingNote.revision === rev.revision);
+                const isMenuOpen = openMenuRevision === rev.revision;
 
                 return (
                   <div
                     key={rev.revision}
-                    className={`${styles.revRow} ${isActive ? styles.activeRow : ""}`}
+                    className={`${styles.revRow} ${isActive ? styles.activeRow : ""} ${isClient ? styles.clientRow : ""}`}
                   >
+                    {/* Top row: Radio + Name + Badges + Menu */}
                     <div className={styles.revHeader}>
-                      <label className={styles.revLabel}>
-                        <input
-                          type="radio"
-                          name="revision"
-                          value={rev.revision}
-                          checked={selected === rev.revision}
-                          onChange={() => setSelected(rev.revision)}
-                        />
-                        <span className={styles.revNumber}>{`Rev.${rev.revision}`}</span>
-                      </label>
+                      <div className={styles.revMainInfo}>
+                        <label className={styles.revLabel}>
+                          <input
+                            type="radio"
+                            name="revision"
+                            value={rev.revision}
+                            checked={selected === rev.revision}
+                            onChange={() => setSelected(rev.revision)}
+                          />
+                          {isActive && (
+                            <span className={styles.activeIndicator}>
+                              <FontAwesomeIcon icon={faCheck} />
+                            </span>
+                          )}
+                        </label>
 
-                      <div className={styles.revBadges}>
+                        <div className={styles.revNameBlock}>
+                          {isRenaming ? (
+                            <form
+                              className={styles.renameForm}
+                              onSubmit={handleRenameSubmit}
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <input
+                                ref={nameInputRef}
+                                className={styles.renameInput}
+                                value={nameDraft}
+                                onChange={(event) => setNameDraft(event.target.value)}
+                                placeholder="Add a descriptive name"
+                                onKeyDown={handleRenameKeyDown}
+                                disabled={isSavingName}
+                              />
+                              <div className={styles.renameActions}>
+                                <button
+                                  type="submit"
+                                  className={styles.renameActionButton}
+                                  disabled={isSavingName}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.renameActionButton}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    resetRenameState();
+                                  }}
+                                  disabled={isSavingName}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <>
+                              <span className={styles.revPrimaryName}>
+                                {rev.revisionName || `Rev.${rev.revision}`}
+                              </span>
+                              <span className={styles.revMeta}>
+                                Rev.{rev.revision}
+                                {savedTimestamp && (
+                                  <>
+                                    <span className={styles.metaSeparator}>•</span>
+                                    Saved {savedTimestamp}
+                                  </>
+                                )}
+                                {isActive && !savedTimestamp && (
+                                  <>
+                                    <span className={styles.metaSeparator}>•</span>
+                                    <span className={styles.editingIndicator}>Editing…</span>
+                                  </>
+                                )}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className={styles.revHeaderRight}>
+                        {/* Client Version Badge */}
                         {isClient && (
                           <span className={styles.clientBadge}>
-                            <FontAwesomeIcon icon={faUser} /> Client Version
+                            <FontAwesomeIcon icon={faStar} />
+                            <span>Client</span>
                           </span>
                         )}
 
-                        {isAdmin && isActive && (
-                          <span className={styles.editingBadge}>
-                            <FontAwesomeIcon icon={faPen} /> Editing
-                          </span>
+                        {/* Set as Client action (for selected non-client revision) */}
+                        {isAdmin && !isClient && selected === rev.revision && (
+                          <button
+                            type="button"
+                            className={styles.setClientButton}
+                            onClick={handleSetClient}
+                            aria-label="Set as client version"
+                          >
+                            Set as Client
+                          </button>
                         )}
-                      </div>
 
-                      {isAdmin && (
-                        <button
-                          type="button"
-                          className={styles.iconButton}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleRenameToggle(rev);
-                          }}
-                          aria-label={isRenaming ? "Cancel rename" : "Rename revision"}
-                          title={isRenaming ? "Cancel rename" : "Rename revision"}
-                        >
-                          <FontAwesomeIcon icon={faPen} />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className={styles.revNameRow}>
-                      {isRenaming ? (
-                        <form
-                          className={styles.renameForm}
-                          onSubmit={handleRenameSubmit}
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <input
-                            ref={nameInputRef}
-                            className={styles.renameInput}
-                            value={nameDraft}
-                            onChange={(event) => setNameDraft(event.target.value)}
-                            placeholder="Add a descriptive name"
-                            onKeyDown={handleRenameKeyDown}
-                            disabled={isSavingName}
-                          />
-                          <div className={styles.renameActions}>
-                            <button
-                              type="submit"
-                              className={styles.renameActionButton}
-                              disabled={isSavingName}
-                            >
-                              Save
-                            </button>
+                        {/* Overflow Menu */}
+                        {isAdmin && (
+                          <div className={styles.menuWrapper}>
                             <button
                               type="button"
-                              className={styles.renameActionButton}
+                              className={styles.menuButton}
                               onClick={(event) => {
                                 event.stopPropagation();
-                                resetRenameState();
+                                handleMenuToggle(rev.revision);
                               }}
-                              disabled={isSavingName}
+                              aria-label="More actions"
+                              aria-expanded={isMenuOpen}
                             >
-                              Cancel
+                              <FontAwesomeIcon icon={faEllipsisV} />
                             </button>
-                          </div>
-                        </form>
-                      ) : (
-                        <div
-                          className={
-                            rev.revisionName ? styles.revNameText : styles.revNamePlaceholder
-                          }
-                        >
-                          {rev.revisionName || "Add a descriptive name"}
-                        </div>
-                      )}
-                    </div>
 
-                    <div className={styles.revFooter}>
-                      <div className={styles.invoiceStatusWrapper}>
-                        <span
-                          className={
-                            hasInvoice ? styles.invoiceStatusReady : styles.invoiceStatusEmpty
-                          }
-                          title={savedTimestamp ? `Saved ${savedTimestamp}` : undefined}
-                        >
-                          {hasInvoice ? "Invoice saved" : "No invoice saved"}
-                        </span>
-                        {savedTimestamp && (
-                          <span className={styles.invoiceStatusMeta}>{`Saved ${savedTimestamp}`}</span>
+                            {isMenuOpen && (
+                              <div ref={menuRef} className={styles.overflowMenu}>
+                                <button
+                                  type="button"
+                                  className={styles.menuItem}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    closeMenu();
+                                    handleRenameToggle(rev);
+                                  }}
+                                >
+                                  <FontAwesomeIcon icon={faPen} />
+                                  <span>Rename</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className={styles.menuItem}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    closeMenu();
+                                    handleNoteToggle(rev);
+                                  }}
+                                >
+                                  <FontAwesomeIcon icon={faPen} />
+                                  <span>{rev.revisionNote ? "Edit note" : "Add note"}</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className={styles.menuItem}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    closeMenu();
+                                    onDuplicate?.(rev.revision);
+                                  }}
+                                >
+                                  <FontAwesomeIcon icon={faClone} />
+                                  <span>Duplicate</span>
+                                </button>
+
+                                <div className={styles.menuDivider} />
+
+                                <button
+                                  type="button"
+                                  className={styles.menuItem}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    closeMenu();
+                                    void openInvoiceEditor(rev);
+                                  }}
+                                  disabled={invoiceLoadingRevision === rev.revision}
+                                >
+                                  <FontAwesomeIcon icon={faFileInvoice} />
+                                  <span>Edit Invoice</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className={styles.menuItem}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    closeMenu();
+                                    void exportCsv(rev);
+                                  }}
+                                >
+                                  <FontAwesomeIcon icon={faFileCsv} />
+                                  <span>Export CSV</span>
+                                </button>
+
+                                <div className={styles.menuDivider} />
+
+                                <button
+                                  type="button"
+                                  className={`${styles.menuItem} ${styles.menuItemDanger}`}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    closeMenu();
+                                    setDeleteTarget(rev);
+                                  }}
+                                >
+                                  <FontAwesomeIcon icon={faTrash} />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
+                    </div>
 
-                      {isAdmin && (
-                        <div className={styles.revActions}>
+                    {/* Revision Note */}
+                    {isEditingNote ? (
+                      <form
+                        className={styles.noteForm}
+                        onSubmit={handleNoteSubmit}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <input
+                          ref={noteInputRef}
+                          className={styles.noteInput}
+                          value={noteDraft}
+                          onChange={(event) => setNoteDraft(event.target.value)}
+                          placeholder="Why this revision exists…"
+                          onKeyDown={handleNoteKeyDown}
+                          disabled={isSavingNote}
+                          maxLength={140}
+                        />
+                        <div className={styles.noteActions}>
+                          <button
+                            type="submit"
+                            className={styles.noteActionButton}
+                            disabled={isSavingNote}
+                          >
+                            Save
+                          </button>
                           <button
                             type="button"
-                            className={styles.iconButton}
-                            onClick={() => {
-                              void openInvoiceEditor(rev);
+                            className={styles.noteActionButton}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              resetNoteState();
                             }}
-                            disabled={invoiceLoadingRevision === rev.revision}
-                            aria-busy={invoiceLoadingRevision === rev.revision}
-                            aria-label={hasInvoice ? "Update invoice" : "Create invoice"}
-                            title={hasInvoice ? "Update invoice" : "Create invoice"}
+                            disabled={isSavingNote}
                           >
-                            <FontAwesomeIcon icon={faFileInvoice} />
-                          </button>
-
-                          <button
-                            type="button"
-                            className={styles.iconButton}
-                            onClick={() => exportCsv(rev)}
-                            aria-label="Export CSV"
-                            title="Export CSV"
-                          >
-                            <FontAwesomeIcon icon={faFileCsv} />
-                          </button>
-
-                          <button
-                            type="button"
-                            className={`${styles.iconButton} ${styles.deleteButton}`}
-                            onClick={() => setDeleteTarget(rev)}
-                            aria-label="Delete revision"
-                            title="Delete revision"
-                          >
-                            <FontAwesomeIcon icon={faTrash} />
+                            Cancel
                           </button>
                         </div>
-                      )}
+                      </form>
+                    ) : rev.revisionNote ? (
+                      <div className={styles.revisionNote}>
+                        {rev.revisionNote}
+                      </div>
+                    ) : null}
+
+                    {/* Invoice status row (subtle) */}
+                    <div className={styles.revFooter}>
+                      <span
+                        className={
+                          hasInvoice ? styles.invoiceStatusReady : styles.invoiceStatusEmpty
+                        }
+                      >
+                        {hasInvoice ? "Invoice saved" : "No invoice"}
+                      </span>
                     </div>
                   </div>
                 );
@@ -500,48 +724,40 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
         </div>
 
         <div className={styles.modalFooter}>
-          {isAdmin && (
-            <button
-              type="button"
-              className="modal-button secondary"
-              onClick={handleSwitch}
-              aria-label={`Edit ${selectedLabel}`}
-            >
-              {`Edit ${selectedLabel}`}
-            </button>
-          )}
-
-          {isAdmin && (
-            <button
-              type="button"
-              className="modal-button"
-              onClick={() => onDuplicate?.(selected ?? null)}
-              aria-label="Duplicate revision"
-              title="Duplicate revision"
-            >
-              <FontAwesomeIcon icon={faClone} /> Duplicate
-            </button>
-          )}
-
-          {isAdmin && (
-            <button
-              type="button"
-              className="modal-button"
-              onClick={handleSetClient}
-              aria-label={`Set ${selectedLabel} as client version`}
-            >
-              {`Set ${selectedLabel} as Client Version`}
-            </button>
-          )}
-
+          {/* Tertiary: Close */}
           <button
             type="button"
-            className="modal-button"
-            onClick={() => onCreateNew?.()}
-            aria-label="New blank revision"
+            className={styles.footerButtonTertiary}
+            onClick={handleClose}
+            aria-label="Close"
           >
-            <FontAwesomeIcon icon={faPlus} /> New
+            Close
           </button>
+
+          <div className={styles.footerRight}>
+            {/* Secondary: Switch to selected */}
+            {isAdmin && selected != null && selected !== activeRevision && (
+              <button
+                type="button"
+                className={styles.footerButtonSecondary}
+                onClick={handleSwitch}
+                aria-label={`Edit ${selectedLabel}`}
+              >
+                Edit {selectedLabel}
+              </button>
+            )}
+
+            {/* Primary: New Revision */}
+            <button
+              type="button"
+              className={styles.footerButtonPrimary}
+              onClick={() => onCreateNew?.()}
+              aria-label="New revision"
+            >
+              <FontAwesomeIcon icon={faPlus} />
+              <span>New Revision</span>
+            </button>
+          </div>
         </div>
       </Modal>
 

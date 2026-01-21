@@ -1,0 +1,1609 @@
+/**
+ * MagicLayoutWorkspace - Pro Tools workspace for Magic Layout
+ * Full-screen overlay with 3-panel layout
+ * - Left: Plans (variant grid) + Assets
+ * - Center: Large preview canvas
+ * - Right: Text blocks + Settings
+ * Responsive: Tablet collapses right panel, Phone uses bottom sheet
+ */
+import React, {
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  useRef,
+} from "react";
+import { createPortal } from "react-dom";
+import {
+  X,
+  Sparkles,
+  ChevronDown,
+  Plus,
+  Upload,
+  FolderOpen,
+  Trash2,
+  Type,
+  Settings2,
+  Lock,
+  Unlock,
+  RefreshCw,
+  Maximize2,
+  ImagePlus,
+  ChevronLeft,
+  ChevronRight,
+  Wand2,
+  LayoutGrid,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+} from "lucide-react";
+import {
+  generateMagicLayouts,
+  generateMagicLayoutVariant,
+  type MagicLayoutOutput,
+  type LayoutVariant,
+} from "../lib/magicLayoutGenerator";
+import {
+  getTasteMode,
+  tasteModeIds,
+  type TasteModeId,
+} from "../lib/magicLayoutTypes";
+import { useIsMobile, useIsTablet } from "../hooks/useMediaQuery";
+import {
+  FileManagerV2,
+  type FileItem,
+} from "@/dashboard/project/components/FileManager";
+import { ConfirmModal } from "@/shared/components/ConfirmModal";
+import "./MagicLayoutWorkspace.css";
+
+// =====================================================
+// TYPES
+// =====================================================
+type LayoutMode = "grid" | "masonry";
+
+interface FrameUIConfig {
+  frameName: string;
+  contentType: "image" | "text";
+  imageSrc: string | null;
+  textValue: string;
+  lockPosition: boolean;
+  lockSize: boolean;
+}
+
+interface GlobalLocks {
+  lockSpacing: boolean;
+  lockRadius: boolean;
+}
+
+export interface TextBlock {
+  id: string;
+  type: "headline" | "subhead" | "body" | "caption" | "quote" | "credit";
+  content: string;
+}
+
+export interface TextBlockStyle {
+  preset: "editorial" | "minimal" | "caption-heavy" | "quote-focused";
+  dropCap: boolean;
+  lineHeight: number;
+  paragraphSpacing: number;
+  alignment: "left" | "center" | "right";
+  backgroundPanel: boolean;
+  backgroundOpacity: number;
+}
+
+type MobileTab = "plans" | "assets" | "text" | "settings";
+
+// =====================================================
+// PROPS
+// =====================================================
+interface MagicLayoutWorkspaceProps {
+  open: boolean;
+  onClose: () => void;
+  insertOnly?: boolean;
+  onApply: (options: {
+    variants: LayoutVariant[];
+    tasteMode: TasteModeId;
+    seed: string;
+  }) => void;
+  projectImageUrls?: Array<{ url: string; name: string }>;
+  hasExistingContent?: boolean;
+}
+
+// =====================================================
+// HELPER COMPONENTS
+// =====================================================
+
+/**
+ * CollapsibleSection - Expandable sidebar section
+ */
+interface CollapsibleSectionProps {
+  title: string;
+  icon: React.ReactNode;
+  badge?: number;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}
+
+const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
+  title,
+  icon,
+  badge,
+  defaultOpen = true,
+  children,
+}) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="magic-workspace__section">
+      <div
+        className="magic-workspace__section-header"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div className="magic-workspace__section-title">
+          <span className="magic-workspace__section-icon">{icon}</span>
+          {title}
+          {badge !== undefined && (
+            <span className="magic-workspace__section-badge">{badge}</span>
+          )}
+        </div>
+        <span
+          className={`magic-workspace__section-chevron ${isOpen ? "magic-workspace__section-chevron--open" : ""}`}
+        >
+          <ChevronDown size={14} />
+        </span>
+      </div>
+      {isOpen && (
+        <div className="magic-workspace__section-content">{children}</div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * LayoutPreviewSvg - Renders a layout variant as SVG
+ */
+interface LayoutPreviewSvgProps {
+  variant: LayoutVariant;
+  images?: string[];
+  width?: number;
+  height?: number;
+}
+
+const LayoutPreviewSvg: React.FC<LayoutPreviewSvgProps> = ({
+  variant,
+  images = [],
+  width = 1920,
+  height = 1080,
+}) => {
+  const viewBox = `0 0 ${width} ${height}`;
+
+  return (
+    <svg viewBox={viewBox} preserveAspectRatio="xMidYMid meet">
+      <rect x="0" y="0" width={width} height={height} fill="#1a1c1e" />
+      {variant.frames.map((frame, i) => {
+        const imgSrc = images[i];
+        const frameId = `frame-${i}-${frame.x}-${frame.y}`;
+
+        return (
+          <g key={frameId}>
+            {imgSrc ? (
+              <>
+                <defs>
+                  <clipPath id={`clip-${frameId}`}>
+                    <rect
+                      x={frame.x}
+                      y={frame.y}
+                      width={frame.width}
+                      height={frame.height}
+                      rx={frame.borderRadius || 0}
+                    />
+                  </clipPath>
+                </defs>
+                <image
+                  href={imgSrc}
+                  x={frame.x}
+                  y={frame.y}
+                  width={frame.width}
+                  height={frame.height}
+                  preserveAspectRatio="xMidYMid slice"
+                  clipPath={`url(#clip-${frameId})`}
+                />
+              </>
+            ) : (
+              <rect
+                x={frame.x}
+                y={frame.y}
+                width={frame.width}
+                height={frame.height}
+                rx={frame.borderRadius || 0}
+                fill={`hsl(${220 + i * 15}, 15%, ${25 + (i % 3) * 5}%)`}
+                stroke="rgba(255,255,255,0.08)"
+                strokeWidth="1"
+              />
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+};
+
+/**
+ * PlanCard - Clickable layout variant card
+ */
+interface PlanCardProps {
+  variant: LayoutVariant;
+  index: number;
+  isSelected: boolean;
+  images: string[];
+  onSelect: () => void;
+  onRefresh: () => void;
+}
+
+const PlanCard: React.FC<PlanCardProps> = ({
+  variant,
+  index,
+  isSelected,
+  images,
+  onSelect,
+  onRefresh,
+}) => {
+  return (
+    <div
+      className={`magic-workspace__plan-card ${isSelected ? "magic-workspace__plan-card--selected" : ""}`}
+      onClick={onSelect}
+    >
+      <div className="magic-workspace__plan-preview">
+        <LayoutPreviewSvg variant={variant} images={images} />
+      </div>
+      <div className="magic-workspace__plan-info">
+        <div>
+          <span className="magic-workspace__plan-label">Plan {index + 1}</span>
+          <span className="magic-workspace__plan-frames">
+            {" "}
+            · {variant.frames.length} frames
+          </span>
+        </div>
+        <button
+          type="button"
+          className="magic-workspace__plan-refresh"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRefresh();
+          }}
+        >
+          <RefreshCw size={12} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * TextBlockEditor - Single text block with type selector
+ */
+interface TextBlockEditorProps {
+  block: TextBlock;
+  onUpdate: (id: string, updates: Partial<TextBlock>) => void;
+  onDelete: (id: string) => void;
+}
+
+const TextBlockEditor: React.FC<TextBlockEditorProps> = ({
+  block,
+  onUpdate,
+  onDelete,
+}) => {
+  const typeLabels: Record<TextBlock["type"], string> = {
+    headline: "Headline",
+    subhead: "Subhead",
+    body: "Body",
+    caption: "Caption",
+    quote: "Quote",
+    credit: "Credit",
+  };
+
+  return (
+    <div className="magic-workspace__text-block">
+      <div className="magic-workspace__text-block-header">
+        <select
+          className="magic-workspace__text-block-type"
+          value={block.type}
+          onChange={(e) =>
+            onUpdate(block.id, { type: e.target.value as TextBlock["type"] })
+          }
+          style={{
+            background: "rgba(99, 102, 241, 0.15)",
+            border: "none",
+            cursor: "pointer",
+          }}
+        >
+          {Object.entries(typeLabels).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <div className="magic-workspace__text-block-actions">
+          <button
+            type="button"
+            className="magic-workspace__text-block-btn"
+            title="AI Rewrite"
+          >
+            <Wand2 size={12} />
+          </button>
+          <button
+            type="button"
+            className="magic-workspace__text-block-btn"
+            onClick={() => onDelete(block.id)}
+            title="Delete"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+      </div>
+      <textarea
+        className="magic-workspace__text-block-textarea"
+        value={block.content}
+        onChange={(e) => onUpdate(block.id, { content: e.target.value })}
+        placeholder={`Enter ${typeLabels[block.type].toLowerCase()}...`}
+      />
+    </div>
+  );
+};
+
+/**
+ * TextStylePresets - Quick style preset buttons
+ */
+interface TextStylePresetsProps {
+  active: TextBlockStyle["preset"];
+  onChange: (preset: TextBlockStyle["preset"]) => void;
+}
+
+const TextStylePresets: React.FC<TextStylePresetsProps> = ({
+  active,
+  onChange,
+}) => {
+  const presets: Array<{ id: TextBlockStyle["preset"]; label: string }> = [
+    { id: "editorial", label: "Editorial" },
+    { id: "minimal", label: "Minimal" },
+    { id: "caption-heavy", label: "Caption-heavy" },
+    { id: "quote-focused", label: "Quote-focused" },
+  ];
+
+  return (
+    <div className="magic-workspace__style-presets">
+      {presets.map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          className={`magic-workspace__style-preset ${active === p.id ? "magic-workspace__style-preset--active" : ""}`}
+          onClick={() => onChange(p.id)}
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+// =====================================================
+// MAIN COMPONENT
+// =====================================================
+const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
+  open,
+  onClose,
+  insertOnly = false,
+  onApply,
+  projectImageUrls,
+  hasExistingContent = false,
+}) => {
+  // =====================================================
+  // STATE
+  // =====================================================
+
+  // Core settings
+  const [count, setCount] = useState(6);
+  const [mode, setMode] = useState<LayoutMode>("grid");
+  const [tasteMode, setTasteMode] = useState<TasteModeId>("apple-clean");
+  const [seed, setSeed] = useState(() => `${Date.now()}`);
+  const [sessionId, setSessionId] = useState(() => `${Date.now()}`);
+  const sessionKey = useMemo(
+    () => `${sessionId}#${tasteMode}`,
+    [sessionId, tasteMode]
+  );
+
+  // Global spacing / radius
+  const [spacingMode, setSpacingMode] = useState<"auto" | "custom">("auto");
+  const [spacingValue, setSpacingValue] = useState(24);
+  const [radiusMode, setRadiusMode] = useState<"auto" | "custom">("auto");
+  const [radiusValue, setRadiusValue] = useState(16);
+
+  // Global locks
+  const [globalLocks, setGlobalLocks] = useState<GlobalLocks>({
+    lockSpacing: false,
+    lockRadius: false,
+  });
+
+  // Per-frame configs
+  const [frameConfigs, setFrameConfigs] = useState<FrameUIConfig[]>([]);
+
+  // Generated variants
+  const [layoutOutput, setLayoutOutput] = useState<MagicLayoutOutput | null>(
+    null
+  );
+  const [candidatePlans, setCandidatePlans] = useState<
+    LayoutVariant[][] | null
+  >(null);
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
+  const [planSeedOverrides, setPlanSeedOverrides] = useState<
+    Record<number, Record<number, string>>
+  >({});
+
+  // Image selection
+  const [selectedImages, setSelectedImages] = useState<string[]>(
+    projectImageUrls?.map((img) => img.url) ?? []
+  );
+  const [isFileManagerOpen, setIsFileManagerOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Multi-slide
+  const [slideCount, setSlideCount] = useState(1);
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+
+  // Text blocks (new feature)
+  const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
+  const [textStylePreset, setTextStylePreset] =
+    useState<TextBlockStyle["preset"]>("editorial");
+  const [dropCapEnabled, setDropCapEnabled] = useState(false);
+  const [lineHeight, setLineHeight] = useState(1.6);
+  const [paragraphSpacing, setParagraphSpacing] = useState(1.2);
+  const [textAlignment, setTextAlignment] = useState<
+    "left" | "center" | "right"
+  >("left");
+  const [textBackgroundEnabled, setTextBackgroundEnabled] = useState(false);
+  const [textBackgroundOpacity, setTextBackgroundOpacity] = useState(0.8);
+
+  // UI state
+  const [showFullscreenPreview, setShowFullscreenPreview] = useState(false);
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+  const [mobileTab, setMobileTab] = useState<MobileTab>("plans");
+
+  // Responsive detection
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
+
+  // =====================================================
+  // COMPUTED VALUES
+  // =====================================================
+
+  const effectiveSpacing = spacingMode === "auto" ? undefined : spacingValue;
+  const effectiveRadius = radiusMode === "auto" ? undefined : radiusValue;
+
+  const appliedFrameConfigs = useMemo(() => {
+    return frameConfigs.map((cfg, i) => ({
+      ...cfg,
+      imageSrc: selectedImages[i] ?? cfg.imageSrc,
+    }));
+  }, [frameConfigs, selectedImages]);
+
+  // =====================================================
+  // LAYOUT GENERATION
+  // =====================================================
+
+  const generateLayouts = useCallback(() => {
+    const output = generateMagicLayouts({
+      count,
+      mode,
+      tasteMode,
+      seed,
+      globalSpacing: effectiveSpacing,
+      globalRadius: effectiveRadius,
+      lockSpacing: globalLocks.lockSpacing,
+      lockRadius: globalLocks.lockRadius,
+      frameConfigs: appliedFrameConfigs,
+      variantCount: 6,
+    });
+    setLayoutOutput(output);
+    setSelectedVariantIndex(0);
+    setCandidatePlans(null);
+    setPlanSeedOverrides({});
+
+    // Init frame configs if empty
+    if (frameConfigs.length === 0 && output.variants[0]) {
+      const initConfigs = output.variants[0].frames.map((f, i) => ({
+        frameName: `Frame ${i + 1}`,
+        contentType: "image" as const,
+        imageSrc: selectedImages[i] ?? null,
+        textValue: "",
+        lockPosition: false,
+        lockSize: false,
+      }));
+      setFrameConfigs(initConfigs);
+    }
+  }, [
+    count,
+    mode,
+    tasteMode,
+    seed,
+    effectiveSpacing,
+    effectiveRadius,
+    globalLocks,
+    appliedFrameConfigs,
+    frameConfigs.length,
+    selectedImages,
+  ]);
+
+  // Generate on open
+  useEffect(() => {
+    if (open && !layoutOutput) {
+      generateLayouts();
+    }
+  }, [open, layoutOutput, generateLayouts]);
+
+  // Regenerate when settings change
+  useEffect(() => {
+    if (open) {
+      generateLayouts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionKey, count, mode]);
+
+  // Image frame count (for future asset matching)
+  const _imageFrameCount = useMemo(() => {
+    return (
+      frameConfigs.filter((cfg) => cfg.contentType === "image").length || count
+    );
+  }, [frameConfigs, count]);
+  void _imageFrameCount; // Suppress unused warning - reserved for future use
+
+  const selectedPlanPreview = useMemo(() => {
+    if (!layoutOutput || !layoutOutput.variants[selectedVariantIndex])
+      return null;
+
+    const selectedVar = layoutOutput.variants[selectedVariantIndex];
+    const sessionSeed = layoutOutput.input.seed || seed;
+
+    const basePlan = (() => {
+      if (slideCount <= 1) return [selectedVar];
+      const existing = candidatePlans?.[selectedVariantIndex];
+      if (existing && existing.length === slideCount) return existing;
+      const plan: LayoutVariant[] = [selectedVar];
+      for (let slideIdx = 1; slideIdx < slideCount; slideIdx++) {
+        const variantSeed = `${sessionSeed}#plan${selectedVariantIndex}#slide${slideIdx}`;
+        const slideVar = generateMagicLayoutVariant({
+          count,
+          mode,
+          tasteMode,
+          seed: variantSeed,
+        });
+        plan.push(slideVar);
+      }
+      return plan;
+    })();
+
+    // Apply per-slide seed overrides
+    const overrides = planSeedOverrides[selectedVariantIndex] || {};
+    const finalPlan = basePlan.map((variant, slideIdx) => {
+      const overrideSeed = overrides[slideIdx];
+      if (overrideSeed) {
+        return generateMagicLayoutVariant({
+          count,
+          mode,
+          tasteMode,
+          seed: overrideSeed,
+        });
+      }
+      return variant;
+    });
+
+    return finalPlan;
+  }, [
+    layoutOutput,
+    selectedVariantIndex,
+    seed,
+    slideCount,
+    candidatePlans,
+    planSeedOverrides,
+    count,
+    mode,
+    tasteMode,
+  ]);
+
+  const activeVariant = useMemo(() => {
+    if (!selectedPlanPreview) return null;
+    return selectedPlanPreview[activeSlideIndex] || selectedPlanPreview[0];
+  }, [selectedPlanPreview, activeSlideIndex]);
+
+  // =====================================================
+  // HANDLERS
+  // =====================================================
+
+  const handleRefreshAll = useCallback(() => {
+    setSeed(`${Date.now()}`);
+    setSessionId(`${Date.now()}`);
+  }, []);
+
+  const handleRefreshVariant = useCallback(
+    (variantIndex: number) => {
+      const newSeed = `${Date.now()}#refresh${variantIndex}`;
+      setPlanSeedOverrides((prev) => ({
+        ...prev,
+        [selectedVariantIndex]: {
+          ...(prev[selectedVariantIndex] || {}),
+          [variantIndex]: newSeed,
+        },
+      }));
+    },
+    [selectedVariantIndex]
+  );
+
+  const handleClearImages = useCallback(() => {
+    selectedImages.forEach((url) => {
+      if (url.startsWith("blob:")) {
+        URL.revokeObjectURL(url);
+      }
+    });
+    setSelectedImages([]);
+  }, [selectedImages]);
+
+  const handleFileUpload = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files) return;
+      const newUrls = Array.from(files)
+        .filter((f) => f.type.startsWith("image/"))
+        .map((f) => URL.createObjectURL(f));
+      setSelectedImages((prev) => [...prev, ...newUrls]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    },
+    []
+  );
+
+  const handleProjectFileSelect = useCallback((files: FileItem[]) => {
+    const imageFiles = files.filter((f) => {
+      const ext = f.fileName.toLowerCase().split(".").pop() || "";
+      return ["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(ext);
+    });
+    const imageUrls = imageFiles.map((f) => f.url);
+    // Add new project images to selectedImages (avoid duplicates)
+    setSelectedImages((prev) => [
+      ...prev,
+      ...imageUrls.filter((url) => !prev.includes(url)),
+    ]);
+    setIsFileManagerOpen(false);
+  }, []);
+
+  const handleRemoveImage = useCallback((index: number) => {
+    setSelectedImages((prev) => {
+      const newImages = [...prev];
+      if (newImages[index]?.startsWith("blob:")) {
+        URL.revokeObjectURL(newImages[index]);
+      }
+      newImages.splice(index, 1);
+      return newImages;
+    });
+  }, []);
+
+  // Text block handlers
+  const handleAddTextBlock = useCallback((type: TextBlock["type"]) => {
+    const newBlock: TextBlock = {
+      id: `tb-${Date.now()}`,
+      type,
+      content: "",
+    };
+    setTextBlocks((prev) => [...prev, newBlock]);
+  }, []);
+
+  const handleUpdateTextBlock = useCallback(
+    (id: string, updates: Partial<TextBlock>) => {
+      setTextBlocks((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, ...updates } : b))
+      );
+    },
+    []
+  );
+
+  const handleDeleteTextBlock = useCallback((id: string) => {
+    setTextBlocks((prev) => prev.filter((b) => b.id !== id));
+  }, []);
+
+  // Apply layout
+  const handleApply = useCallback(() => {
+    if (!selectedPlanPreview) return;
+
+    if (hasExistingContent && !insertOnly) {
+      setShowOverwriteConfirm(true);
+      return;
+    }
+
+    onApply({
+      variants: selectedPlanPreview,
+      tasteMode,
+      seed,
+    });
+    onClose();
+  }, [
+    selectedPlanPreview,
+    hasExistingContent,
+    insertOnly,
+    onApply,
+    tasteMode,
+    seed,
+    onClose,
+  ]);
+
+  const handleConfirmOverwrite = useCallback(() => {
+    if (!selectedPlanPreview) return;
+    setShowOverwriteConfirm(false);
+    onApply({
+      variants: selectedPlanPreview,
+      tasteMode,
+      seed,
+    });
+    onClose();
+  }, [selectedPlanPreview, onApply, tasteMode, seed, onClose]);
+
+  // Keyboard handling
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (showFullscreenPreview) {
+          setShowFullscreenPreview(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, showFullscreenPreview, onClose]);
+
+  // =====================================================
+  // RENDER HELPERS
+  // =====================================================
+
+  const renderPlansSection = () => (
+    <CollapsibleSection
+      title="Plans"
+      icon={<LayoutGrid size={16} />}
+      badge={layoutOutput?.variants.length}
+    >
+      <div className="magic-workspace__plans-grid">
+        {layoutOutput?.variants.map((variant, i) => {
+          // Assign images to frames
+          let cursor = 0;
+          const variantImages = variant.frames.map(() =>
+            cursor < selectedImages.length ? selectedImages[cursor++] : null
+          );
+
+          return (
+            <PlanCard
+              key={`plan-${i}`}
+              variant={variant}
+              index={i}
+              isSelected={selectedVariantIndex === i}
+              images={variantImages.filter((u): u is string => u !== null)}
+              onSelect={() => setSelectedVariantIndex(i)}
+              onRefresh={() => handleRefreshVariant(i)}
+            />
+          );
+        })}
+      </div>
+    </CollapsibleSection>
+  );
+
+  const renderAssetsSection = () => (
+    <CollapsibleSection
+      title="Assets"
+      icon={<ImagePlus size={16} />}
+      badge={selectedImages.length > 0 ? selectedImages.length : undefined}
+    >
+      <div className="magic-workspace__assets-actions">
+        <button
+          type="button"
+          className="magic-workspace__assets-btn"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Upload size={14} />
+          Upload
+        </button>
+        <button
+          type="button"
+          className="magic-workspace__assets-btn"
+          onClick={() => setIsFileManagerOpen(true)}
+        >
+          <FolderOpen size={14} />
+          Project
+        </button>
+        {selectedImages.length > 0 && (
+          <button
+            type="button"
+            className="magic-workspace__assets-btn"
+            onClick={handleClearImages}
+            style={{ marginLeft: "auto" }}
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+      </div>
+
+      {selectedImages.length > 0 && (
+        <div className="magic-workspace__assets-grid">
+          {selectedImages.map((url, i) => (
+            <div
+              key={i}
+              className="magic-workspace__asset-thumb magic-workspace__asset-thumb--selected"
+            >
+              <img src={url} alt={`Asset ${i + 1}`} />
+              <span className="magic-workspace__asset-index">{i + 1}</span>
+              <button
+                type="button"
+                className="magic-workspace__asset-remove"
+                onClick={() => handleRemoveImage(i)}
+              >
+                <X size={10} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {selectedImages.length === 0 && (
+        <div
+          style={{
+            padding: "24px",
+            textAlign: "center",
+            color: "rgba(255,255,255,0.4)",
+            fontSize: "12px",
+          }}
+        >
+          No images selected
+          <br />
+          <span style={{ fontSize: "11px", opacity: 0.7 }}>
+            Upload or select from project
+          </span>
+        </div>
+      )}
+    </CollapsibleSection>
+  );
+
+  const renderSettingsSection = () => (
+    <CollapsibleSection
+      title="Settings"
+      icon={<Settings2 size={16} />}
+      defaultOpen={false}
+    >
+      <div className="magic-workspace__settings-grid">
+        <div className="magic-workspace__setting-card">
+          <span className="magic-workspace__setting-label">Frames</span>
+          <div className="magic-workspace__setting-value">
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={count}
+              onChange={(e) =>
+                setCount(
+                  Math.max(1, Math.min(20, Number(e.target.value) || 1))
+                )
+              }
+              className="magic-workspace__setting-input"
+            />
+          </div>
+        </div>
+
+        <div className="magic-workspace__setting-card">
+          <span className="magic-workspace__setting-label">Mode</span>
+          <div className="magic-workspace__setting-value">
+            <select
+              value={mode}
+              onChange={(e) => setMode(e.target.value as LayoutMode)}
+              className="magic-workspace__setting-select"
+            >
+              <option value="grid">Grid</option>
+              <option value="masonry">Masonry</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="magic-workspace__setting-card">
+          <span className="magic-workspace__setting-label">Style</span>
+          <div className="magic-workspace__setting-value">
+            <select
+              value={tasteMode}
+              onChange={(e) => setTasteMode(e.target.value as TasteModeId)}
+              className="magic-workspace__setting-select"
+            >
+              {tasteModeIds.map((id) => (
+                <option key={id} value={id}>
+                  {getTasteMode(id).name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="magic-workspace__setting-card">
+          <span className="magic-workspace__setting-label">Slides</span>
+          <div className="magic-workspace__setting-value">
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={slideCount}
+              onChange={(e) =>
+                setSlideCount(
+                  Math.max(1, Math.min(20, Number(e.target.value) || 1))
+                )
+              }
+              className="magic-workspace__setting-input"
+            />
+          </div>
+        </div>
+
+        <div className="magic-workspace__setting-card">
+          <span className="magic-workspace__setting-label">Spacing</span>
+          <div className="magic-workspace__setting-value">
+            <button
+              type="button"
+              className={`magic-workspace__mode-toggle ${spacingMode === "auto" ? "magic-workspace__mode-toggle--active" : ""}`}
+              onClick={() =>
+                setSpacingMode((prev) => (prev === "auto" ? "custom" : "auto"))
+              }
+            >
+              {spacingMode === "auto" ? "Auto" : "Custom"}
+            </button>
+            <input
+              type="number"
+              min={0}
+              max={120}
+              value={spacingValue}
+              disabled={spacingMode === "auto"}
+              onChange={(e) =>
+                setSpacingValue(
+                  Math.max(0, Math.min(120, Number(e.target.value) || 0))
+                )
+              }
+              className="magic-workspace__setting-input"
+            />
+            <button
+              type="button"
+              className={`magic-workspace__lock-btn ${globalLocks.lockSpacing ? "magic-workspace__lock-btn--active" : ""}`}
+              onClick={() =>
+                setGlobalLocks((prev) => ({
+                  ...prev,
+                  lockSpacing: !prev.lockSpacing,
+                }))
+              }
+            >
+              {globalLocks.lockSpacing ? (
+                <Lock size={12} />
+              ) : (
+                <Unlock size={12} />
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className="magic-workspace__setting-card">
+          <span className="magic-workspace__setting-label">Radius</span>
+          <div className="magic-workspace__setting-value">
+            <button
+              type="button"
+              className={`magic-workspace__mode-toggle ${radiusMode === "auto" ? "magic-workspace__mode-toggle--active" : ""}`}
+              onClick={() =>
+                setRadiusMode((prev) => (prev === "auto" ? "custom" : "auto"))
+              }
+            >
+              {radiusMode === "auto" ? "Auto" : "Custom"}
+            </button>
+            <input
+              type="number"
+              min={0}
+              max={80}
+              value={radiusValue}
+              disabled={radiusMode === "auto"}
+              onChange={(e) =>
+                setRadiusValue(
+                  Math.max(0, Math.min(80, Number(e.target.value) || 0))
+                )
+              }
+              className="magic-workspace__setting-input"
+            />
+            <button
+              type="button"
+              className={`magic-workspace__lock-btn ${globalLocks.lockRadius ? "magic-workspace__lock-btn--active" : ""}`}
+              onClick={() =>
+                setGlobalLocks((prev) => ({
+                  ...prev,
+                  lockRadius: !prev.lockRadius,
+                }))
+              }
+            >
+              {globalLocks.lockRadius ? (
+                <Lock size={12} />
+              ) : (
+                <Unlock size={12} />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </CollapsibleSection>
+  );
+
+  const renderTextBlocksSection = () => (
+    <CollapsibleSection
+      title="Text Blocks"
+      icon={<Type size={16} />}
+      badge={textBlocks.length > 0 ? textBlocks.length : undefined}
+    >
+      <TextStylePresets active={textStylePreset} onChange={setTextStylePreset} />
+
+      <div className="magic-workspace__text-blocks">
+        {textBlocks.map((block) => (
+          <TextBlockEditor
+            key={block.id}
+            block={block}
+            onUpdate={handleUpdateTextBlock}
+            onDelete={handleDeleteTextBlock}
+          />
+        ))}
+
+        <button
+          type="button"
+          className="magic-workspace__add-text-block"
+          onClick={() => handleAddTextBlock("body")}
+        >
+          <Plus size={14} />
+          Add Text Block
+        </button>
+      </div>
+
+      {textBlocks.length > 0 && (
+        <div className="magic-workspace__style-controls">
+          <div className="magic-workspace__style-row">
+            <span className="magic-workspace__style-label">Drop Cap</span>
+            <button
+              type="button"
+              className={`magic-workspace__toggle-switch ${dropCapEnabled ? "magic-workspace__toggle-switch--on" : ""}`}
+              onClick={() => setDropCapEnabled(!dropCapEnabled)}
+            />
+          </div>
+
+          <div className="magic-workspace__style-row">
+            <span className="magic-workspace__style-label">Line Height</span>
+            <div className="magic-workspace__slider">
+              <input
+                type="range"
+                min={1}
+                max={2.5}
+                step={0.1}
+                value={lineHeight}
+                onChange={(e) => setLineHeight(Number(e.target.value))}
+              />
+              <span className="magic-workspace__slider-value">
+                {lineHeight.toFixed(1)}
+              </span>
+            </div>
+          </div>
+
+          <div className="magic-workspace__style-row">
+            <span className="magic-workspace__style-label">
+              Paragraph Spacing
+            </span>
+            <div className="magic-workspace__slider">
+              <input
+                type="range"
+                min={0.5}
+                max={3}
+                step={0.1}
+                value={paragraphSpacing}
+                onChange={(e) => setParagraphSpacing(Number(e.target.value))}
+              />
+              <span className="magic-workspace__slider-value">
+                {paragraphSpacing.toFixed(1)}
+              </span>
+            </div>
+          </div>
+
+          <div className="magic-workspace__style-row">
+            <span className="magic-workspace__style-label">Alignment</span>
+            <div style={{ display: "flex", gap: "4px" }}>
+              <button
+                type="button"
+                className={`magic-workspace__lock-btn ${textAlignment === "left" ? "magic-workspace__lock-btn--active" : ""}`}
+                onClick={() => setTextAlignment("left")}
+                style={
+                  textAlignment === "left"
+                    ? {
+                        background: "rgba(79, 140, 255, 0.2)",
+                        borderColor: "rgba(79, 140, 255, 0.4)",
+                        color: "rgba(79, 140, 255, 1)",
+                      }
+                    : {}
+                }
+              >
+                <AlignLeft size={12} />
+              </button>
+              <button
+                type="button"
+                className={`magic-workspace__lock-btn ${textAlignment === "center" ? "magic-workspace__lock-btn--active" : ""}`}
+                onClick={() => setTextAlignment("center")}
+                style={
+                  textAlignment === "center"
+                    ? {
+                        background: "rgba(79, 140, 255, 0.2)",
+                        borderColor: "rgba(79, 140, 255, 0.4)",
+                        color: "rgba(79, 140, 255, 1)",
+                      }
+                    : {}
+                }
+              >
+                <AlignCenter size={12} />
+              </button>
+              <button
+                type="button"
+                className={`magic-workspace__lock-btn ${textAlignment === "right" ? "magic-workspace__lock-btn--active" : ""}`}
+                onClick={() => setTextAlignment("right")}
+                style={
+                  textAlignment === "right"
+                    ? {
+                        background: "rgba(79, 140, 255, 0.2)",
+                        borderColor: "rgba(79, 140, 255, 0.4)",
+                        color: "rgba(79, 140, 255, 1)",
+                      }
+                    : {}
+                }
+              >
+                <AlignRight size={12} />
+              </button>
+            </div>
+          </div>
+
+          <div className="magic-workspace__style-row">
+            <span className="magic-workspace__style-label">
+              Background Panel
+            </span>
+            <button
+              type="button"
+              className={`magic-workspace__toggle-switch ${textBackgroundEnabled ? "magic-workspace__toggle-switch--on" : ""}`}
+              onClick={() => setTextBackgroundEnabled(!textBackgroundEnabled)}
+            />
+          </div>
+
+          {textBackgroundEnabled && (
+            <div className="magic-workspace__style-row">
+              <span className="magic-workspace__style-label">
+                Panel Opacity
+              </span>
+              <div className="magic-workspace__slider">
+                <input
+                  type="range"
+                  min={0.1}
+                  max={1}
+                  step={0.1}
+                  value={textBackgroundOpacity}
+                  onChange={(e) =>
+                    setTextBackgroundOpacity(Number(e.target.value))
+                  }
+                />
+                <span className="magic-workspace__slider-value">
+                  {Math.round(textBackgroundOpacity * 100)}%
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </CollapsibleSection>
+  );
+
+  // =====================================================
+  // MAIN RENDER
+  // =====================================================
+
+  if (!open) return null;
+
+  const content = (
+    <div className="magic-workspace__overlay" onClick={onClose}>
+      <div className="magic-workspace" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="magic-workspace__header">
+          <div className="magic-workspace__title-group">
+            <div className="magic-workspace__icon">
+              <Sparkles size={20} />
+            </div>
+            <div>
+              <h2 className="magic-workspace__title">Magic Layout</h2>
+              <p className="magic-workspace__subtitle">
+                Create beautiful slide layouts with AI assistance
+              </p>
+            </div>
+          </div>
+          <div className="magic-workspace__header-actions">
+            <button
+              type="button"
+              className="magic-workspace__close-btn"
+              onClick={onClose}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Content - 3 panel layout */}
+        <div className="magic-workspace__content">
+          {/* Left sidebar - Plans & Assets */}
+          {!isMobile && (
+            <div className="magic-workspace__sidebar-left">
+              {renderPlansSection()}
+              {renderAssetsSection()}
+            </div>
+          )}
+
+          {/* Center - Preview canvas */}
+          <div className="magic-workspace__preview-area">
+            <div className="magic-workspace__canvas-container">
+              <div className="magic-workspace__canvas">
+                {activeVariant && (
+                  <>
+                    <LayoutPreviewSvg
+                      variant={activeVariant}
+                      images={selectedImages}
+                    />
+                    <div
+                      className="magic-workspace__canvas-overlay"
+                      onClick={() => setShowFullscreenPreview(true)}
+                    >
+                      <div className="magic-workspace__canvas-zoom">
+                        <Maximize2 size={16} />
+                        Click to enlarge
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Slide strip */}
+            {slideCount > 1 && selectedPlanPreview && (
+              <div className="magic-workspace__slide-strip">
+                {selectedPlanPreview.map((variant, i) => (
+                  <div
+                    key={i}
+                    className={`magic-workspace__slide-thumb ${activeSlideIndex === i ? "magic-workspace__slide-thumb--active" : ""}`}
+                    onClick={() => setActiveSlideIndex(i)}
+                  >
+                    <LayoutPreviewSvg
+                      variant={variant}
+                      images={selectedImages}
+                    />
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="magic-workspace__slide-add"
+                  onClick={() => setSlideCount((c) => Math.min(20, c + 1))}
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Right sidebar - Text & Settings */}
+          {!isMobile && !isTablet && (
+            <div className="magic-workspace__sidebar-right">
+              {renderTextBlocksSection()}
+              {renderSettingsSection()}
+            </div>
+          )}
+        </div>
+
+        {/* Mobile bottom sheet */}
+        {isMobile && (
+          <div className="magic-workspace__mobile-sheet">
+            <div className="magic-workspace__mobile-tabs">
+              <button
+                type="button"
+                className={`magic-workspace__mobile-tab ${mobileTab === "plans" ? "magic-workspace__mobile-tab--active" : ""}`}
+                onClick={() => setMobileTab("plans")}
+              >
+                <LayoutGrid size={14} />
+                Plans
+              </button>
+              <button
+                type="button"
+                className={`magic-workspace__mobile-tab ${mobileTab === "assets" ? "magic-workspace__mobile-tab--active" : ""}`}
+                onClick={() => setMobileTab("assets")}
+              >
+                <ImagePlus size={14} />
+                Assets
+              </button>
+              <button
+                type="button"
+                className={`magic-workspace__mobile-tab ${mobileTab === "text" ? "magic-workspace__mobile-tab--active" : ""}`}
+                onClick={() => setMobileTab("text")}
+              >
+                <Type size={14} />
+                Text
+              </button>
+              <button
+                type="button"
+                className={`magic-workspace__mobile-tab ${mobileTab === "settings" ? "magic-workspace__mobile-tab--active" : ""}`}
+                onClick={() => setMobileTab("settings")}
+              >
+                <Settings2 size={14} />
+                Settings
+              </button>
+            </div>
+            <div className="magic-workspace__mobile-content">
+              {mobileTab === "plans" && (
+                <div className="magic-workspace__plans-grid">
+                  {layoutOutput?.variants.map((variant, i) => {
+                    let cursor = 0;
+                    const variantImages = variant.frames.map(() =>
+                      cursor < selectedImages.length
+                        ? selectedImages[cursor++]
+                        : null
+                    );
+                    return (
+                      <PlanCard
+                        key={`plan-m-${i}`}
+                        variant={variant}
+                        index={i}
+                        isSelected={selectedVariantIndex === i}
+                        images={variantImages.filter(
+                          (u): u is string => u !== null
+                        )}
+                        onSelect={() => setSelectedVariantIndex(i)}
+                        onRefresh={() => handleRefreshVariant(i)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+              {mobileTab === "assets" && (
+                <>
+                  <div className="magic-workspace__assets-actions">
+                    <button
+                      type="button"
+                      className="magic-workspace__assets-btn"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload size={14} />
+                      Upload
+                    </button>
+                    <button
+                      type="button"
+                      className="magic-workspace__assets-btn"
+                      onClick={() => setIsFileManagerOpen(true)}
+                    >
+                      <FolderOpen size={14} />
+                      Project
+                    </button>
+                  </div>
+                  {selectedImages.length > 0 && (
+                    <div className="magic-workspace__assets-grid">
+                      {selectedImages.map((url, i) => (
+                        <div
+                          key={i}
+                          className="magic-workspace__asset-thumb magic-workspace__asset-thumb--selected"
+                        >
+                          <img src={url} alt={`Asset ${i + 1}`} />
+                          <span className="magic-workspace__asset-index">
+                            {i + 1}
+                          </span>
+                          <button
+                            type="button"
+                            className="magic-workspace__asset-remove"
+                            onClick={() => handleRemoveImage(i)}
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+              {mobileTab === "text" && (
+                <>
+                  <TextStylePresets
+                    active={textStylePreset}
+                    onChange={setTextStylePreset}
+                  />
+                  <div className="magic-workspace__text-blocks">
+                    {textBlocks.map((block) => (
+                      <TextBlockEditor
+                        key={block.id}
+                        block={block}
+                        onUpdate={handleUpdateTextBlock}
+                        onDelete={handleDeleteTextBlock}
+                      />
+                    ))}
+                    <button
+                      type="button"
+                      className="magic-workspace__add-text-block"
+                      onClick={() => handleAddTextBlock("body")}
+                    >
+                      <Plus size={14} />
+                      Add Text Block
+                    </button>
+                  </div>
+                </>
+              )}
+              {mobileTab === "settings" && (
+                <div className="magic-workspace__settings-grid">
+                  <div className="magic-workspace__setting-card">
+                    <span className="magic-workspace__setting-label">
+                      Frames
+                    </span>
+                    <div className="magic-workspace__setting-value">
+                      <input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={count}
+                        onChange={(e) =>
+                          setCount(
+                            Math.max(
+                              1,
+                              Math.min(20, Number(e.target.value) || 1)
+                            )
+                          )
+                        }
+                        className="magic-workspace__setting-input"
+                      />
+                    </div>
+                  </div>
+                  <div className="magic-workspace__setting-card">
+                    <span className="magic-workspace__setting-label">
+                      Style
+                    </span>
+                    <div className="magic-workspace__setting-value">
+                      <select
+                        value={tasteMode}
+                        onChange={(e) =>
+                          setTasteMode(e.target.value as TasteModeId)
+                        }
+                        className="magic-workspace__setting-select"
+                      >
+                        {tasteModeIds.map((id) => (
+                          <option key={id} value={id}>
+                            {getTasteMode(id).name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="magic-workspace__footer">
+          <div className="magic-workspace__footer-stats">
+            {layoutOutput && (
+              <>
+                {layoutOutput.variants.length} plans •{" "}
+                {activeVariant?.frames.length || 0} frames •{" "}
+                {selectedImages.length} images
+              </>
+            )}
+          </div>
+          <div className="magic-workspace__footer-actions">
+            <button
+              type="button"
+              className="magic-workspace__btn magic-workspace__btn--secondary"
+              onClick={handleRefreshAll}
+            >
+              <RefreshCw size={14} />
+              Regenerate
+            </button>
+            <button
+              type="button"
+              className="magic-workspace__btn magic-workspace__btn--primary"
+              disabled={!activeVariant}
+              onClick={handleApply}
+            >
+              <Sparkles size={14} />
+              {insertOnly ? "Insert Slides" : "Apply Layout"}
+            </button>
+          </div>
+        </div>
+
+        {/* Hidden file input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="image/*"
+          multiple
+          onChange={handleFileUpload}
+          style={{ display: "none" }}
+        />
+
+        {/* File manager modal */}
+        {isFileManagerOpen && (
+          <FileManagerV2
+            isOpen={isFileManagerOpen}
+            onRequestClose={() => setIsFileManagerOpen(false)}
+            onFileSelect={handleProjectFileSelect}
+            selectionMode="multi"
+            fileTypeFilter="images"
+          />
+        )}
+
+        {/* Confirmation dialog */}
+        <ConfirmModal
+          isOpen={showOverwriteConfirm}
+          onRequestClose={() => setShowOverwriteConfirm(false)}
+          onConfirm={handleConfirmOverwrite}
+          message="This slide already has content. Applying this layout will add new frames on top of the existing content. Do you want to continue?"
+          confirmLabel="Apply Layout"
+          cancelLabel="Cancel"
+        />
+      </div>
+
+      {/* Fullscreen Preview Lightbox */}
+      {showFullscreenPreview && activeVariant && (
+        <div className="magic-workspace__fullscreen-preview">
+          <button
+            type="button"
+            className="magic-workspace__fullscreen-close"
+            onClick={() => setShowFullscreenPreview(false)}
+          >
+            <X size={20} />
+          </button>
+
+          {slideCount > 1 && (
+            <>
+              <button
+                type="button"
+                className="magic-workspace__fullscreen-nav magic-workspace__fullscreen-nav--prev"
+                onClick={() =>
+                  setActiveSlideIndex((prev) =>
+                    prev > 0 ? prev - 1 : slideCount - 1
+                  )
+                }
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <button
+                type="button"
+                className="magic-workspace__fullscreen-nav magic-workspace__fullscreen-nav--next"
+                onClick={() =>
+                  setActiveSlideIndex((prev) =>
+                    prev < slideCount - 1 ? prev + 1 : 0
+                  )
+                }
+              >
+                <ChevronRight size={24} />
+              </button>
+            </>
+          )}
+
+          <div className="magic-workspace__fullscreen-canvas">
+            <LayoutPreviewSvg variant={activeVariant} images={selectedImages} />
+          </div>
+
+          {slideCount > 1 && (
+            <div className="magic-workspace__fullscreen-counter">
+              {activeSlideIndex + 1} / {slideCount}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  return createPortal(content, document.body);
+};
+
+export default MagicLayoutWorkspace;
