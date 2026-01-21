@@ -994,9 +994,20 @@ export async function setProjectOverlapStackTitle(
 // Tasks
 // ───────────────────────────────────────────────────────────────────────────────
 
-export async function fetchTasks(projectId?: string): Promise<Task[]> {
+export interface FetchTasksOptions {
+  /** ISO date string (YYYY-MM-DD) for range start */
+  startDate?: string;
+  /** ISO date string (YYYY-MM-DD) for range end */
+  endDate?: string;
+}
+
+export async function fetchTasks(projectId?: string, options?: FetchTasksOptions): Promise<Task[]> {
   if (!projectId) return [];
-  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks`;
+  const params = new URLSearchParams();
+  if (options?.startDate) params.set('startDate', options.startDate);
+  if (options?.endDate) params.set('endDate', options.endDate);
+  const queryString = params.toString();
+  const url = `${TASKS_API_URL}${encodeURIComponent(projectId)}/tasks${queryString ? `?${queryString}` : ''}`;
   const res = await apiFetch(url);
 
   if (Array.isArray(res)) return res;

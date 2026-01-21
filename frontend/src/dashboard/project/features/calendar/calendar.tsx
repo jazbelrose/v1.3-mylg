@@ -200,12 +200,34 @@ const CalendarPage: React.FC = () => {
     tasksRef.current = projectTasks;
   }, [projectTasks]);
 
+  // Track the last fetched date range to avoid redundant refetches
+  const lastFetchedRangeRef = useRef<{ start: string; end: string } | null>(null);
+
   useEffect(() => {
     if (!projectId) return;
+
+    // Calculate a viewport-based date range: ±45 days around currentDate
+    // This covers both week and month views with buffer for edge scrolling
+    const bufferDays = 45;
+    const start = new Date(currentDate);
+    start.setDate(start.getDate() - bufferDays);
+    const end = new Date(currentDate);
+    end.setDate(end.getDate() + bufferDays);
+
+    const startDate = start.toISOString().split('T')[0];
+    const endDate = end.toISOString().split('T')[0];
+
+    // Skip refetch if we're still within the previously fetched range
+    const lastRange = lastFetchedRangeRef.current;
+    if (lastRange && startDate >= lastRange.start && endDate <= lastRange.end) {
+      return;
+    }
+
     let cancelled = false;
-    fetchTasks(projectId)
+    fetchTasks(projectId, { startDate, endDate })
       .then((tasks) => {
         if (cancelled) return;
+        lastFetchedRangeRef.current = { start: startDate, end: endDate };
         setProjectTasks(tasks);
       })
       .catch((error) => {
@@ -216,7 +238,7 @@ const CalendarPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, currentDate]);
 
   useEffect(() => {
     if (!projectTasks || projectTasks.length === 0) return;

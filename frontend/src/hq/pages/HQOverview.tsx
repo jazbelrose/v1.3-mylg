@@ -18,7 +18,6 @@ import {
   computeTrailingBurn,
   getRange,
   inRange,
-  type HqRangeId,
 } from "@/hq/lib/hqMetrics";
 import {
   fetchHqChartSeries,
@@ -96,12 +95,6 @@ function filterIsoDatesForRange(points: HqChartSeriesResponse["points"], range: 
   const start = addDaysIso(anchor, -(fixedDays - 1));
   return points.filter((p) => p.date >= start);
 }
-
-const quickFilters: Array<{ id: HqRangeId; label: string }> = [
-  { id: "month", label: "This month" },
-  { id: "quarter", label: "Quarter" },
-  { id: "ytd", label: "Year-to-date" },
-];
 
 const chartRanges: Array<{ id: HqChartSeriesRange; label: string }> = [
   { id: "1W", label: "1W" },
@@ -232,7 +225,6 @@ const HQOverview: React.FC = () => {
 
   useHqBootstrap(activeOrgId);
 
-  const [selectedRange, setSelectedRange] = React.useState<HqRangeId>("ytd");
   const [isImportOpen, setIsImportOpen] = React.useState(false);
   const [isAddAccountOpen, setIsAddAccountOpen] = React.useState(false);
   const [selectedTxn, setSelectedTxn] = React.useState<HqTransaction | null>(null);
@@ -373,7 +365,7 @@ const HQOverview: React.FC = () => {
     return { inflow: totals.inflow, outflow: totals.outflow, net };
   }, [chartPointsInRange]);
 
-  const { start, end } = getRange(selectedRange);
+  const { start, end } = getRange("ytd");
 
   const recurringLocal = React.useMemo(() => {
     return computeRecurringCommitments(transactions, HQ_OVERVIEW_RECURRING_MONTHS, {
@@ -456,10 +448,6 @@ const HQOverview: React.FC = () => {
       .at(-1);
     return latest ?? null;
   }, [importRuns]);
-
-  const rangeShortLabel = React.useMemo(() => {
-    return selectedRange === "month" ? "This month" : selectedRange === "quarter" ? "Quarter" : "YTD";
-  }, [selectedRange]);
 
   const rangeLabel = React.useMemo(() => {
     return `${start} – ${end}`;
@@ -689,26 +677,6 @@ const HQOverview: React.FC = () => {
 
   const actions = (
     <div className={styles.actions}>
-      <div className={styles.actionsRange} aria-label="Dashboard range">
-        {quickFilters.map((filter) => (
-          <button
-            key={filter.id}
-            type="button"
-            className={[styles.filterChip, styles.actionsRangeChip, selectedRange === filter.id ? styles.filterChipActive : ""]
-              .filter(Boolean)
-              .join(" ")}
-            onClick={() => {
-              setSelectedRange(filter.id);
-              if (filter.id === "month") setChartRange("1M");
-              else if (filter.id === "quarter") setChartRange("3M");
-              else if (filter.id === "ytd") setChartRange("YTD");
-            }}
-            aria-pressed={selectedRange === filter.id}
-          >
-            {filter.label}
-          </button>
-        ))}
-      </div>
       {canAdmin ? (
         <>
           <button type="button" className={styles.secondaryButton} onClick={openImport}>
@@ -954,7 +922,7 @@ const HQOverview: React.FC = () => {
               <div className={styles.kpiHint}>Trailing 3 months outflow minus mandatory</div>
             </div>
             <div className={styles.kpi}>
-              <div className={styles.kpiLabel}>Net cash flow ({rangeShortLabel})</div>
+              <div className={styles.kpiLabel}>Net cash flow (YTD)</div>
               <div className={[styles.kpiValue, totals.net < 0 ? styles.kpiOut : styles.kpiIn].join(" ")}>
                 {preciseCurrency.format(totals.net)}
               </div>

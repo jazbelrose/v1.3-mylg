@@ -994,12 +994,29 @@ const reviewTransition = async (e, C, { projectId, taskId }) => {
 };
 
 /* ---------- Tasks (PK=projectId, SK=taskId) ---------- */
-const listTasks = async (_e, C, { projectId }) => {
-  const r = await ddb.query({
+const listTasks = async (e, C, { projectId }) => {
+  const q = Q(e);
+  const startDate = q.startDate; // ISO date string: "2026-01-01"
+  const endDate = q.endDate;     // ISO date string: "2026-01-31"
+
+  // Base query params
+  const queryParams = {
     TableName: TASKS_TABLE,
     KeyConditionExpression: "projectId = :p",
     ExpressionAttributeValues: { ":p": projectId },
-  });
+  };
+
+  // Add date range filter if both dates provided (for calendar viewport optimization)
+  if (startDate && endDate) {
+    // Filter on dueAt field (ISO date string stored in DB)
+    queryParams.FilterExpression = "(#dueAt BETWEEN :startDate AND :endDate) OR (attribute_not_exists(#dueAt)) OR (#dueAt = :emptyStr)";
+    queryParams.ExpressionAttributeNames = { "#dueAt": "dueAt" };
+    queryParams.ExpressionAttributeValues[":startDate"] = startDate;
+    queryParams.ExpressionAttributeValues[":endDate"] = endDate;
+    queryParams.ExpressionAttributeValues[":emptyStr"] = "";
+  }
+
+  const r = await ddb.query(queryParams);
   return json(200, C, { projectId, tasks: r.Items || [] });
 };
 
