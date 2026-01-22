@@ -68,6 +68,28 @@ import "./MagicLayoutWorkspace.css";
 type LayoutMode = "grid" | "masonry";
 type RegenerationScope = "plan" | "slide" | "layout-only";
 
+/** Settings that apply to the entire plan (presentation-wide defaults) */
+interface PlanLayoutSettings {
+  framesPerSlide: number;
+  mode: LayoutMode;
+  tasteMode: TasteModeId;
+  spacing: number;
+  radius: number;
+  slideCount: number;
+}
+
+/** Per-slide overrides (only stores values that differ from plan defaults) */
+type SlideLayoutOverrides = Partial<{
+  framesPerSlide: number;
+  mode: LayoutMode;
+  tasteMode: TasteModeId;
+  spacing: number;
+  radius: number;
+}>;
+
+/** Settings mode for the right panel */
+type SettingsMode = "plan" | "slide";
+
 interface FrameUIConfig {
   frameName: string;
   contentType: "image" | "text";
@@ -661,6 +683,12 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
   // Multi-slide
   const [slideCount, setSlideCount] = useState(1);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+  
+  // Settings mode: null activeSlide = plan mode, selected slide = slide mode
+  const [slideSelected, setSlideSelected] = useState(false);
+  
+  // Per-slide overrides (keyed by slide index)
+  const [slideOverrides, setSlideOverrides] = useState<Map<number, SlideLayoutOverrides>>(new Map());
 
   // Text blocks (new feature)
   const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
@@ -693,8 +721,40 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
   // COMPUTED VALUES
   // =====================================================
 
-  const effectiveSpacing = spacingMode === "auto" ? undefined : spacingValue;
-  const effectiveRadius = radiusMode === "auto" ? undefined : radiusValue;
+  // Settings mode - plan mode when no slide is explicitly selected
+  const settingsMode: SettingsMode = slideSelected && slideCount > 1 ? "slide" : "plan";
+
+  // Plan-level defaults (the source of truth for the entire presentation)
+  const planDefaults = useMemo<PlanLayoutSettings>(() => ({
+    framesPerSlide: count,
+    mode,
+    tasteMode,
+    spacing: spacingValue,
+    radius: radiusValue,
+    slideCount,
+  }), [count, mode, tasteMode, spacingValue, radiusValue, slideCount]);
+
+  // Current slide's overrides (if any)
+  const currentSlideOverrides = useMemo(() => {
+    return slideOverrides.get(activeSlideIndex) ?? {};
+  }, [slideOverrides, activeSlideIndex]);
+
+  // Resolved settings for the current slide (plan defaults + slide overrides)
+  const resolvedSettings = useMemo<PlanLayoutSettings>(() => {
+    return {
+      ...planDefaults,
+      ...currentSlideOverrides,
+    };
+  }, [planDefaults, currentSlideOverrides]);
+
+  // Check which fields are overridden for current slide
+  const isOverridden = useCallback((field: keyof SlideLayoutOverrides): boolean => {
+    return currentSlideOverrides[field] !== undefined;
+  }, [currentSlideOverrides]);
+
+  // Base effective values (for layout generation - uses resolved settings)
+  const effectiveSpacing = spacingMode === "auto" ? undefined : resolvedSettings.spacing;
+  const effectiveRadius = radiusMode === "auto" ? undefined : resolvedSettings.radius;
 
   const appliedFrameConfigs = useMemo(() => {
     return frameConfigs.map((cfg, i) => ({
@@ -702,6 +762,34 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
       imageSrc: selectedImages[i] ?? cfg.imageSrc,
     }));
   }, [frameConfigs, selectedImages]);
+
+  // Context label for header
+  const contextLabel = useMemo(() => {
+    const planLabel = `Plan ${selectedVariantIndex + 1}`;
+    const modeLabel = mode === "masonry" ? "Masonry" : "Grid";
+    const tasteLabel = getTasteMode(tasteMode).name;
+    
+    if (settingsMode === "plan") {
+      return `${planLabel} · ${slideCount} slide${slideCount !== 1 ? "s" : ""} · ${modeLabel}`;
+    } else {
+      return `${planLabel} / Slide ${activeSlideIndex + 1}`;
+    }
+  }, [selectedVariantIndex, mode, tasteMode, slideCount, settingsMode, activeSlideIndex]);
+
+  // Override summary for slide settings header
+  const overrideSummary = useMemo(() => {
+    if (settingsMode !== "slide") return "";
+    const overrideKeys = Object.keys(currentSlideOverrides) as (keyof SlideLayoutOverrides)[];
+    if (overrideKeys.length === 0) return "Using plan defaults";
+    const labels: Record<keyof SlideLayoutOverrides, string> = {
+      framesPerSlide: "Frames",
+      mode: "Mode",
+      tasteMode: "Style",
+      spacing: "Spacing",
+      radius: "Radius",
+    };
+    return `Overrides: ${overrideKeys.map(k => labels[k]).join(", ")}`;
+  }, [settingsMode, currentSlideOverrides]);
 
   // =====================================================
   // LAYOUT GENERATION
@@ -933,6 +1021,78 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
     },
     [selectedVariantIndex]
   );
+
+  /**
+   * Handle plan selection - sets active plan and clears slide selection
+   */
+  const handleSelectPlan = useCallback((planIndex: number) => {
+    setSelectedVariantIndex(planIndex);
+    setSlideSelected(false); // Clear slide selection, enter plan mode
+    setActiveSlideIndex(0); // Reset to first slide
+  }, []);
+
+  /**
+   * Handle slide selection - sets active slide and enters slide mode
+   */
+  const handleSelectSlide = useCallback((slideIndex: number) => {
+    setActiveSlideIndex(slideIndex);
+    setSlideSelected(true); // Enter slide mode
+  }, []);
+
+  /**
+   * Switch back to plan settings mode
+   */
+  const handleBackToPlanMode = useCallback(() => {
+    setSlideSelected(false);
+  }, []);
+
+  /**
+   * Set a slide override value
+   */
+  const handleSetSlideOverride = useCallback(<K extends keyof SlideLayoutOverrides>(
+    field: K,
+    value: SlideLayoutOverrides[K]
+  ) => {
+    setSlideOverrides(prev => {
+      const newMap = new Map(prev);
+      const current = newMap.get(activeSlideIndex) ?? {};
+      newMap.set(activeSlideIndex, { ...current, [field]: value });
+      return newMap;
+    });
+  }, [activeSlideIndex]);
+
+  /**
+   * Clear a slide override (revert to plan default)
+   */
+  const handleClearSlideOverride = useCallback((field: keyof SlideLayoutOverrides) => {
+    setSlideOverrides(prev => {
+      const newMap = new Map(prev);
+      const current = newMap.get(activeSlideIndex);
+      if (current) {
+        const updated = { ...current };
+        delete updated[field];
+        if (Object.keys(updated).length === 0) {
+          newMap.delete(activeSlideIndex);
+        } else {
+          newMap.set(activeSlideIndex, updated);
+        }
+      }
+      return newMap;
+    });
+  }, [activeSlideIndex]);
+
+  /**
+   * Toggle override for a specific field
+   */
+  const handleToggleOverride = useCallback((field: keyof SlideLayoutOverrides, enable: boolean) => {
+    if (enable) {
+      // Enable override with current plan value
+      handleSetSlideOverride(field, planDefaults[field as keyof PlanLayoutSettings] as SlideLayoutOverrides[typeof field]);
+    } else {
+      // Disable override (revert to plan default)
+      handleClearSlideOverride(field);
+    }
+  }, [handleSetSlideOverride, handleClearSlideOverride, planDefaults]);
 
   /**
    * Attach a text block to the current slide

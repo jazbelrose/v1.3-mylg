@@ -1760,7 +1760,9 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                 {selectedItems.size > 0 && (
                   <BulkActionBar
                     selectedCount={selectedItems.size}
+                    totalCount={displayedFiles.length}
                     onClearSelection={() => setSelectedItems(new Set())}
+                    onSelectAll={handleSelectAll}
                     onDownload={() => {
                       const firstUrl = Array.from(selectedItems)[0];
                       const file = displayedFiles.find((f) => f.url === firstUrl);

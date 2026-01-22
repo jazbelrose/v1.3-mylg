@@ -24,6 +24,7 @@ import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
 import { todayPacificIsoDate } from "@/hq/lib/hqDate";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { HqCategoryId, HqPaymentType, HqTransaction } from "@/hq/types";
+import type { HqUpdateType } from "@/hq/lib/hqWebSocket";
 import styles from "./TransactionsPage.module.css";
 import HqSelect from "@/hq/components/HqSelect";
 import TxnModalApply from "@/hq/components/TxnModalApply";
@@ -465,6 +466,24 @@ const TransactionsPage: React.FC = () => {
     sort.key,
     startDate,
   ]);
+
+  // Listen for WebSocket hqUpdated events (transaction updates from other org members)
+  React.useEffect(() => {
+    if (!activeOrgId) return;
+
+    const handleWsMessage = (event: CustomEvent<{ action?: string; orgId?: string; updateType?: HqUpdateType }>) => {
+      const data = event.detail;
+      if (data?.action === "hqUpdated" && data?.orgId === activeOrgId && data?.updateType === "transaction") {
+        console.log("📊 [TransactionsPage] Received hqUpdated for transactions, refreshing list...");
+        loadPage({ cursor: null, append: false, includeTotals: true });
+      }
+    };
+
+    window.addEventListener("ws-message", handleWsMessage as EventListener);
+    return () => {
+      window.removeEventListener("ws-message", handleWsMessage as EventListener);
+    };
+  }, [activeOrgId, loadPage]);
 
   const amountValue = React.useMemo(() => {
     if (typeof amountMinCents !== "number" && typeof amountMaxCents !== "number") return "Any";
@@ -945,6 +964,10 @@ const TransactionsPage: React.FC = () => {
             txn={selectedTxn}
             from={startDate || undefined}
             to={endDate || undefined}
+            onSaved={() => {
+              // Refresh list after transaction update
+              loadPage({ cursor: null, append: false, includeTotals: true });
+            }}
             onRequestClose={() => {
               setIsApplyOpen(false);
               setSelectedTxn(null);

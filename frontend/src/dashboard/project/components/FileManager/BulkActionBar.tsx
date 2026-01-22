@@ -17,14 +17,19 @@ import {
   Link,
   X,
   MoreHorizontal,
+  CheckSquare,
 } from 'lucide-react';
 import styles from './file-manager-v2.module.css';
 
 export interface BulkActionBarProps {
   /** Number of selected items */
   selectedCount: number;
+  /** Total number of items available */
+  totalCount?: number;
   /** Clear selection callback */
   onClearSelection: () => void;
+  /** Select all callback */
+  onSelectAll?: () => void;
   /** Download single files callback */
   onDownload: () => void;
   /** Download as ZIP callback */
@@ -43,7 +48,9 @@ export interface BulkActionBarProps {
 
 export function BulkActionBar({
   selectedCount,
+  totalCount = 0,
   onClearSelection,
+  onSelectAll,
   onDownload,
   onDownloadZip,
   onMove,
@@ -53,6 +60,8 @@ export function BulkActionBar({
   isZipping = false,
 }: BulkActionBarProps) {
   if (selectedCount === 0) return null;
+
+  const allSelected = totalCount > 0 && selectedCount >= totalCount;
 
   return (
     <div className={styles.bulkActionBar}>
@@ -70,6 +79,19 @@ export function BulkActionBar({
           <X size={12} />
           <span>Deselect</span>
         </button>
+        {/* Select All button - only show when not all items are selected */}
+        {onSelectAll && !allSelected && totalCount > selectedCount && (
+          <button
+            type="button"
+            className={styles.bulkActionClear}
+            onClick={onSelectAll}
+            aria-label="Select all"
+            title="Select all (Ctrl+A)"
+          >
+            <CheckSquare size={12} />
+            <span>Select All</span>
+          </button>
+        )}
       </div>
 
       <div className={styles.bulkActionRight}>

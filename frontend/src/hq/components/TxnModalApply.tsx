@@ -1,9 +1,11 @@
 import React from "react";
 import { toast } from "react-toastify";
 import Modal from "@/shared/ui/ModalWithStack";
+import { useSocket } from "@/app/contexts/useSocket";
 import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import { applyHqTransactionsBulk, fetchHqSummary, fetchHqTransactions, fetchHqVendorMatches } from "@/hq/lib/hqApi";
 import { hydrateHqState, readHqState, useHqStore } from "@/hq/lib/hqStore";
+import { sendHqUpdated } from "@/hq/lib/hqWebSocket";
 import type { HqCategoryId, HqPaymentType, HqTransaction } from "@/hq/types";
 import HqSelect from "@/hq/components/HqSelect";
 import HqCategoryPicker from "@/hq/components/HqCategoryPicker";
@@ -18,6 +20,8 @@ type Props = {
   isOpen: boolean;
   txn: HqTransaction | null;
   onRequestClose: () => void;
+  /** Called after transactions are successfully updated. */
+  onSaved?: () => void;
   from?: string;
   to?: string;
 };
@@ -51,7 +55,8 @@ const PAYMENT_TYPE_OPTIONS: Array<{ value: HqPaymentType; label: string }> = [
 
 const MIN_AUTO_SUGGESTIONS = 5;
 
-const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, from, to }) => {
+const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, onSaved, from, to }) => {
+  const { ws } = useSocket();
   const [categoryId, setCategoryId] = React.useState<HqCategoryId | "OTHER">("OTHER");
   const [paymentType, setPaymentType] = React.useState<HqPaymentType>("unknown");
   const [isRecurring, setIsRecurring] = React.useState(false);
@@ -241,6 +246,9 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, fr
       });
 
       toast.success(`Applied to ${res.updated} transaction${res.updated === 1 ? "" : "s"}.`);
+      // Broadcast update to other org members via WebSocket
+      sendHqUpdated(ws, orgId, "transaction");
+      onSaved?.();
       onRequestClose();
     } catch (err) {
       console.error(err);
@@ -248,7 +256,7 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, fr
     } finally {
       setIsWorking(false);
     }
-  }, [categoryId, isRecurring, onRequestClose, orgId, paymentType, selectedSimilar, similar, txn]);
+  }, [categoryId, isRecurring, onRequestClose, onSaved, orgId, paymentType, selectedSimilar, similar, txn, ws]);
 
   const title = txn ? txnTitle(txn) : "Transaction";
   const accountLabel = txn?.accountId ? txn.accountId : "Account";
