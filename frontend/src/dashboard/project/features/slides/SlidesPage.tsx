@@ -1362,7 +1362,12 @@ const SlidesPage: React.FC = () => {
     }
   }, [slides, activeSlideId, redoSlideCommand, saveSlides]);
 
-  // Keyboard shortcuts for slide-level undo/redo
+  // Toggle speaker notes panel
+  const toggleNotesPanel = useCallback(() => {
+    setNotesExpanded((prev) => !prev);
+  }, []);
+
+  // Keyboard shortcuts for slide-level undo/redo and notes toggle
   // Uses Ctrl+Shift+Z / Ctrl+Shift+Y to avoid conflict with Lexical's Ctrl+Z
   useEffect(() => {
     const handleSlideUndoRedo = (e: KeyboardEvent) => {
@@ -1764,11 +1769,6 @@ const SlidesPage: React.FC = () => {
     );
     setIsDirty(true);
   }, [activeSlideId]);
-
-  // Toggle speaker notes panel
-  const toggleNotesPanel = useCallback(() => {
-    setNotesExpanded((prev) => !prev);
-  }, []);
 
   const handleSlideBackgroundColorChange = useCallback((color: string) => {
     if (!activeSlideId) return;

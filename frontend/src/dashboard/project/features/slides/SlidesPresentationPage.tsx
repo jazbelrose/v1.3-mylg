@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Maximize2, Minimize2, X } from "lucide-react";
+import { Maximize2, Minimize2, X, StickyNote } from "lucide-react";
 
 import { useData } from "@/app/contexts/useData";
 import type { Slide } from "@/app/contexts/DataProvider";
@@ -31,6 +31,7 @@ const SlidesPresentationPage: React.FC = () => {
   const [scale, setScale] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [showNotes, setShowNotes] = useState(false);
   const [versionSlides, setVersionSlides] = useState<Slide[] | null>(null);
   const [versionLoading, setVersionLoading] = useState(false);
 
@@ -246,6 +247,11 @@ const SlidesPresentationPage: React.FC = () => {
           event.preventDefault();
           toggleFullscreen();
           return;
+        case "n":
+        case "N":
+          event.preventDefault();
+          setShowNotes((prev) => !prev);
+          return;
       }
     };
 
@@ -309,6 +315,15 @@ const SlidesPresentationPage: React.FC = () => {
 
         <button
           type="button"
+          className={`slides-presentation__icon-button ${showNotes ? 'slides-presentation__icon-button--active' : ''}`}
+          onClick={() => setShowNotes((prev) => !prev)}
+          title="Speaker Notes (N)"
+        >
+          <StickyNote size={18} />
+        </button>
+
+        <button
+          type="button"
           className="slides-presentation__icon-button"
           onClick={toggleFullscreen}
           title="Fullscreen (F)"
@@ -349,6 +364,23 @@ const SlidesPresentationPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Speaker Notes Panel */}
+      {showNotes && (
+        <div className="slides-presentation__notes-panel" data-prevent-slide-advance>
+          <div className="slides-presentation__notes-header">
+            <StickyNote size={14} />
+            <span>Speaker Notes</span>
+          </div>
+          <div className="slides-presentation__notes-content">
+            {activeSlide?.notes ? (
+              <p>{activeSlide.notes}</p>
+            ) : (
+              <p className="slides-presentation__notes-empty">No notes for this slide</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

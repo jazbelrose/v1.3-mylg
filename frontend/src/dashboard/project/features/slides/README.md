@@ -257,14 +257,38 @@ disableSlidesMode(projectId);
 - API errors → User notification with retry capability
 - Race conditions → Debounced operations prevent conflicts
 
+## Speaker Notes
+
+Each slide supports speaker notes for presentation use:
+
+### Editor Mode
+- Toggle notes panel with **Alt+N** keyboard shortcut
+- Or click the collapsible panel at the bottom of the editor
+- Notes auto-save with slide content
+- Character count displayed in footer
+
+### Presentation Mode
+- Press **N** to toggle notes visibility
+- Notes appear in a panel at the bottom of the screen
+- Notes are read-only during presentation
+- Click the sticky note icon in controls to toggle
+
+### Data Model
+```typescript
+interface Slide {
+  // ... existing fields
+  notes?: string;  // Plain text speaker notes
+}
+```
+
 ## Future Enhancements
 
-- [ ] Speaker notes for each slide
-- [ ] PDF export with jsPDF
+- [x] Speaker notes for each slide ✅
+- [x] Presentation mode ✅
+- [ ] PDF export with jsPDF (partially done - quality presets available)
 - [ ] Slide templates and themes
-- [ ] Presentation mode with transitions
 - [ ] Slide transitions and animations
 - [ ] Advanced thumbnail customization
 - [ ] Bulk slide operations
-- [ ] Slide versioning and history
+- [ ] Slide versioning and history (deck versions available)
 - [ ] Collaborative cursors and selections

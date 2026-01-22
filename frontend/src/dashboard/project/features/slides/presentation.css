@@ -38,6 +38,11 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
+.slides-presentation__icon-button--active {
+  background: rgba(250, 51, 86, 0.3);
+  border-color: rgba(250, 51, 86, 0.5);
+}
+
 .slides-presentation__status {
   pointer-events: auto;
   font-size: 13px;
@@ -81,5 +86,68 @@
 .slides-presentation .editor-textbox .textbox-rotate-handle-line {
   opacity: 0 !important;
   pointer-events: none !important;
+}
+
+/* Speaker Notes Panel */
+.slides-presentation__notes-panel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  background: rgba(20, 20, 24, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  z-index: 3;
+  animation: notes-slide-up 0.2s ease;
+}
+
+@keyframes notes-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slides-presentation__notes-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.slides-presentation__notes-content {
+  padding: 16px 20px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.slides-presentation__notes-content p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: pre-wrap;
+}
+
+.slides-presentation__notes-empty {
+  color: rgba(255, 255, 255, 0.4) !important;
+  font-style: italic;
+}
+
+/* When notes are shown, adjust stage to not overlap */
+.slides-presentation:has(.slides-presentation__notes-panel) .slides-presentation__stage-wrap {
+  bottom: 200px;
 }
 
