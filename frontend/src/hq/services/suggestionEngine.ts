@@ -130,8 +130,11 @@ export function createMatchingRule(
   projectId: string,
   autoApply: boolean = false
 ): MatchingRule {
+  // Generate a more unique ID using timestamp and random component
+  const randomSuffix = Math.random().toString(36).substring(2, 9);
+  
   return {
-    id: `rule-${Date.now()}`,
+    id: `rule-${Date.now()}-${randomSuffix}`,
     vendorKeywords: extractVendorKeywords(transaction),
     budgetItemId,
     projectId,

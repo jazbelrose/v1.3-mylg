@@ -90,8 +90,11 @@ const ReconcilePage: React.FC = () => {
     const loadData = async () => {
       setIsLoading(true);
       try {
+        // TODO: Get userId from authentication context
+        // Example: const { userId } = useAuth();
+        const userId = "current-user-id"; // Placeholder for development
+        
         // Load projects
-        const userId = "current-user-id"; // TODO: Get from auth context
         const projectsData = await apiFetch<Project[]>(
           `${import.meta.env.VITE_API_BASE_URL}/projects?userId=${userId}`
         );
@@ -196,9 +199,13 @@ const ReconcilePage: React.FC = () => {
   };
 
   const handleMarkAsNonProject = (txnId: string) => {
-    // In production, this would call an API to mark the transaction
+    // Mark transaction as non-project cost
+    // In production, this would call an API to tag the transaction
+    // or add it to an exclusion list
     console.log("Mark as non-project cost:", txnId);
-    // Could add a tag or category to the transaction
+    // TODO: Implement API call when backend endpoint is available
+    // Example: await markTransactionAsNonProject(txnId);
+    // Could add a tag like "non-project" or category "Owner Draw"
   };
 
   return (

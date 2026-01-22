@@ -119,7 +119,10 @@ const TransactionsPage: React.FC = () => {
   const handleAttachSuccess = () => {
     // Refresh transactions data
     // In a real implementation, this would refetch from the API
+    // For now, we'll just log success
     console.log("Transaction attached successfully");
+    // TODO: Implement actual data refresh when backend API is available
+    // Example: await refetchTransactions();
   };
 
   return (

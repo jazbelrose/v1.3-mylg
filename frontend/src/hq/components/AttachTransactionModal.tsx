@@ -38,8 +38,9 @@ const AttachTransactionModal: React.FC<AttachTransactionModalProps> = ({
   useEffect(() => {
     const loadProjects = async () => {
       try {
-        // Get userId from current user context (you may need to adjust this)
-        const userId = "current-user-id"; // TODO: Get from auth context
+        // TODO: Get userId from authentication context
+        // Example: const { userId } = useAuth();
+        const userId = "current-user-id"; // Placeholder for development
         const projectsData = await fetchProjectsFromApi(userId);
         setProjects(projectsData);
       } catch (err) {
@@ -111,10 +112,12 @@ const AttachTransactionModal: React.FC<AttachTransactionModalProps> = ({
     );
 
     // Convert budgetItems to the format expected by suggestionEngine
+    // TODO: Load vendorKeywords from budget item metadata when available
+    // For now, suggestions will work based on item name matching only
     const allBudgetItems = budgetItems.map((item) => ({
       ...item,
       projectId: selectedProjectId || "",
-      vendorKeywords: [], // In production, load from item metadata
+      vendorKeywords: [], // Will be populated from backend in production
     }));
 
     return suggestBudgetLines(transaction, allBudgetItems, projectNamesMap);
