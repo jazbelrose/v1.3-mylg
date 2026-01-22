@@ -524,6 +524,13 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
     });
 
     ws.send(JSON.stringify(normalizeMessage(messageData, "sendMessage")));
+
+    // Notify file manager that notes folder has new content
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("mylg:files-changed", {
+        detail: { projectId, folderKey: "notes" },
+      }));
+    }
   };
 
   // Load cached messages for this project first

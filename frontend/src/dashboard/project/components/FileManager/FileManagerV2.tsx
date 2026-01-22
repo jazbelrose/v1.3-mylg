@@ -657,6 +657,33 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       orgId,
       onFolderDropAtRoot: createFolderSilently,
     });
+
+    // Listen for files-changed events (e.g., when notes are created from chat)
+    // This allows other components to trigger a file list refresh
+    useEffect(() => {
+      const projectId = activeProject?.projectId as string | undefined;
+      if (!projectId || isOrgMode) return;
+
+      const handleFilesChanged = (event: Event) => {
+        const detail = (event as CustomEvent<{ projectId?: string; folderKey?: string }>).detail;
+        if (detail?.projectId === projectId) {
+          // If a specific folder was updated, invalidate its cache and refresh if we're viewing it
+          if (detail.folderKey) {
+            invalidateCache(projectId, detail.folderKey);
+            if (detail.folderKey === folderKey) {
+              loadFiles(true);
+            }
+          } else {
+            // General files changed - invalidate current folder and refresh
+            invalidateCache(projectId, folderKey);
+            loadFiles(true);
+          }
+        }
+      };
+
+      window.addEventListener('mylg:files-changed', handleFilesChanged);
+      return () => window.removeEventListener('mylg:files-changed', handleFilesChanged);
+    }, [activeProject?.projectId, folderKey, invalidateCache, isOrgMode, loadFiles]);
     
     // Transfer status store for progress tracking
     const { hasActiveTransfers } = useFileTransferStore();
@@ -834,14 +861,20 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       []
     );
 
+    // Set of system folder keys for filtering
+    const systemFolderKeys = useMemo(() => new Set(SYSTEM_FOLDERS.map(f => f.key)), []);
+
     const folderTreeSystem: FolderTreeItem[] = useMemo(
       () => SYSTEM_FOLDERS.map((f) => ({ key: f.key, name: f.name })),
       []
     );
 
+    // Filter out system folder keys from custom folders to prevent duplicates in the tree
     const folderTreeCustom: FolderTreeItem[] = useMemo(
-      () => customFolders.map((f) => ({ key: f.key, name: f.name })),
-      [customFolders]
+      () => customFolders
+        .filter((f) => !systemFolderKeys.has(f.key))
+        .map((f) => ({ key: f.key, name: f.name })),
+      [customFolders, systemFolderKeys]
     );
 
     // Folders for picker modal

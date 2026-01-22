@@ -521,6 +521,159 @@
 }
 
 /* =====================================================
+   ENHANCED SLIDE STRIP - Taller with better selection
+   ===================================================== */
+.magic-workspace__slide-strip--enhanced {
+  padding: 20px 16px;
+  gap: 12px;
+}
+
+.magic-workspace__slide-thumb--large {
+  width: 120px;
+}
+
+.magic-workspace__slide-thumb--large .magic-workspace__slide-number {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+}
+
+/* Editing state - currently selected slide with strong glow */
+.magic-workspace__slide-thumb--editing {
+  border-color: rgba(99, 102, 241, 0.8);
+  box-shadow: 
+    0 0 0 3px rgba(99, 102, 241, 0.3),
+    0 0 20px rgba(99, 102, 241, 0.4);
+}
+
+/* Override indicator badge */
+.magic-workspace__slide-override-badge {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  background: rgba(251, 191, 36, 0.3);
+  border-radius: 3px;
+  color: rgba(251, 191, 36, 1);
+}
+
+.magic-workspace__slide-add--large {
+  width: 120px;
+}
+
+/* =====================================================
+   SETTINGS CONTEXT HEADER
+   ===================================================== */
+.magic-workspace__settings-context {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.magic-workspace__context-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: -0.01em;
+}
+
+.magic-workspace__context-summary {
+  font-size: 11px;
+  color: rgba(251, 191, 36, 0.8);
+  font-style: italic;
+}
+
+.magic-workspace__back-to-plan {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 6px;
+  color: rgba(99, 102, 241, 0.9);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  align-self: flex-start;
+}
+
+.magic-workspace__back-to-plan:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: rgba(99, 102, 241, 1);
+}
+
+/* =====================================================
+   SETTING ROW WITH OVERRIDE TOGGLE
+   ===================================================== */
+.magic-workspace__setting-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.magic-workspace__setting-plan-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(99, 102, 241, 0.15);
+  border-radius: 4px;
+  color: rgba(99, 102, 241, 0.8);
+}
+
+.magic-workspace__override-toggle {
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.magic-workspace__override-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.magic-workspace__override-toggle--active {
+  background: rgba(251, 191, 36, 0.2);
+  border-color: rgba(251, 191, 36, 0.4);
+  color: rgba(251, 191, 36, 1);
+}
+
+.magic-workspace__override-toggle--active:hover {
+  background: rgba(251, 191, 36, 0.3);
+}
+
+/* Disabled setting value (using plan default) */
+.magic-workspace__setting-value--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* =====================================================
    ASSETS SECTION
    ===================================================== */
 .magic-workspace__assets-actions {
@@ -643,6 +796,26 @@
 /* =====================================================
    TEXT BLOCKS SECTION
    ===================================================== */
+.magic-workspace__text-blocks-plan-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.magic-workspace__text-blocks-plan-hint svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: rgba(99, 102, 241, 0.6);
+}
+
 .magic-workspace__text-blocks {
   display: flex;
   flex-direction: column;

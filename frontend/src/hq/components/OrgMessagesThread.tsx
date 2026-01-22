@@ -476,6 +476,13 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
     });
 
     ws.send(JSON.stringify(normalizeMessage(messageData, "sendMessage")));
+
+    // Notify file manager that notes folder has new content
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("mylg:files-changed", {
+        detail: { orgId, folderKey: "notes" },
+      }));
+    }
   };
 
   const openPreviewModal = (file: FileObj, message?: Message) => {

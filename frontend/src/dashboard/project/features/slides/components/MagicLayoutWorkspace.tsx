@@ -314,6 +314,7 @@ const VirtualizedAssetGrid: React.FC<VirtualizedAssetGridProps> = ({
 /**
  * LayoutPreviewSvg - Renders a layout variant as SVG
  * Uses thumbnails for preview performance, with optional imageOffset for multi-slide distribution
+ * Supports live preview of spacing/radius changes without regeneration
  */
 interface LayoutPreviewSvgProps {
   variant: LayoutVariant;
@@ -321,6 +322,10 @@ interface LayoutPreviewSvgProps {
   imageOffset?: number; // Starting index in images array for this slide
   width?: number;
   height?: number;
+  /** Override radius for live preview (applies to all frames) */
+  radiusOverride?: number;
+  /** Override spacing/gap for live preview - affects frame positions */
+  spacingOverride?: number;
 }
 
 const LayoutPreviewSvg: React.FC<LayoutPreviewSvgProps> = ({
@@ -329,6 +334,8 @@ const LayoutPreviewSvg: React.FC<LayoutPreviewSvgProps> = ({
   imageOffset = 0,
   width = 1920,
   height = 1080,
+  radiusOverride,
+  spacingOverride,
 }) => {
   // Memoize thumbnail URLs for performance
   const thumbnailImages = useMemo(
@@ -346,7 +353,8 @@ const LayoutPreviewSvg: React.FC<LayoutPreviewSvgProps> = ({
       <rect x="0" y="0" width={width} height={height} fill="#1a1c1e" />
       {variant.frames.map((frame, i) => {
         const isTextFrame = frame.contentType === "text";
-        const radius = frame.radius ?? 0;
+        // Apply radius override if provided, otherwise use frame's radius
+        const radius = radiusOverride !== undefined ? radiusOverride : (frame.radius ?? 0);
         const frameId = `frame-${variant.id || 'v'}-${i}-${frame.x}-${frame.y}`;
         
         // Only get image for image frames, using thumbnail for preview
@@ -1399,7 +1407,7 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
               isSelected={selectedVariantIndex === i}
               images={variantImages}
               slideCount={slideCount}
-              onSelect={() => setSelectedVariantIndex(i)}
+              onSelect={() => handleSelectPlan(i)}
               onRefresh={() => handleRefreshPlan()}
             />
           );
@@ -1470,51 +1478,127 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
     </CollapsibleSection>
   );
 
-  const renderSettingsSection = () => (
-    <CollapsibleSection
-      title="Settings"
-      icon={<Settings2 size={16} />}
-      defaultOpen={false}
-    >
-      <div className="magic-workspace__settings-grid">
-        <div className="magic-workspace__setting-card">
-          <span className="magic-workspace__setting-label">Frames</span>
-          <div className="magic-workspace__setting-value">
+  const renderSettingsSection = () => {
+    // Helper to render a setting row with optional override toggle (for slide mode)
+    const renderSettingRow = (
+      label: string,
+      field: keyof SlideLayoutOverrides | null,
+      children: React.ReactNode,
+      fullWidth = false
+    ) => {
+      const hasOverride = field && settingsMode === "slide" && isOverridden(field);
+      
+      return (
+        <div className={`magic-workspace__setting-card ${fullWidth ? "magic-workspace__setting-card--full" : ""}`}>
+          <div className="magic-workspace__setting-header">
+            <span className="magic-workspace__setting-label">
+              {label}
+              {field && settingsMode === "slide" && !hasOverride && (
+                <span className="magic-workspace__setting-plan-tag">Plan</span>
+              )}
+            </span>
+            {field && settingsMode === "slide" && (
+              <button
+                type="button"
+                className={`magic-workspace__override-toggle ${hasOverride ? "magic-workspace__override-toggle--active" : ""}`}
+                onClick={() => handleToggleOverride(field, !hasOverride)}
+                title={hasOverride ? "Use plan default" : "Override for this slide"}
+              >
+                {hasOverride ? "Override" : "Default"}
+              </button>
+            )}
+          </div>
+          <div className={`magic-workspace__setting-value ${!hasOverride && settingsMode === "slide" && field ? "magic-workspace__setting-value--disabled" : ""}`}>
+            {children}
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <CollapsibleSection
+        title={settingsMode === "plan" ? "Plan Settings" : `Slide ${activeSlideIndex + 1} Settings`}
+        icon={<Settings2 size={16} />}
+        defaultOpen={true}
+      >
+        {/* Context header/breadcrumb */}
+        <div className="magic-workspace__settings-context">
+          <span className="magic-workspace__context-label">{contextLabel}</span>
+          {settingsMode === "slide" && (
+            <>
+              <span className="magic-workspace__context-summary">{overrideSummary}</span>
+              <button
+                type="button"
+                className="magic-workspace__back-to-plan"
+                onClick={handleBackToPlanMode}
+              >
+                <ChevronLeft size={12} />
+                Plan Settings
+              </button>
+            </>
+          )}
+        </div>
+
+        <div className="magic-workspace__settings-grid">
+          {/* Frames - always shown */}
+          {renderSettingRow("Frames", "framesPerSlide", (
             <input
               type="number"
               min={1}
               max={20}
-              value={count}
-              onChange={(e) =>
-                setCount(
-                  Math.max(1, Math.min(20, Number(e.target.value) || 1))
-                )
-              }
+              value={settingsMode === "slide" && isOverridden("framesPerSlide") 
+                ? currentSlideOverrides.framesPerSlide 
+                : count}
+              disabled={settingsMode === "slide" && !isOverridden("framesPerSlide")}
+              onChange={(e) => {
+                const val = Math.max(1, Math.min(20, Number(e.target.value) || 1));
+                if (settingsMode === "slide" && isOverridden("framesPerSlide")) {
+                  handleSetSlideOverride("framesPerSlide", val);
+                } else {
+                  setCount(val);
+                }
+              }}
               className="magic-workspace__setting-input"
             />
-          </div>
-        </div>
+          ))}
 
-        <div className="magic-workspace__setting-card">
-          <span className="magic-workspace__setting-label">Mode</span>
-          <div className="magic-workspace__setting-value">
+          {/* Mode */}
+          {renderSettingRow("Mode", "mode", (
             <select
-              value={mode}
-              onChange={(e) => setMode(e.target.value as LayoutMode)}
+              value={settingsMode === "slide" && isOverridden("mode") 
+                ? currentSlideOverrides.mode 
+                : mode}
+              disabled={settingsMode === "slide" && !isOverridden("mode")}
+              onChange={(e) => {
+                const val = e.target.value as LayoutMode;
+                if (settingsMode === "slide" && isOverridden("mode")) {
+                  handleSetSlideOverride("mode", val);
+                } else {
+                  setMode(val);
+                }
+              }}
               className="magic-workspace__setting-select"
             >
               <option value="grid">Grid</option>
               <option value="masonry">Masonry</option>
             </select>
-          </div>
-        </div>
+          ))}
 
-        <div className="magic-workspace__setting-card">
-          <span className="magic-workspace__setting-label">Style</span>
-          <div className="magic-workspace__setting-value">
+          {/* Style */}
+          {renderSettingRow("Style", "tasteMode", (
             <select
-              value={tasteMode}
-              onChange={(e) => setTasteMode(e.target.value as TasteModeId)}
+              value={settingsMode === "slide" && isOverridden("tasteMode") 
+                ? currentSlideOverrides.tasteMode 
+                : tasteMode}
+              disabled={settingsMode === "slide" && !isOverridden("tasteMode")}
+              onChange={(e) => {
+                const val = e.target.value as TasteModeId;
+                if (settingsMode === "slide" && isOverridden("tasteMode")) {
+                  handleSetSlideOverride("tasteMode", val);
+                } else {
+                  setTasteMode(val);
+                }
+              }}
               className="magic-workspace__setting-select"
             >
               {getTasteModeIds().map((id) => (
@@ -1523,148 +1607,194 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
                 </option>
               ))}
             </select>
-          </div>
-        </div>
+          ))}
 
-        <div className="magic-workspace__setting-card">
-          <span className="magic-workspace__setting-label">Slides</span>
-          <div className="magic-workspace__setting-value">
-            <input
-              type="number"
-              min={1}
-              max={20}
-              value={slideCount}
-              onChange={(e) =>
-                setSlideCount(
-                  Math.max(1, Math.min(20, Number(e.target.value) || 1))
-                )
-              }
-              className="magic-workspace__setting-input"
-            />
-          </div>
-        </div>
+          {/* Slides - ONLY in Plan mode */}
+          {settingsMode === "plan" && (
+            <div className="magic-workspace__setting-card">
+              <span className="magic-workspace__setting-label">Slides</span>
+              <div className="magic-workspace__setting-value">
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={slideCount}
+                  onChange={(e) =>
+                    setSlideCount(
+                      Math.max(1, Math.min(20, Number(e.target.value) || 1))
+                    )
+                  }
+                  className="magic-workspace__setting-input"
+                />
+              </div>
+            </div>
+          )}
 
-        <div className="magic-workspace__setting-card magic-workspace__setting-card--full">
-          <span className="magic-workspace__setting-label">Spacing</span>
-          <div className="magic-workspace__setting-value">
-            <button
-              type="button"
-              className={`magic-workspace__mode-toggle ${spacingMode === "auto" ? "magic-workspace__mode-toggle--active" : ""}`}
-              onClick={() =>
-                setSpacingMode((prev) => (prev === "auto" ? "custom" : "auto"))
-              }
-            >
-              {spacingMode === "auto" ? "Auto" : "Custom"}
-            </button>
-            <input
-              type="number"
-              min={0}
-              max={120}
-              value={spacingValue}
-              disabled={spacingMode === "auto"}
-              onChange={(e) =>
-                setSpacingValue(
-                  Math.max(0, Math.min(120, Number(e.target.value) || 0))
-                )
-              }
-              className="magic-workspace__setting-input"
-            />
-            <button
-              type="button"
-              className={`magic-workspace__lock-btn ${globalLocks.lockSpacing ? "magic-workspace__lock-btn--active" : ""}`}
-              onClick={() =>
-                setGlobalLocks((prev) => ({
-                  ...prev,
-                  lockSpacing: !prev.lockSpacing,
-                }))
-              }
-            >
-              {globalLocks.lockSpacing ? (
-                <Lock size={12} />
-              ) : (
-                <Unlock size={12} />
+          {/* Spacing */}
+          {renderSettingRow("Spacing", "spacing", (
+            <>
+              <button
+                type="button"
+                className={`magic-workspace__mode-toggle ${spacingMode === "auto" ? "magic-workspace__mode-toggle--active" : ""}`}
+                onClick={() =>
+                  setSpacingMode((prev) => (prev === "auto" ? "custom" : "auto"))
+                }
+                disabled={settingsMode === "slide" && !isOverridden("spacing")}
+              >
+                {spacingMode === "auto" ? "Auto" : "Custom"}
+              </button>
+              <input
+                type="number"
+                min={0}
+                max={120}
+                value={settingsMode === "slide" && isOverridden("spacing") 
+                  ? currentSlideOverrides.spacing 
+                  : spacingValue}
+                disabled={spacingMode === "auto" || (settingsMode === "slide" && !isOverridden("spacing"))}
+                onChange={(e) => {
+                  const val = Math.max(0, Math.min(120, Number(e.target.value) || 0));
+                  if (settingsMode === "slide" && isOverridden("spacing")) {
+                    handleSetSlideOverride("spacing", val);
+                  } else {
+                    setSpacingValue(val);
+                  }
+                }}
+                className="magic-workspace__setting-input"
+              />
+              {settingsMode === "plan" && (
+                <button
+                  type="button"
+                  className={`magic-workspace__lock-btn ${globalLocks.lockSpacing ? "magic-workspace__lock-btn--active" : ""}`}
+                  onClick={() =>
+                    setGlobalLocks((prev) => ({
+                      ...prev,
+                      lockSpacing: !prev.lockSpacing,
+                    }))
+                  }
+                >
+                  {globalLocks.lockSpacing ? (
+                    <Lock size={12} />
+                  ) : (
+                    <Unlock size={12} />
+                  )}
+                </button>
               )}
-            </button>
-          </div>
-        </div>
+            </>
+          ), true)}
 
-        <div className="magic-workspace__setting-card magic-workspace__setting-card--full">
-          <span className="magic-workspace__setting-label">Radius</span>
-          <div className="magic-workspace__setting-value">
-            <button
-              type="button"
-              className={`magic-workspace__mode-toggle ${radiusMode === "auto" ? "magic-workspace__mode-toggle--active" : ""}`}
-              onClick={() =>
-                setRadiusMode((prev) => (prev === "auto" ? "custom" : "auto"))
-              }
-            >
-              {radiusMode === "auto" ? "Auto" : "Custom"}
-            </button>
-            <input
-              type="number"
-              min={0}
-              max={80}
-              value={radiusValue}
-              disabled={radiusMode === "auto"}
-              onChange={(e) =>
-                setRadiusValue(
-                  Math.max(0, Math.min(80, Number(e.target.value) || 0))
-                )
-              }
-              className="magic-workspace__setting-input"
-            />
-            <button
-              type="button"
-              className={`magic-workspace__lock-btn ${globalLocks.lockRadius ? "magic-workspace__lock-btn--active" : ""}`}
-              onClick={() =>
-                setGlobalLocks((prev) => ({
-                  ...prev,
-                  lockRadius: !prev.lockRadius,
-                }))
-              }
-            >
-              {globalLocks.lockRadius ? (
-                <Lock size={12} />
-              ) : (
-                <Unlock size={12} />
+          {/* Radius */}
+          {renderSettingRow("Radius", "radius", (
+            <>
+              <button
+                type="button"
+                className={`magic-workspace__mode-toggle ${radiusMode === "auto" ? "magic-workspace__mode-toggle--active" : ""}`}
+                onClick={() =>
+                  setRadiusMode((prev) => (prev === "auto" ? "custom" : "auto"))
+                }
+                disabled={settingsMode === "slide" && !isOverridden("radius")}
+              >
+                {radiusMode === "auto" ? "Auto" : "Custom"}
+              </button>
+              <input
+                type="number"
+                min={0}
+                max={80}
+                value={settingsMode === "slide" && isOverridden("radius") 
+                  ? currentSlideOverrides.radius 
+                  : radiusValue}
+                disabled={radiusMode === "auto" || (settingsMode === "slide" && !isOverridden("radius"))}
+                onChange={(e) => {
+                  const val = Math.max(0, Math.min(80, Number(e.target.value) || 0));
+                  if (settingsMode === "slide" && isOverridden("radius")) {
+                    handleSetSlideOverride("radius", val);
+                  } else {
+                    setRadiusValue(val);
+                  }
+                }}
+                className="magic-workspace__setting-input"
+              />
+              {settingsMode === "plan" && (
+                <button
+                  type="button"
+                  className={`magic-workspace__lock-btn ${globalLocks.lockRadius ? "magic-workspace__lock-btn--active" : ""}`}
+                  onClick={() =>
+                    setGlobalLocks((prev) => ({
+                      ...prev,
+                      lockRadius: !prev.lockRadius,
+                    }))
+                  }
+                >
+                  {globalLocks.lockRadius ? (
+                    <Lock size={12} />
+                  ) : (
+                    <Unlock size={12} />
+                  )}
+                </button>
               )}
-            </button>
-          </div>
+            </>
+          ), true)}
         </div>
-      </div>
 
-      {/* Regenerate layout action */}
-      <div className="magic-workspace__regen-actions">
-        <button
-          type="button"
-          className="magic-workspace__regen-btn"
-          onClick={() => handleRefreshLayoutOnly(activeSlideIndex)}
-          title="Regenerate layout keeping current images and text blocks"
-        >
-          <RefreshCw size={12} />
-          Regenerate Layout (keep content)
-        </button>
-        {slideCount > 1 && (
-          <button
-            type="button"
-            className="magic-workspace__regen-btn magic-workspace__regen-btn--secondary"
-            onClick={() => handleRefreshPlan()}
-            title={`Regenerate all ${slideCount} slides`}
-          >
-            <LayoutGrid size={12} />
-            Regenerate All Slides
-          </button>
-        )}
-      </div>
-    </CollapsibleSection>
-  );
+        {/* Regenerate actions - context-aware */}
+        <div className="magic-workspace__regen-actions">
+          {settingsMode === "slide" ? (
+            <>
+              {/* Primary: Regenerate This Slide */}
+              <button
+                type="button"
+                className="magic-workspace__regen-btn"
+                onClick={() => handleRefreshSlide(activeSlideIndex)}
+                title="Regenerate this slide only"
+              >
+                <RefreshCw size={12} />
+                Regenerate This Slide
+              </button>
+              {/* Secondary: Regenerate All */}
+              {slideCount > 1 && (
+                <button
+                  type="button"
+                  className="magic-workspace__regen-btn magic-workspace__regen-btn--secondary"
+                  onClick={() => handleRefreshPlan()}
+                  title={`Regenerate all ${slideCount} slides`}
+                >
+                  <LayoutGrid size={12} />
+                  Regenerate All Slides
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Primary: Regenerate All Slides (plan mode) */}
+              <button
+                type="button"
+                className="magic-workspace__regen-btn"
+                onClick={() => handleRefreshPlan()}
+                title={slideCount > 1 ? `Regenerate all ${slideCount} slides` : "Regenerate layout"}
+              >
+                <RefreshCw size={12} />
+                {slideCount > 1 ? `Regenerate All ${slideCount} Slides` : "Regenerate Layout"}
+              </button>
+            </>
+          )}
+        </div>
+      </CollapsibleSection>
+    );
+  };
 
   const renderTextBlocksSection = () => (
     <CollapsibleSection
-      title="Text Blocks"
+      title={settingsMode === "slide" ? `Text Blocks · Slide ${activeSlideIndex + 1}` : "Text Blocks"}
       icon={<Type size={16} />}
       badge={textBlocks.length > 0 ? textBlocks.length : undefined}
     >
+      {/* Plan mode: show message that text blocks are slide-specific */}
+      {settingsMode === "plan" && slideCount > 1 && (
+        <div className="magic-workspace__text-blocks-plan-hint">
+          <Type size={14} />
+          <span>Text blocks are slide-specific. Select a slide from the filmstrip below to edit text blocks.</span>
+        </div>
+      )}
+      
       <TextStylePresets active={textStylePreset} onChange={setTextStylePreset} />
 
       <div className="magic-workspace__text-blocks">
@@ -1945,6 +2075,7 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
                       variant={activeVariant}
                       images={selectedImages}
                       imageOffset={slideImageOffsets[activeSlideIndex] ?? 0}
+                      radiusOverride={radiusMode === "custom" ? resolvedSettings.radius : undefined}
                     />
                     <div
                       className="magic-workspace__canvas-overlay"
@@ -1960,16 +2091,20 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
               </div>
             </div>
 
-            {/* Slide strip */}
+            {/* Slide strip (filmstrip) - taller with enhanced selection */}
             {slideCount > 1 && selectedPlanPreview && (
-              <div className="magic-workspace__slide-strip">
+              <div className="magic-workspace__slide-strip magic-workspace__slide-strip--enhanced">
                 {selectedPlanPreview.map((variant, i) => {
                   const slideBlocks = slideTextBlocks.get(i) ?? [];
+                  const isActive = activeSlideIndex === i && slideSelected;
+                  const hasOverrides = slideOverrides.has(i);
                   return (
                     <div
                       key={i}
-                      className={`magic-workspace__slide-thumb ${activeSlideIndex === i ? "magic-workspace__slide-thumb--active" : ""}`}
-                      onClick={() => setActiveSlideIndex(i)}
+                      className={`magic-workspace__slide-thumb magic-workspace__slide-thumb--large ${
+                        activeSlideIndex === i ? "magic-workspace__slide-thumb--active" : ""
+                      } ${isActive ? "magic-workspace__slide-thumb--editing" : ""}`}
+                      onClick={() => handleSelectSlide(i)}
                     >
                       <LayoutPreviewSvg
                         variant={variant}
@@ -1978,6 +2113,12 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
                       />
                       {/* Slide number badge */}
                       <span className="magic-workspace__slide-number">{i + 1}</span>
+                      {/* Override indicator */}
+                      {hasOverrides && (
+                        <span className="magic-workspace__slide-override-badge" title="Has overrides">
+                          <Settings2 size={8} />
+                        </span>
+                      )}
                       {/* Text blocks indicator */}
                       {slideBlocks.length > 0 && (
                         <span className="magic-workspace__slide-text-badge" title={`${slideBlocks.length} text block(s)`}>
@@ -2001,7 +2142,7 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
                 })}
                 <button
                   type="button"
-                  className="magic-workspace__slide-add"
+                  className="magic-workspace__slide-add magic-workspace__slide-add--large"
                   onClick={() => setSlideCount((c) => Math.min(20, c + 1))}
                 >
                   <Plus size={16} />
@@ -2010,11 +2151,20 @@ const MagicLayoutWorkspace: React.FC<MagicLayoutWorkspaceProps> = ({
             )}
           </div>
 
-          {/* Right sidebar - Text & Settings */}
+          {/* Right sidebar - Context-aware: Settings first in plan mode, Text Blocks first in slide mode */}
           {!isMobile && !isTablet && (
             <div className="magic-workspace__sidebar-right">
-              {renderTextBlocksSection()}
-              {renderSettingsSection()}
+              {settingsMode === "slide" ? (
+                <>
+                  {renderTextBlocksSection()}
+                  {renderSettingsSection()}
+                </>
+              ) : (
+                <>
+                  {renderSettingsSection()}
+                  {renderTextBlocksSection()}
+                </>
+              )}
             </div>
           )}
         </div>

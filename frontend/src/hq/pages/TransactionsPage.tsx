@@ -965,8 +965,11 @@ const TransactionsPage: React.FC = () => {
             from={startDate || undefined}
             to={endDate || undefined}
             onSaved={() => {
-              // Refresh list after transaction update
-              loadPage({ cursor: null, append: false, includeTotals: true });
+              // Refresh list after transaction update.
+              // Small delay to allow DynamoDB eventual consistency to propagate writes.
+              setTimeout(() => {
+                loadPage({ cursor: null, append: false, includeTotals: true });
+              }, 150);
             }}
             onRequestClose={() => {
               setIsApplyOpen(false);
