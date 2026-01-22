@@ -3,6 +3,7 @@ import React, { createContext, useContext, useCallback, useState, useMemo, useRe
 import {
   SlideComment,
   SlideEditorMode,
+  EditorTool,
   CommentFilterOptions,
   CommentStatus,
   createSlideComment,
@@ -17,7 +18,28 @@ import {
 } from '@/shared/utils/api';
 
 interface CommentsContextValue {
-  /** Current editor mode */
+  /** 
+   * Active editor tool - what happens when you click on the canvas
+   * - select: Click selects/moves/resizes objects (default)
+   * - comment: Click places a comment pin
+   */
+  activeTool: EditorTool;
+  setActiveTool: (tool: EditorTool) => void;
+
+  /**
+   * Whether editing is allowed (permission/lock state)
+   * When false, user can only view/pan/zoom, not modify objects
+   */
+  canEdit: boolean;
+  setCanEdit: (canEdit: boolean) => void;
+
+  /** 
+   * @deprecated Use activeTool and canEdit instead
+   * Backward-compatible mode mapping:
+   * - 'view' = canEdit: false
+   * - 'edit' = canEdit: true, activeTool: 'select'
+   * - 'comment' = activeTool: 'comment'
+   */
   mode: SlideEditorMode;
   setMode: (mode: SlideEditorMode) => void;
 
@@ -57,7 +79,11 @@ interface CommentsContextValue {
   /** Loading state */
   isLoading: boolean;
 
-  /** Visibility toggle for comments in edit mode */
+  /** Visibility toggle for comments when using select tool */
+  showComments: boolean;
+  setShowComments: (show: boolean) => void;
+
+  /** @deprecated Use showComments instead */
   showCommentsInEditMode: boolean;
   setShowCommentsInEditMode: (show: boolean) => void;
 
@@ -108,13 +134,40 @@ export const CommentsProvider: React.FC<CommentsProviderProps> = ({
   onCommentsChange,
   onBroadcastComment,
 }) => {
-  const [mode, setMode] = useState<SlideEditorMode>('edit');
+  // New state model
+  const [activeTool, setActiveTool] = useState<EditorTool>('select');
+  const [canEdit, setCanEdit] = useState(true);
+  const [showComments, setShowComments] = useState(false);
+
+  // Backward-compatible mode (derived from activeTool + canEdit)
+  const mode: SlideEditorMode = useMemo(() => {
+    if (!canEdit) return 'view';
+    if (activeTool === 'comment') return 'comment';
+    return 'edit';
+  }, [activeTool, canEdit]);
+
+  // Backward-compatible setMode
+  const setMode = useCallback((newMode: SlideEditorMode) => {
+    switch (newMode) {
+      case 'view':
+        setCanEdit(false);
+        break;
+      case 'edit':
+        setCanEdit(true);
+        setActiveTool('select');
+        break;
+      case 'comment':
+        setCanEdit(true);
+        setActiveTool('comment');
+        break;
+    }
+  }, []);
+
   const [comments, setComments] = useState<SlideComment[]>(initialComments);
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [filterOptions, setFilterOptions] = useState<CommentFilterOptions>(DEFAULT_FILTER_OPTIONS);
   const [isLoading, setIsLoading] = useState(false);
-  const [showCommentsInEditMode, setShowCommentsInEditMode] = useState(false);
   const [pendingPlacement, setPendingPlacement] = useState<{ x: number; y: number } | null>(null);
 
   const onCommentsChangeRef = useRef(onCommentsChange);
@@ -492,15 +545,19 @@ export const CommentsProvider: React.FC<CommentsProviderProps> = ({
     setPendingPlacement(null);
   }, [activeSlideId]);
 
-  // Clear pending placement when exiting comment mode
+  // Clear pending placement when exiting comment tool
   useEffect(() => {
-    if (mode !== 'comment') {
+    if (activeTool !== 'comment') {
       setPendingPlacement(null);
     }
-  }, [mode]);
+  }, [activeTool]);
 
   const value = useMemo<CommentsContextValue>(
     () => ({
+      activeTool,
+      setActiveTool,
+      canEdit,
+      setCanEdit,
       mode,
       setMode,
       comments,
@@ -520,8 +577,11 @@ export const CommentsProvider: React.FC<CommentsProviderProps> = ({
       reopenComment,
       moveComment,
       isLoading,
-      showCommentsInEditMode,
-      setShowCommentsInEditMode,
+      showComments,
+      setShowComments,
+      // Backward compatibility aliases (same refs as showComments/setShowComments)
+      showCommentsInEditMode: showComments,
+      setShowCommentsInEditMode: setShowComments,
       pendingPlacement,
       setPendingPlacement,
       totalCount,
@@ -530,7 +590,10 @@ export const CommentsProvider: React.FC<CommentsProviderProps> = ({
       teamMembers,
     }),
     [
+      activeTool,
+      canEdit,
       mode,
+      setMode,
       comments,
       activeSlideComments,
       selectedCommentId,
@@ -545,7 +608,8 @@ export const CommentsProvider: React.FC<CommentsProviderProps> = ({
       reopenComment,
       moveComment,
       isLoading,
-      showCommentsInEditMode,
+      showComments,
+      setShowComments,
       pendingPlacement,
       totalCount,
       openCount,

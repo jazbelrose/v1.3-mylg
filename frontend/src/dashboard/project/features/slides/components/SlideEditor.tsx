@@ -131,8 +131,11 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
 
   // Comments mode - conditionally use context
   const commentsContext = commentsEnabled ? useComments() : null;
-  const editorMode = commentsContext?.mode ?? 'edit';
+  const activeTool = commentsContext?.activeTool ?? 'select';
+  const canEdit = commentsContext?.canEdit ?? true;
+  const showComments = commentsContext?.showComments ?? false;
   const openCommentCount = commentsContext?.openCount ?? 0;
+  const selectedCommentId = commentsContext?.selectedCommentId ?? null;
 
   const { saveSlide, markDirty } = useSlidePersistence({
     projectId,
@@ -561,9 +564,15 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onUpdateTextBoxBorderRadius={toolbarActions.onUpdateTextBoxBorderRadius}
       onNewSlide={onNewSlide}
       versionDropdown={versionDropdown}
-      editorMode={editorMode}
-      onEditorModeChange={commentsContext?.setMode}
+      activeTool={activeTool}
+      onToolChange={commentsContext?.setActiveTool}
+      canEdit={canEdit}
+      onCanEditChange={commentsContext?.setCanEdit}
+      showComments={showComments}
+      onShowCommentsChange={commentsContext?.setShowComments}
       openCommentCount={openCommentCount}
+      hasOpenPopover={selectedCommentId !== null}
+      onClosePopover={() => commentsContext?.setSelectedCommentId(null)}
     />
   ) : null;
 
@@ -699,7 +708,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
               currentUserId={currentUserId}
               currentUserName={currentUserName}
               currentUserAvatar={currentUserAvatar}
-              readOnly={editorMode === 'view'}
+              readOnly={!canEdit}
             />
           )}
 

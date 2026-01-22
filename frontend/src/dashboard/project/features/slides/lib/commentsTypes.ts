@@ -2,10 +2,15 @@
 // Google Slides–style toggleable comments anchored to slide coordinates
 
 /**
- * Editor mode for slides
- * - view: Read-only mode, comments visible but not editable
- * - edit: Normal editing mode, comments hidden by default (toggle to show)
- * - comment: Comment mode, click to place/edit comments, editing disabled
+ * Editor tool - what happens when you click on the canvas
+ * - select: Click selects/moves/resizes objects (default)
+ * - comment: Click places a comment pin
+ */
+export type EditorTool = 'select' | 'comment';
+
+/**
+ * @deprecated Use EditorTool instead. Kept for backward compatibility.
+ * Will be removed in a future version.
  */
 export type SlideEditorMode = 'view' | 'edit' | 'comment';
 

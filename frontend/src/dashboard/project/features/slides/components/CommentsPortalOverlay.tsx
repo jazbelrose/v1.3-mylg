@@ -53,7 +53,10 @@ export const CommentsPortalOverlay: React.FC<CommentsPortalOverlayProps> = ({
   readOnly = false,
 }) => {
   const {
-    mode,
+    activeTool,
+    setActiveTool,
+    canEdit,
+    showComments,
     activeSlideComments,
     filterOptions,
     selectedCommentId,
@@ -149,7 +152,7 @@ export const CommentsPortalOverlay: React.FC<CommentsPortalOverlayProps> = ({
 
   // Handle click on canvas to add new comment
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
-    if (mode !== 'comment' || readOnly) return;
+    if (activeTool !== 'comment' || readOnly || !canEdit) return;
     if (!transform.ready) return;
 
     const x = transform.screenXToSlide(e.clientX);
@@ -161,7 +164,7 @@ export const CommentsPortalOverlay: React.FC<CommentsPortalOverlayProps> = ({
 
     setPendingPlacement({ x: clampedX, y: clampedY });
     setSelectedCommentId(null);
-  }, [mode, readOnly, transform, setSelectedCommentId, setPendingPlacement]);
+  }, [activeTool, canEdit, readOnly, transform, setSelectedCommentId, setPendingPlacement]);
 
   // Handle creating new comment
   const handleCreateComment = useCallback(() => {
@@ -176,13 +179,17 @@ export const CommentsPortalOverlay: React.FC<CommentsPortalOverlayProps> = ({
 
     setPendingPlacement(null);
     setNewCommentText('');
-  }, [pendingPlacement, newCommentText, slideId, addComment, setPendingPlacement]);
+    
+    // Auto-return to Select tool after placing a comment (better UX)
+    setActiveTool('select');
+  }, [pendingPlacement, newCommentText, slideId, addComment, setPendingPlacement, setActiveTool]);
 
-  // Cancel pending comment
+  // Cancel pending comment - also return to select tool
   const handleCancelPending = useCallback(() => {
     setPendingPlacement(null);
     setNewCommentText('');
-  }, [setPendingPlacement]);
+    setActiveTool('select');
+  }, [setPendingPlacement, setActiveTool]);
 
   // Handle pin selection
   const handlePinClick = useCallback((commentId: string) => {
@@ -211,8 +218,9 @@ export const CommentsPortalOverlay: React.FC<CommentsPortalOverlayProps> = ({
     (threadRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
   }, [threadSize]);
 
-  // Don't render in view mode
-  if (mode === 'view') {
+  // Don't render if comments are hidden (unless in comment tool mode)
+  const shouldShow = activeTool === 'comment' || showComments;
+  if (!shouldShow) {
     return null;
   }
 
@@ -223,14 +231,15 @@ export const CommentsPortalOverlay: React.FC<CommentsPortalOverlayProps> = ({
 
   // Create click capture layer that matches the canvas bounds
   const canvasRect = transform.canvasRect;
+  const isCommentTool = activeTool === 'comment' && canEdit;
   const clickLayerStyle: React.CSSProperties = canvasRect ? {
     position: 'fixed',
     left: canvasRect.left,
     top: canvasRect.top,
     width: canvasRect.width,
     height: canvasRect.height,
-    pointerEvents: mode === 'comment' ? 'auto' : 'none',
-    cursor: mode === 'comment' ? 'crosshair' : 'default',
+    pointerEvents: isCommentTool ? 'auto' : 'none',
+    cursor: isCommentTool ? 'crosshair' : 'default',
     zIndex: 1,
   } : { display: 'none' };
 
@@ -258,7 +267,7 @@ export const CommentsPortalOverlay: React.FC<CommentsPortalOverlayProps> = ({
             screenY={pos.y}
             isSelected={comment.id === selectedCommentId}
             onClick={handlePinClick}
-            draggable={!readOnly && mode === 'comment'}
+            draggable={canEdit && !readOnly && activeTool === 'comment'}
             onDragEnd={(anchorX, anchorY) => handlePinDragEnd(comment.id, anchorX, anchorY)}
             screenToSlide={transform.screenXToSlide}
             screenToSlideY={transform.screenYToSlide}
@@ -331,8 +340,8 @@ export const CommentsPortalOverlay: React.FC<CommentsPortalOverlayProps> = ({
         </div>
       )}
 
-      {/* Comment mode hint */}
-      {mode === 'comment' && visibleComments.length === 0 && !pendingPlacement && canvasRect && (
+      {/* Comment tool hint */}
+      {isCommentTool && visibleComments.length === 0 && !pendingPlacement && canvasRect && (
         <div
           className="comments-portal-overlay__hint"
           style={{

@@ -40,7 +40,10 @@ export const CommentsOverlay: React.FC<CommentsOverlayProps> = ({
   readOnly = false,
 }) => {
   const { 
-    mode, 
+    activeTool,
+    setActiveTool,
+    canEdit,
+    showComments,
     activeSlideComments,
     filterOptions,
     selectedCommentId,
@@ -66,9 +69,9 @@ export const CommentsOverlay: React.FC<CommentsOverlayProps> = ({
     return visibleComments.find(c => c.id === selectedCommentId);
   }, [visibleComments, selectedCommentId]);
 
-  // Handle click to add new comment (only in Comment mode)
+  // Handle click to add new comment (only when using Comment tool)
   const handleOverlayClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (mode !== 'comment' || readOnly) return;
+    if (activeTool !== 'comment' || readOnly || !canEdit) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -84,7 +87,7 @@ export const CommentsOverlay: React.FC<CommentsOverlayProps> = ({
 
     setPendingPlacement({ x: clampedX, y: clampedY });
     setSelectedCommentId(null);
-  }, [mode, readOnly, canvasWidth, canvasHeight, zoom, setSelectedCommentId, setPendingPlacement]);
+  }, [activeTool, canEdit, readOnly, canvasWidth, canvasHeight, zoom, setSelectedCommentId, setPendingPlacement]);
 
   // Handle creating new comment at pending anchor
   const handleCreateComment = useCallback(() => {
@@ -99,18 +102,22 @@ export const CommentsOverlay: React.FC<CommentsOverlayProps> = ({
 
     setPendingPlacement(null);
     setNewCommentText('');
-  }, [pendingPlacement, newCommentText, slideId, addComment, setPendingPlacement]);
+    
+    // Auto-return to Select tool after placing a comment
+    setActiveTool('select');
+  }, [pendingPlacement, newCommentText, slideId, addComment, setPendingPlacement, setActiveTool]);
 
   // Handle pin drag to reposition
   const handlePinDragEnd = useCallback((commentId: string, anchorX: number, anchorY: number) => {
     moveComment(commentId, anchorX, anchorY);
   }, [moveComment]);
 
-  // Cancel pending comment
+  // Cancel pending comment - also return to select
   const handleCancelPending = useCallback(() => {
     setPendingPlacement(null);
     setNewCommentText('');
-  }, [setPendingPlacement]);
+    setActiveTool('select');
+  }, [setPendingPlacement, setActiveTool]);
 
   // Handle pin selection
   const handlePinClick = useCallback((commentId: string) => {
@@ -123,14 +130,17 @@ export const CommentsOverlay: React.FC<CommentsOverlayProps> = ({
     setSelectedCommentId(null);
   }, [setSelectedCommentId]);
 
-  // Don't render overlay in View mode (no pins visible)
-  if (mode === 'view') {
+  // Don't render overlay if comments are hidden (unless using comment tool)
+  const shouldShow = activeTool === 'comment' || showComments;
+  if (!shouldShow) {
     return null;
   }
 
+  const isCommentTool = activeTool === 'comment' && canEdit;
+
   return (
     <div 
-      className={`comments-overlay ${mode === 'comment' ? 'comments-overlay--interactive' : ''}`}
+      className={`comments-overlay ${isCommentTool ? 'comments-overlay--interactive' : ''}`}
       onClick={handleOverlayClick}
       style={{
         width: canvasWidth * zoom,
@@ -147,7 +157,7 @@ export const CommentsOverlay: React.FC<CommentsOverlayProps> = ({
             zoom={zoom}
             isSelected={comment.id === selectedCommentId}
             onClick={handlePinClick}
-            draggable={!readOnly && mode === 'comment'}
+            draggable={canEdit && !readOnly && activeTool === 'comment'}
             onDragEnd={readOnly ? undefined : handlePinDragEnd}
           />
           
@@ -210,8 +220,8 @@ export const CommentsOverlay: React.FC<CommentsOverlayProps> = ({
         </div>
       )}
 
-      {/* Comment mode hint */}
-      {mode === 'comment' && visibleComments.length === 0 && !pendingPlacement && (
+      {/* Comment tool hint */}
+      {isCommentTool && visibleComments.length === 0 && !pendingPlacement && (
         <div className="comments-overlay__hint">
           Click anywhere to add a comment
         </div>

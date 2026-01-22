@@ -18,5 +18,6 @@ export { default as CommentPin } from "./components/CommentPin";
 export { default as CommentThread } from "./components/CommentThread";
 export { default as CommentsOverlay } from "./components/CommentsOverlay";
 export { default as EditorModeToggle } from "./components/EditorModeToggle";
+export { default as EditorToolbar } from "./components/EditorToolbar";
 export { CommentsProvider, useComments } from "./contexts/CommentsContext";
 export * from "./lib/commentsTypes";

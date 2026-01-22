@@ -64,8 +64,8 @@ import {
   type LetterSpacing,
   type TextBlockType,
 } from "@/dashboard/project/features/editor/components/Brief/plugins/toolbarShared";
-import EditorModeToggle from "./EditorModeToggle";
-import type { SlideEditorMode } from "../lib/commentsTypes";
+import EditorToolbar from "./EditorToolbar";
+import type { EditorTool } from "../lib/commentsTypes";
 import "./SlideToolbar.css";
 
 function Divider() {
@@ -307,10 +307,17 @@ interface SlideToolbarProps {
   // Deck version props
   versionDropdown?: React.ReactNode;
 
-  // Comments mode props
-  editorMode?: SlideEditorMode;
-  onEditorModeChange?: (mode: SlideEditorMode) => void;
+  // Editor tool props (new model)
+  activeTool?: EditorTool;
+  onToolChange?: (tool: EditorTool) => void;
+  canEdit?: boolean;
+  onCanEditChange?: (canEdit: boolean) => void;
+  showComments?: boolean;
+  onShowCommentsChange?: (show: boolean) => void;
   openCommentCount?: number;
+  hasOpenPopover?: boolean;
+  onClosePopover?: () => void;
+  onClearSelection?: () => void;
 }
 
 const SlideToolbar: React.FC<SlideToolbarProps> = ({
@@ -376,9 +383,16 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onUpdatePictureFrameBorder,
   onUpdateTextBoxBorder,
   versionDropdown,
-  editorMode = 'edit',
-  onEditorModeChange,
+  activeTool = 'select',
+  onToolChange,
+  canEdit = true,
+  onCanEditChange,
+  showComments = false,
+  onShowCommentsChange,
   openCommentCount = 0,
+  hasOpenPopover = false,
+  onClosePopover,
+  onClearSelection,
 }) => {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -1747,11 +1761,18 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
       </div>
 
       <div className="toolbar-right">
-        {onEditorModeChange && (
-          <EditorModeToggle
-            mode={editorMode}
-            onModeChange={onEditorModeChange}
+        {onToolChange && onCanEditChange && onShowCommentsChange && (
+          <EditorToolbar
+            activeTool={activeTool}
+            onToolChange={onToolChange}
+            canEdit={canEdit}
+            onCanEditChange={onCanEditChange}
+            showComments={showComments}
+            onShowCommentsChange={onShowCommentsChange}
             openCommentCount={openCommentCount}
+            hasOpenPopover={hasOpenPopover}
+            onClosePopover={onClosePopover}
+            onClearSelection={onClearSelection}
           />
         )}
         {versionDropdown}
