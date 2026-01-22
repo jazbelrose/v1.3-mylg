@@ -26,7 +26,7 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import { FileThumb } from '@/shared/ui/FileThumb';
-import { getFileUrl, fileUrlsToKeys } from '@/shared/utils/api';
+import { getFileUrl, fileUrlsToKeys, getEmbedUrl, getThumbnailUrl } from '@/shared/utils/api';
 import EnhancedPDFViewer from '../Shared/EnhancedPDFViewer';
 import NoteEditorModal from '@/dashboard/features/messages/components/NoteEditorModal';
 import type { FileItem } from './FileManagerTypes';
@@ -93,6 +93,8 @@ export function QuickLookModal({
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isActionsOpen, setIsActionsOpen] = useState(false);
   const [textEditorOpen, setTextEditorOpen] = useState(false);
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+  const [embedFailed, setEmbedFailed] = useState(false);
   
   const imageRef = useRef<HTMLDivElement>(null);
   const panStartRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
@@ -102,13 +104,30 @@ export function QuickLookModal({
   const hasNext = currentIndex < files.length - 1;
   const hasPrev = currentIndex > 0;
 
-  // Get resolved URL
+  // Get resolved URL (original)
   const resolvedUrl = useMemo(() => {
     if (!currentFile?.url) return '';
     if (currentFile.url.startsWith('blob:')) return currentFile.url;
     const [decodedKey] = fileUrlsToKeys([currentFile.url]);
     return decodedKey ? getFileUrl(decodedKey) : currentFile.url;
   }, [currentFile?.url]);
+
+  // Get embed URL for preview (smaller, faster loading)
+  const embedUrl = useMemo(() => {
+    if (!currentFile?.url) return '';
+    if (currentFile.url.startsWith('blob:')) return currentFile.url;
+    return getEmbedUrl(currentFile.url);
+  }, [currentFile?.url]);
+
+  // Get thumbnail URL for download option
+  const thumbnailUrl = useMemo(() => {
+    if (!currentFile?.url) return '';
+    if (currentFile.url.startsWith('blob:')) return currentFile.url;
+    return getThumbnailUrl(currentFile.url);
+  }, [currentFile?.url]);
+
+  // Use embed for preview, fallback to original if embed fails
+  const previewUrl = embedFailed ? resolvedUrl : embedUrl;
 
   // Determine file type
   const extension = currentFile?.fileName?.split('.').pop()?.toLowerCase() ?? '';
@@ -119,12 +138,29 @@ export function QuickLookModal({
   const isVector = isVectorFile(extension);
   const isCAD = isCADFile(extension);
 
-  // Reset zoom when file changes
+  // Reset state when file changes
   useEffect(() => {
     setZoom(FIT_ZOOM);
     setPanOffset({ x: 0, y: 0 });
     setTextEditorOpen(false);
+    setEmbedFailed(false);
+    setDownloadMenuOpen(false);
   }, [currentIndex]);
+
+  // Close download menu when clicking outside
+  useEffect(() => {
+    if (!downloadMenuOpen) return;
+    
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(`.${styles.quickLookDownloadWrapper}`)) {
+        setDownloadMenuOpen(false);
+      }
+    };
+    
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [downloadMenuOpen]);
 
   // Auto-open text editor for text files
   useEffect(() => {
@@ -383,7 +419,7 @@ export function QuickLookModal({
           onDoubleClick={handleDoubleClick}
         >
           <img
-            src={resolvedUrl}
+            src={previewUrl}
             alt={currentFile.fileName}
             className={styles.quickLookImage}
             style={{
@@ -393,7 +429,13 @@ export function QuickLookModal({
             }}
             draggable={false}
             onError={(e) => {
-              (e.target as HTMLImageElement).src = currentFile.url;
+              // If embed fails, fallback to original URL
+              if (!embedFailed) {
+                setEmbedFailed(true);
+              } else {
+                // Final fallback to raw URL
+                (e.target as HTMLImageElement).src = currentFile.url;
+              }
             }}
           />
         </div>
@@ -572,14 +614,64 @@ export function QuickLookModal({
           )}
 
           {/* Actions */}
-          <button
-            type="button"
-            className={styles.quickLookHeaderBtn}
-            onClick={() => onDownload(currentFile)}
-            aria-label="Download"
-          >
-            <Download size={18} />
-          </button>
+          {/* Download button with quality dropdown for images */}
+          {isImage ? (
+            <div className={styles.quickLookDownloadWrapper}>
+              <button
+                type="button"
+                className={styles.quickLookHeaderBtn}
+                onClick={() => setDownloadMenuOpen(!downloadMenuOpen)}
+                aria-label="Download options"
+                aria-haspopup="true"
+                aria-expanded={downloadMenuOpen}
+              >
+                <Download size={18} />
+              </button>
+              {downloadMenuOpen && (
+                <div className={styles.quickLookDownloadMenu}>
+                  <button
+                    type="button"
+                    className={styles.quickLookDownloadItem}
+                    onClick={() => {
+                      onDownload({ ...currentFile, url: resolvedUrl });
+                      setDownloadMenuOpen(false);
+                    }}
+                  >
+                    Original (Full Quality)
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.quickLookDownloadItem}
+                    onClick={() => {
+                      onDownload({ ...currentFile, url: embedUrl, fileName: `${currentFile.fileName.replace(/\.[^.]+$/, '')}_embed.${extension}` });
+                      setDownloadMenuOpen(false);
+                    }}
+                  >
+                    Embed (≤2MB)
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.quickLookDownloadItem}
+                    onClick={() => {
+                      onDownload({ ...currentFile, url: thumbnailUrl, fileName: `${currentFile.fileName.replace(/\.[^.]+$/, '')}_thumb.webp` });
+                      setDownloadMenuOpen(false);
+                    }}
+                  >
+                    Thumbnail (Small)
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              className={styles.quickLookHeaderBtn}
+              onClick={() => onDownload(currentFile)}
+              aria-label="Download"
+            >
+              <Download size={18} />
+            </button>
+          )}
           <button
             type="button"
             className={styles.quickLookHeaderBtn}

@@ -166,7 +166,14 @@ export const useFileTransfers = ({
 
       const files: FileItem[] = lists
         .flatMap((res: { items?: unknown[] }) => res?.items || [])
-        .filter((item: unknown) => (item as { key?: string }).key && !(item as { key?: string }).key!.endsWith("/"))
+        .filter((item: unknown) => {
+          const key = (item as { key?: string }).key;
+          if (!key || key.endsWith("/")) return false;
+          // Filter out auto-generated renditions (thumbnails and embeds)
+          // These are stored in parallel folders like uploads_thumbnails/ and uploads_embed/
+          if (/_thumbnails\/|_embed\//.test(key)) return false;
+          return true;
+        })
         .map((item: unknown) => {
           const key = (item as { key: string }).key;
           const name: string = key.split("/").pop()!;
@@ -421,7 +428,42 @@ export const useFileTransfers = ({
   const handleFileSelect: React.ChangeEventHandler<HTMLInputElement> = useCallback(
     async (event) => {
       const files = Array.from(event.target.files || []);
-      await uploadFiles(files);
+      if (!files.length) {
+        event.target.value = "";
+        return;
+      }
+      
+      // Check if this is a folder upload (webkitdirectory input)
+      // Files from folder input have webkitRelativePath like "FolderName/SubFolder/file.jpg"
+      const firstFile = files[0] as File & { webkitRelativePath?: string };
+      const isFolderUpload = Boolean(firstFile?.webkitRelativePath && firstFile.webkitRelativePath.includes('/'));
+      
+      if (isFolderUpload) {
+        // Extract folder name from the first file's relative path
+        const folderName = firstFile.webkitRelativePath?.split('/')[0] || undefined;
+        
+        // Convert files to DroppedFile format with relative paths
+        const droppedFiles: DroppedFile[] = files.map((file) => {
+          const f = file as File & { webkitRelativePath?: string };
+          const relativePath = f.webkitRelativePath || '';
+          // relativePath is like "FolderName/SubFolder/file.jpg"
+          // We want to keep the full path structure including the folder name
+          const pathParts = relativePath.split('/');
+          // Remove the filename to get just the folder path
+          pathParts.pop();
+          const folderPath = pathParts.length > 0 ? `${pathParts.join('/')}/` : '';
+          
+          return {
+            file,
+            relativePath: folderPath,
+            fullPath: relativePath,
+          };
+        });
+        
+        await uploadFiles(files, droppedFiles, folderName);
+      } else {
+        await uploadFiles(files);
+      }
       event.target.value = "";
     },
     [uploadFiles]

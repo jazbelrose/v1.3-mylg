@@ -229,6 +229,55 @@
   background: rgba(248, 113, 113, 0.2);
 }
 
+/* Download quality dropdown */
+.quickLookDownloadWrapper {
+  position: relative;
+}
+
+.quickLookDownloadMenu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  min-width: 180px;
+  padding: 6px;
+  background: rgba(30, 30, 35, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  animation: quickLookDropdownIn 0.15s ease-out;
+}
+
+@keyframes quickLookDropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.quickLookDownloadItem {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.quickLookDownloadItem:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .quickLookFileName {
   font-size: 0.95rem;
   font-weight: 500;
