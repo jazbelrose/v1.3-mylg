@@ -1,0 +1,166 @@
+/* CommentPinPortal.css - Styles for zoom-independent comment pins */
+
+.comment-pin-portal {
+  cursor: pointer;
+  user-select: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.comment-pin-portal:hover,
+.comment-pin-portal.is-selected {
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+}
+
+.comment-pin-portal.is-dragging {
+  cursor: grabbing;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.6));
+  opacity: 0.9;
+}
+
+.comment-pin-portal:focus-visible {
+  outline: 2px solid rgba(250, 51, 86, 0.6);
+  outline-offset: 2px;
+}
+
+/* Pin head - constant 32px size */
+.comment-pin-portal__head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #facc15;
+  border: 2px solid rgba(0, 0, 0, 0.15);
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.comment-pin-portal.is-resolved .comment-pin-portal__head {
+  background: #86efac;
+}
+
+.comment-pin-portal.is-selected .comment-pin-portal__head {
+  background: var(--brand, #fa3356);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.comment-pin-portal__avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.comment-pin-portal__initial {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.7);
+  text-transform: uppercase;
+}
+
+.comment-pin-portal.is-selected .comment-pin-portal__initial {
+  color: #fff;
+}
+
+.comment-pin-portal__icon {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.comment-pin-portal__icon--resolved {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+/* Reply count badge */
+.comment-pin-portal__count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--brand, #fa3356);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid rgba(0, 0, 0, 0.2);
+}
+
+/* Pin stem */
+.comment-pin-portal__stem {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid #facc15;
+  transition: border-top-color 0.15s ease;
+}
+
+.comment-pin-portal.is-resolved .comment-pin-portal__stem {
+  border-top-color: #86efac;
+}
+
+.comment-pin-portal.is-selected .comment-pin-portal__stem {
+  border-top-color: var(--brand, #fa3356);
+}
+
+/* Hover preview tooltip */
+.comment-pin-portal__preview {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  padding: 10px 12px;
+  background: rgba(26, 26, 30, 0.98);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  z-index: 200;
+}
+
+.comment-pin-portal:hover .comment-pin-portal__preview {
+  opacity: 1;
+  visibility: visible;
+}
+
+.comment-pin-portal.is-selected .comment-pin-portal__preview,
+.comment-pin-portal.is-dragging .comment-pin-portal__preview {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.comment-pin-portal__preview-author {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.comment-pin-portal__preview-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.comment-pin-portal__preview-replies {
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}

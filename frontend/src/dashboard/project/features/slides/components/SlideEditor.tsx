@@ -24,7 +24,7 @@ import type { LayoutMode } from "../lib/pictureFrameLayoutGenerator";
 import type { LayoutVariant, TasteModeId } from "../lib/magicLayoutTypes";
 import { isLexicalContentEffectivelyEmpty } from "../lib/lexicalContent";
 import { useComments } from "../contexts/CommentsContext";
-import CommentsOverlay from "./CommentsOverlay";
+import CommentsPortalOverlay from "./CommentsPortalOverlay";
 import "./SlideEditor.css";
 
 interface SlideEditorProps {
@@ -122,6 +122,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   const [layoutPanelOpen, setLayoutPanelOpen] = useState(false);
   const [magicPanelOpen, setMagicPanelOpen] = useState(false);
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const canvasInnerRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const toolbarContainerRef = useRef<HTMLDivElement | null>(null);
   const [fitScale, setFitScale] = useState(1);
@@ -647,6 +648,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
                 }}
               >
                 <div
+                  ref={canvasInnerRef}
                   className="slide-editor__canvas-inner"
                   style={{
                     width: `${STAGE_WIDTH}px`,
@@ -679,24 +681,27 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
                     slidesMode={true}
                     scale={appliedScale}
                   />
-                  {/* Comments overlay - rendered on top of content */}
-                  {commentsEnabled && currentUserId && currentUserName && (
-                    <CommentsOverlay
-                      slideId={slide.id}
-                      canvasWidth={STAGE_WIDTH}
-                      canvasHeight={STAGE_HEIGHT}
-                      zoom={appliedScale}
-                      currentUserId={currentUserId}
-                      currentUserName={currentUserName}
-                      currentUserAvatar={currentUserAvatar}
-                      readOnly={editorMode === 'view'}
-                    />
-                  )}
                 </div>
               </div>
             </div>
             </div>
           </div>
+
+          {/* Comments portal overlay - rendered outside scaled DOM for constant size */}
+          {commentsEnabled && currentUserId && currentUserName && (
+            <CommentsPortalOverlay
+              slideId={slide.id}
+              canvasRef={canvasInnerRef}
+              viewportRef={viewportRef}
+              slideWidth={STAGE_WIDTH}
+              slideHeight={STAGE_HEIGHT}
+              zoom={appliedScale}
+              currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              currentUserAvatar={currentUserAvatar}
+              readOnly={editorMode === 'view'}
+            />
+          )}
 
           {/* Right-click Context Menu */}
           {toolbarActions && (

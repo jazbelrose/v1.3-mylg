@@ -1,0 +1,420 @@
+/* CommentThreadPortal.css - Styles for the portal-rendered comment thread */
+
+.comment-thread-portal {
+  width: 320px;
+  max-height: 480px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(26, 26, 30, 0.98);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: thread-portal-appear 0.2s ease-out;
+}
+
+@keyframes thread-portal-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.comment-thread-portal--resolved {
+  border-color: rgba(134, 239, 172, 0.3);
+}
+
+/* Arrow */
+.comment-thread-portal__arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+/* Header */
+.comment-thread-portal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.comment-thread-portal__slide-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.comment-thread-portal__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comment-thread-portal__resolve-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.comment-thread-portal__resolve-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.comment-thread-portal__resolve-btn.is-resolved {
+  background: rgba(134, 239, 172, 0.15);
+  border-color: rgba(134, 239, 172, 0.3);
+  color: #86efac;
+}
+
+.comment-thread-portal__close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.comment-thread-portal__close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* Body - scrollable thread content */
+.comment-thread-portal__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 320px;
+}
+
+/* Comment entry - reuse from CommentThread.css */
+.comment-thread-portal .comment-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.comment-thread-portal .comment-entry--root {
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.comment-thread-portal .comment-entry__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.comment-thread-portal .comment-entry__author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comment-thread-portal .comment-entry__avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.comment-thread-portal .comment-entry__avatar-placeholder {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.comment-thread-portal .comment-entry__name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.comment-thread-portal .comment-entry__time {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.comment-thread-portal .comment-entry__text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.5;
+  margin: 0;
+  word-break: break-word;
+}
+
+.comment-thread-portal .comment-entry__actions {
+  position: relative;
+}
+
+.comment-thread-portal .comment-entry__menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.comment-thread-portal .comment-entry__menu-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.comment-thread-portal .comment-entry__menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  min-width: 100px;
+  padding: 4px;
+  background: rgba(30, 30, 35, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+.comment-thread-portal .comment-entry__menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.comment-thread-portal .comment-entry__menu button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.comment-thread-portal .comment-entry__menu-delete {
+  color: #f87171 !important;
+}
+
+.comment-thread-portal .comment-entry__edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comment-thread-portal .comment-entry__edit textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.4;
+  resize: none;
+}
+
+.comment-thread-portal .comment-entry__edit textarea:focus {
+  outline: none;
+  border-color: rgba(250, 51, 86, 0.5);
+}
+
+.comment-thread-portal .comment-entry__edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.comment-thread-portal .comment-entry__edit-actions button {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.comment-thread-portal .comment-entry__edit-actions button:first-child {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.comment-thread-portal .comment-entry__save-btn {
+  background: var(--brand, #fa3356) !important;
+  border: none !important;
+  color: #fff !important;
+}
+
+/* Reply input box */
+.comment-thread-portal__reply-box {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+}
+
+.comment-thread-portal__reply-box textarea {
+  flex: 1;
+  min-height: 32px;
+  max-height: 100px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.4;
+  resize: none;
+  transition: border-color 0.15s ease;
+}
+
+.comment-thread-portal__reply-box textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.comment-thread-portal__reply-box textarea:focus {
+  outline: none;
+  border-color: rgba(250, 51, 86, 0.5);
+}
+
+.comment-thread-portal__send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--brand, #fa3356);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.comment-thread-portal__send-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.comment-thread-portal__send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Mention autocomplete - reuse styles */
+.comment-thread-portal .mention-autocomplete {
+  position: absolute;
+  bottom: 100%;
+  left: 16px;
+  right: 16px;
+  margin-bottom: 4px;
+  background: rgba(30, 30, 35, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  max-height: 160px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.comment-thread-portal .mention-autocomplete__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.comment-thread-portal .mention-autocomplete__item:hover,
+.comment-thread-portal .mention-autocomplete__item--active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.comment-thread-portal .mention-autocomplete__avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.comment-thread-portal .mention-autocomplete__avatar-placeholder {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.comment-thread-portal .mention-autocomplete__name {
+  font-weight: 500;
+}
+
+/* Mention highlight in text */
+.comment-thread-portal .comment-mention {
+  color: #60a5fa;
+  font-weight: 500;
+}
+
+.comment-thread-portal .comment-mention--matched {
+  background: rgba(96, 165, 250, 0.15);
+  padding: 1px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.comment-thread-portal .comment-mention--matched:hover {
+  background: rgba(96, 165, 250, 0.25);
+}
