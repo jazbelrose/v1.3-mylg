@@ -40,8 +40,9 @@
 }
 
 .title {
-  font-weight: 600;
-  font-size: 16px;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
 }
 
 .subtitle {
@@ -66,6 +67,57 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+.sectionHeader {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 10px;
+}
+
+.sectionDivider {
+  margin-top: 20px;
+}
+
+.selectedCard {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.selectedCardMain {
+  min-width: 0;
+  flex: 1;
+}
+
+.selectedMerchant {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.selectedMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.selectedAmount {
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .summary {
@@ -110,8 +162,7 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-top: 18px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .similarHeaderRight {
@@ -148,29 +199,29 @@
   font-size: 12px;
 }
 
-.addMore {
-  margin-bottom: 10px;
-  padding: 10px 12px;
+.findSimilar {
+  margin-bottom: 12px;
+  padding: 12px 14px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.10);
   background: rgba(255, 255, 255, 0.03);
 }
 
-.addMoreTitle {
+.findSimilarTitle {
   font-size: 12px;
-  opacity: 0.8;
-  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 10px;
   font-weight: 600;
 }
 
-.addMoreFields {
+.findSimilarFields {
   display: grid;
   grid-template-columns: 1.2fr 0.8fr 0.8fr 1fr 0.9fr auto;
   gap: 10px;
   align-items: center;
 }
 
-.addMoreField {
+.findSimilarField {
   height: 40px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -181,15 +232,15 @@
   font-size: 12px;
 }
 
-.addMoreField:focus {
+.findSimilarField:focus {
   border-color: rgba(250, 51, 86, 0.4);
   box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.14);
 }
 
-.addMoreButton {
+.searchButton {
   height: 40px;
   border-radius: 12px;
-  padding: 0 14px;
+  padding: 0 16px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -198,14 +249,35 @@
   color: inherit;
 }
 
-.addMoreButton:disabled {
+.searchButton:disabled {
   opacity: 0.6;
   cursor: default;
 }
 
 .emptyState {
-  opacity: 0.75;
-  padding: 10px 2px;
+  padding: 16px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  text-align: center;
+}
+
+.emptyStateText {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.emptyStateHint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 6px;
+}
+
+.applyHint {
+  flex: 0 0 100%;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: right;
 }
 
 .similarList {
@@ -250,20 +322,29 @@
   margin-top: 3px;
 }
 
+.matchReason {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 4px;
+  font-style: italic;
+}
+
 .similarAmt {
   font-weight: 500;
   white-space: nowrap;
 }
 
 @media (max-width: 899px) {
-  .addMoreFields {
+  .findSimilarFields {
     grid-template-columns: 1fr 1fr;
   }
 }
 
 .footer {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
   gap: 10px;
   padding: 18px 22px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);

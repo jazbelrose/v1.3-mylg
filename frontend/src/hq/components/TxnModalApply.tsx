@@ -43,6 +43,46 @@ function txnSearchHaystack(txn: HqTransaction) {
     .toLowerCase();
 }
 
+function formatDate(dateStr: string | undefined): string {
+  if (!dateStr) return "";
+  try {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+function getMatchReason(
+  source: HqTransaction,
+  match: HqTransaction
+): string | null {
+  const reasons: string[] = [];
+  // Check vendor match
+  if (source.vendorKey && match.vendorKey && source.vendorKey === match.vendorKey) {
+    reasons.push("Same vendor");
+  }
+  // Check amount match
+  if (source.amount === match.amount) {
+    reasons.push("same amount");
+  } else if (Math.abs(source.amount - match.amount) <= 1) {
+    reasons.push("similar amount");
+  }
+  // Check direction match
+  const sourceDir = source.amount < 0 ? "out" : "in";
+  const matchDir = match.amount < 0 ? "out" : "in";
+  if (sourceDir === matchDir && !reasons.includes("same amount") && !reasons.includes("similar amount")) {
+    reasons.push(`flow ${sourceDir}`);
+  }
+  if (reasons.length === 0) return null;
+  // Capitalize first reason
+  const first = reasons[0].charAt(0).toUpperCase() + reasons[0].slice(1);
+  return [first, ...reasons.slice(1)].join(" + ");
+}
+
 const PAYMENT_TYPE_OPTIONS: Array<{ value: HqPaymentType; label: string }> = [
   { value: "card_purchase", label: "Card purchase" },
   { value: "transfer", label: "Transfer" },
@@ -259,7 +299,17 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
   }, [categoryId, isRecurring, onRequestClose, onSaved, orgId, paymentType, selectedSimilar, similar, txn, ws]);
 
   const title = txn ? txnTitle(txn) : "Transaction";
-  const accountLabel = txn?.accountId ? txn.accountId : "Account";
+  const accountLabel = txn?.accountId
+    ? (accounts.find((a) => a.accountId === txn.accountId)?.name ??
+        accounts.find((a) => a.accountId === txn.accountId)?.accountName ??
+        txn.accountId)
+    : "Account";
+  const flowDirection = txn ? (txn.amount < 0 ? "Flow Out" : "Flow In") : "";
+  const selectedCount = Object.keys(selectedSimilar).length;
+  const applyButtonLabel =
+    selectedCount > 0
+      ? `Apply to 1 + ${selectedCount} selected`
+      : "Apply to 1 transaction";
 
   return (
     <Modal
@@ -274,7 +324,6 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
       >
         <div>
           <div className={styles.title}>Apply</div>
-          <div className={styles.subtitle}>{title}</div>
         </div>
         <button type="button" className={styles.closeButton} onClick={onRequestClose} aria-label="Close">
           ×
@@ -283,16 +332,28 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
 
       {txn ? (
         <div className={styles.body}>
-          <div className={styles.summary}>
-            <div className={styles.summaryRow}>
-              <span>{txn.postedAt}</span>
-              <span>·</span>
-              <span>{accountLabel}</span>
+          {/* Selected transaction summary card */}
+          <div className={styles.sectionHeader}>Selected transaction</div>
+          <div className={styles.selectedCard}>
+            <div className={styles.selectedCardMain}>
+              <div className={styles.selectedMerchant}>{title}</div>
+              <div className={styles.selectedMeta}>
+                <span>{formatDate(txn.postedAt)}</span>
+                <span>•</span>
+                <span>{accountLabel}</span>
+                <span>•</span>
+                <span>{flowDirection}</span>
+              </div>
             </div>
-            <div className={styles.amount}>
+            <div className={styles.selectedAmount}>
               {txn.amount < 0 ? "-" : "+"}
               {currency.format(Math.abs(txn.amount))}
             </div>
+          </div>
+
+          {/* Edits section */}
+          <div className={styles.sectionDivider}>
+            <div className={styles.sectionHeader}>Edits</div>
           </div>
 
           <div className={styles.controls}>
@@ -339,29 +400,32 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
             </div>
           </div>
 
-          <div className={styles.similarHeader}>
-            <div className={styles.similarTitle}>Similar</div>
-            <div className={styles.similarHeaderRight}>
-              {similar.length > 0 ? (
-                <div className={styles.selectActions}>
-                  <button type="button" className={styles.linkButton} onClick={handleSelectAll} disabled={isWorking}>
-                    Select all
-                  </button>
-                  <button type="button" className={styles.linkButton} onClick={handleSelectNone} disabled={isWorking}>
-                    Select none
-                  </button>
-                </div>
-              ) : null}
-              <div className={styles.similarMeta}>{similar.length} shown</div>
+          {/* Similar transactions section */}
+          <div className={styles.sectionDivider}>
+            <div className={styles.similarHeader}>
+              <div className={styles.sectionHeader} style={{ marginBottom: 0 }}>Similar transactions</div>
+              <div className={styles.similarHeaderRight}>
+                {similar.length > 0 ? (
+                  <div className={styles.selectActions}>
+                    <button type="button" className={styles.linkButton} onClick={handleSelectAll} disabled={isWorking}>
+                      Select all
+                    </button>
+                    <button type="button" className={styles.linkButton} onClick={handleSelectNone} disabled={isWorking}>
+                      Select none
+                    </button>
+                  </div>
+                ) : null}
+                <div className={styles.similarMeta}>{similar.length} shown</div>
+              </div>
             </div>
           </div>
 
           {showAddMore ? (
-            <div className={styles.addMore}>
-              <div className={styles.addMoreTitle}>Add more</div>
-              <div className={styles.addMoreFields}>
+            <div className={styles.findSimilar}>
+              <div className={styles.findSimilarTitle}>Find similar</div>
+              <div className={styles.findSimilarFields}>
                 <input
-                  className={styles.addMoreField}
+                  className={styles.findSimilarField}
                   type="search"
                   placeholder="Search vendor / memo"
                   value={addMoreSearch}
@@ -370,7 +434,7 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
                   disabled={isWorking}
                 />
                 <input
-                  className={styles.addMoreField}
+                  className={styles.findSimilarField}
                   type="date"
                   value={addMoreFrom}
                   onChange={(e) => setAddMoreFrom(e.target.value)}
@@ -378,7 +442,7 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
                   disabled={isWorking}
                 />
                 <input
-                  className={styles.addMoreField}
+                  className={styles.findSimilarField}
                   type="date"
                   value={addMoreTo}
                   onChange={(e) => setAddMoreTo(e.target.value)}
@@ -386,7 +450,7 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
                   disabled={isWorking}
                 />
                 <HqSelect
-                  className={styles.addMoreField}
+                  className={styles.findSimilarField}
                   value={addMoreAccountId}
                   onValueChange={setAddMoreAccountId}
                   ariaLabel="Filter candidates by account"
@@ -400,7 +464,7 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
                   ]}
                 />
                 <HqSelect
-                  className={styles.addMoreField}
+                  className={styles.findSimilarField}
                   value={addMoreType}
                   onValueChange={(v) => setAddMoreType(v as "all" | HqPaymentType)}
                   ariaLabel="Filter candidates by payment type"
@@ -410,20 +474,28 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
                     ...PAYMENT_TYPE_OPTIONS,
                   ]}
                 />
-                <button type="button" className={styles.addMoreButton} onClick={() => void handleAddMore()} disabled={isWorking || !txn}>
-                  Add
+                <button type="button" className={styles.searchButton} onClick={() => void handleAddMore()} disabled={isWorking || !txn}>
+                  Search
                 </button>
               </div>
             </div>
           ) : null}
 
           {similarUnavailable ? (
-            <div className={styles.emptyState}>Similar unavailable (no vendor key).</div>
+            <div className={styles.emptyState}>
+              <div className={styles.emptyStateText}>Similar transactions unavailable</div>
+              <div className={styles.emptyStateHint}>No vendor key found for matching. Use "Find similar" to search manually.</div>
+            </div>
           ) : similar.length === 0 ? (
-            <div className={styles.emptyState}>No similar transactions found.</div>
+            <div className={styles.emptyState}>
+              <div className={styles.emptyStateText}>No similar transactions found</div>
+              <div className={styles.emptyStateHint}>Try widening the date range or removing filters above.</div>
+            </div>
           ) : (
             <div className={styles.similarList} role="region" aria-label="Similar transactions">
-              {similar.map((t) => (
+              {similar.map((t) => {
+                const matchReason = txn ? getMatchReason(txn, t) : null;
+                return (
                 <div key={t.dedupeHash} className={styles.similarRow}>
                   <div className={styles.checkboxCell}>
                     <input
@@ -441,7 +513,7 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
                   <div className={styles.similarMain}>
                     <div className={styles.similarName}>{txnTitle(t)}</div>
                     <div className={styles.similarMetaRow}>
-                      <span>{t.postedAt}</span>
+                      <span>{formatDate(t.postedAt)}</span>
                       <span>·</span>
                       <span>{HQ_CATEGORY_LABEL[(t.categoryId || "OTHER") as HqCategoryId]}</span>
                       <span>·</span>
@@ -458,24 +530,32 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
                         </>
                       ) : null}
                     </div>
+                    {matchReason ? (
+                      <div className={styles.matchReason}>{matchReason}</div>
+                    ) : null}
                   </div>
                   <div className={styles.similarAmt}>
                     {t.amount < 0 ? "-" : "+"}
                     {currency.format(Math.abs(t.amount))}
                   </div>
                 </div>
-              ))}
+              );})}
             </div>
           )}
         </div>
       ) : null}
 
       <div className={styles.footer}>
+        {selectedCount > 0 ? (
+          <div className={styles.applyHint}>
+            These edits will update 1 + {selectedCount} transactions
+          </div>
+        ) : null}
         <button type="button" className={styles.secondaryButton} onClick={onRequestClose} disabled={isWorking}>
           Cancel
         </button>
         <button type="button" className={styles.primaryButton} onClick={() => void handleApply()} disabled={isWorking || !txn}>
-          Apply
+          {applyButtonLabel}
         </button>
       </div>
     </Modal>
