@@ -1,17 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Modal from "@/shared/ui/ModalWithStack";
+import SuggestionsPanel from "./SuggestionsPanel";
 import type { HQTxn } from "../types";
 import { createAllocation } from "../services/allocationsApi";
 import { fetchProjectsFromApi } from "@/shared/utils/api";
 import type { Project } from "@/shared/utils/api";
+import {
+  suggestBudgetLines,
+  type BudgetLineItem,
+  type SuggestionMatch,
+} from "../services/suggestionEngine";
 import styles from "./AttachTransactionModal.module.css";
-
-interface BudgetLineItem {
-  budgetItemId: string;
-  budgetId: string;
-  itemName: string;
-  budgetedAmount?: number;
-}
 
 interface AttachTransactionModalProps {
   isOpen: boolean;
@@ -99,6 +98,37 @@ const AttachTransactionModal: React.FC<AttachTransactionModalProps> = ({
       setAmount(transaction.amount);
     }
   }, [transaction, isOpen]);
+
+  // Generate suggestions based on all available budget items
+  const suggestions = useMemo(() => {
+    if (!transaction || budgetItems.length === 0) {
+      return [];
+    }
+
+    // Create a map of project IDs to names
+    const projectNamesMap = new Map(
+      projects.map((p) => [p.projectId, p.name || p.projectId])
+    );
+
+    // Convert budgetItems to the format expected by suggestionEngine
+    const allBudgetItems = budgetItems.map((item) => ({
+      ...item,
+      projectId: selectedProjectId || "",
+      vendorKeywords: [], // In production, load from item metadata
+    }));
+
+    return suggestBudgetLines(transaction, allBudgetItems, projectNamesMap);
+  }, [transaction, budgetItems, projects, selectedProjectId]);
+
+  const handleSelectSuggestion = (match: SuggestionMatch) => {
+    const item = match.budgetItem;
+    // Auto-fill the form with the suggested values
+    if (item.projectId) {
+      setSelectedProjectId(item.projectId);
+    }
+    setSelectedBudgetItemId(item.budgetItemId);
+    // Amount is already set to transaction amount
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,6 +219,14 @@ const AttachTransactionModal: React.FC<AttachTransactionModalProps> = ({
       </div>
 
       {error && <div className={styles.error}>{error}</div>}
+
+      {/* Smart Suggestions */}
+      {suggestions.length > 0 && (
+        <SuggestionsPanel
+          suggestions={suggestions}
+          onSelectSuggestion={handleSelectSuggestion}
+        />
+      )}
 
       <form onSubmit={handleSubmit} className={styles.form}>
         <div className={styles.formGroup}>
