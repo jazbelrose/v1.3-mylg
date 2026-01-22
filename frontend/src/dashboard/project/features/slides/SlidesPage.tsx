@@ -218,9 +218,13 @@ const SlidesPage: React.FC = () => {
     updateProjectFields,
     userId,
     userName,
+    user,
     isAdmin,
     isDesigner,
   } = useData();
+  
+  // Get user avatar (prefer thumbnailUrl, fallback to thumbnail)
+  const userAvatar = user?.thumbnailUrl || user?.thumbnail;
 
   const { ws } = useSocket();
 
@@ -2395,6 +2399,7 @@ const SlidesPage: React.FC = () => {
             activeSlideId={activeSlideId}
             userId={userId}
             userName={userName}
+            userAvatar={userAvatar}
             versionId={activeVersionId}
             teamMembers={teamMembers}
             onBroadcastComment={handleBroadcastComment}

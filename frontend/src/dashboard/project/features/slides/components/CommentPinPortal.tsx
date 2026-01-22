@@ -42,6 +42,8 @@ const CommentPinPortal: React.FC<CommentPinPortalProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const isDraggingRef = useRef(false);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
 
   const isResolved = comment.status === 'resolved';
   const threadCount = comment.thread.length;
@@ -51,10 +53,10 @@ const CommentPinPortal: React.FC<CommentPinPortalProps> = ({
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!isDragging) {
+    if (!isDraggingRef.current) {
       onClick(comment.id);
     }
-  }, [comment.id, onClick, isDragging]);
+  }, [comment.id, onClick]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -68,6 +70,7 @@ const CommentPinPortal: React.FC<CommentPinPortalProps> = ({
     e.stopPropagation();
     
     dragStartRef.current = { x: e.clientX, y: e.clientY };
+    dragOffsetRef.current = { x: 0, y: 0 };
     setDragOffset({ x: 0, y: 0 });
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
@@ -77,10 +80,12 @@ const CommentPinPortal: React.FC<CommentPinPortalProps> = ({
       const dy = moveEvent.clientY - dragStartRef.current.y;
       
       // Start dragging after small threshold
-      if (!isDragging && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+      if (!isDraggingRef.current && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+        isDraggingRef.current = true;
         setIsDragging(true);
       }
       
+      dragOffsetRef.current = { x: dx, y: dy };
       setDragOffset({ x: dx, y: dy });
     };
 
@@ -88,9 +93,9 @@ const CommentPinPortal: React.FC<CommentPinPortalProps> = ({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       
-      if (isDragging && onDragEnd) {
-        const newScreenX = screenX + dragOffset.x;
-        const newScreenY = screenY + dragOffset.y;
+      if (isDraggingRef.current && onDragEnd) {
+        const newScreenX = screenX + dragOffsetRef.current.x;
+        const newScreenY = screenY + dragOffsetRef.current.y;
         const newAnchorX = screenToSlide(newScreenX);
         const newAnchorY = screenToSlideY(newScreenY);
         
@@ -102,13 +107,15 @@ const CommentPinPortal: React.FC<CommentPinPortalProps> = ({
       }
       
       dragStartRef.current = null;
+      isDraggingRef.current = false;
+      dragOffsetRef.current = { x: 0, y: 0 };
       setIsDragging(false);
       setDragOffset({ x: 0, y: 0 });
     };
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-  }, [draggable, isDragging, screenX, screenY, dragOffset, onDragEnd, screenToSlide, screenToSlideY]);
+  }, [draggable, screenX, screenY, onDragEnd, screenToSlide, screenToSlideY]);
 
   const pinX = screenX + (isDragging ? dragOffset.x : 0);
   const pinY = screenY + (isDragging ? dragOffset.y : 0);
@@ -124,6 +131,7 @@ const CommentPinPortal: React.FC<CommentPinPortalProps> = ({
         transform: 'translate(-50%, -100%)',
         pointerEvents: 'auto',
         zIndex: isSelected || isDragging ? 101 : 100,
+        cursor: draggable ? (isDragging ? 'grabbing' : 'grab') : 'pointer',
       }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
