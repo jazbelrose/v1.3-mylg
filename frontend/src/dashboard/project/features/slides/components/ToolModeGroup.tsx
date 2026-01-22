@@ -5,7 +5,7 @@
  * Goes on the LEFT side of the toolbar with other creation tools.
  */
 import React, { useCallback, useEffect } from 'react';
-import { MousePointer2, MessageSquare } from 'lucide-react';
+import { MousePointer2, MessageCirclePlus } from 'lucide-react';
 import type { EditorTool } from '../lib/commentsTypes';
 import './ToolModeGroup.css';
 
@@ -84,10 +84,10 @@ const ToolModeGroup: React.FC<ToolModeGroupProps> = ({
         className={`tool-mode-group__btn${activeTool === 'comment' ? ' is-active' : ''}`}
         onClick={handleCommentClick}
         disabled={disabled}
-        title="Comment (C)"
-        aria-label="Comment tool"
+        title="Add comment (C)"
+        aria-label="Add comment tool"
       >
-        <MessageSquare size={16} />
+        <MessageCirclePlus size={16} />
       </button>
     </div>
   );

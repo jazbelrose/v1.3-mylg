@@ -1,0 +1,256 @@
+/* ProjectFilter - Searchable project filter dropdown */
+
+/* Trigger button */
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 36px;
+  padding: 0 10px;
+  background: rgba(24, 26, 29, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: var(--text-primary, #f6f7fb);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.trigger:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.trigger:focus-visible {
+  outline: none;
+  border-color: var(--focus, rgba(250, 51, 86, 0.65));
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.2);
+}
+
+.triggerSelected {
+  padding-left: 4px;
+  border-color: rgba(250, 51, 86, 0.35);
+  background: rgba(250, 51, 86, 0.08);
+}
+
+.triggerLabel {
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+  font-weight: 500;
+}
+
+.triggerValue {
+  color: var(--text-primary, #f6f7fb);
+  font-weight: 600;
+}
+
+.triggerAvatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.triggerAvatar :global(.project-avatar__media) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.triggerName {
+  color: var(--text-primary, #f6f7fb);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chevron {
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.clearBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin-left: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.clearBtn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* Popover content */
+.content {
+  width: 280px;
+  background: rgba(13, 14, 16, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+/* Search box */
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.searchIcon {
+  color: rgba(255, 255, 255, 0.45);
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary, #f6f7fb);
+  font-size: 0.8125rem;
+}
+
+.searchInput::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.searchClear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.searchClear:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Body */
+.body {
+  padding: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+/* Section */
+.section {
+  margin-bottom: 10px;
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.sectionLabel {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px 4px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.sectionIcon {
+  opacity: 0.75;
+}
+
+/* Option */
+.option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.option:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.optionSelected {
+  background: rgba(250, 51, 86, 0.12);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.optionSelected:hover {
+  background: rgba(250, 51, 86, 0.16);
+}
+
+.optionIcon {
+  color: rgba(255, 255, 255, 0.55);
+  flex-shrink: 0;
+}
+
+.optionLabel {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.optionProject {
+  padding: 6px 10px;
+}
+
+.optionAvatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.optionAvatar :global(.project-avatar__media) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Project list */
+.projectList {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.emptyState {
+  padding: 16px 10px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.8rem;
+}

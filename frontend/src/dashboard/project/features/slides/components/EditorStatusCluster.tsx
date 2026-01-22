@@ -2,18 +2,18 @@
  * EditorStatusCluster.tsx - Right-side status and collaboration controls
  * 
  * Contains:
- * - Comment pins visibility toggle (with pin icon, not eye)
+ * - Comment markers visibility toggle (bubble icon)
  * - Comments panel button (opens thread list/sidebar) with badge
  * - Lock/Edit state toggle
  */
 import React, { useCallback, useEffect } from 'react';
-import { MapPin, MapPinOff, MessageCircle, Lock, Unlock } from 'lucide-react';
+import { MessageCircle, MessageCircleOff, Lock, Unlock } from 'lucide-react';
 import './EditorStatusCluster.css';
 
 interface EditorStatusClusterProps {
-  /** Whether comment pins are visible on the canvas */
-  showPins: boolean;
-  onShowPinsChange: (show: boolean) => void;
+  /** Whether comment markers are visible on the canvas */
+  showComments: boolean;
+  onShowCommentsChange: (show: boolean) => void;
   
   /** Whether editing is allowed */
   canEdit: boolean;
@@ -45,8 +45,8 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 const EditorStatusCluster: React.FC<EditorStatusClusterProps> = ({
-  showPins,
-  onShowPinsChange,
+  showComments,
+  onShowCommentsChange,
   canEdit,
   onCanEditChange,
   openCommentCount = 0,
@@ -64,20 +64,20 @@ const EditorStatusCluster: React.FC<EditorStatusClusterProps> = ({
         onClosePopover?.();
       }
       
-      // P key toggles pins visibility (when not typing)
+      // P key toggles comment markers visibility (when not typing)
       if (!isEditableTarget(e.target) && e.key.toLowerCase() === 'p' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
-        onShowPinsChange(!showPins);
+        onShowCommentsChange(!showComments);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hasOpenPopover, onClosePopover, showPins, onShowPinsChange]);
+  }, [hasOpenPopover, onClosePopover, showComments, onShowCommentsChange]);
 
-  const handlePinsToggle = useCallback(() => {
-    onShowPinsChange(!showPins);
-  }, [showPins, onShowPinsChange]);
+  const handleCommentsToggle = useCallback(() => {
+    onShowCommentsChange(!showComments);
+  }, [showComments, onShowCommentsChange]);
 
   const handleLockToggle = useCallback(() => {
     onCanEditChange(!canEdit);
@@ -85,17 +85,17 @@ const EditorStatusCluster: React.FC<EditorStatusClusterProps> = ({
 
   return (
     <div className="editor-status-cluster">
-      {/* Pins visibility toggle */}
+      {/* Comment markers visibility toggle */}
       <button
         type="button"
-        className={`editor-status-cluster__btn${showPins ? ' is-active' : ''}`}
-        onClick={handlePinsToggle}
+        className={`editor-status-cluster__btn${showComments ? ' is-active' : ''}`}
+        onClick={handleCommentsToggle}
         disabled={disabled}
-        title={showPins ? 'Hide pins (P)' : 'Show pins (P)'}
-        aria-pressed={showPins}
-        aria-label={showPins ? 'Hide comment pins' : 'Show comment pins'}
+        title={showComments ? 'Hide comments' : 'Show comments'}
+        aria-pressed={showComments}
+        aria-label={showComments ? 'Hide comment markers' : 'Show comment markers'}
       >
-        {showPins ? <MapPin size={16} /> : <MapPinOff size={16} />}
+        {showComments ? <MessageCircle size={16} /> : <MessageCircleOff size={16} />}
       </button>
 
       {/* Comments panel button with badge */}

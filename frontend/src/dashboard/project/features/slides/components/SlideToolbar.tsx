@@ -1773,11 +1773,11 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
       </div>
 
       <div className="toolbar-right">
-        {/* Status cluster: Pins toggle, Comments panel, Lock state - RIGHT side */}
+        {/* Status cluster: Comments visibility, Comments panel, Lock state - RIGHT side */}
         {onCanEditChange && onShowCommentsChange && (
           <EditorStatusCluster
-            showPins={showComments}
-            onShowPinsChange={onShowCommentsChange}
+            showComments={showComments}
+            onShowCommentsChange={onShowCommentsChange}
             canEdit={canEdit}
             onCanEditChange={onCanEditChange}
             openCommentCount={openCommentCount}
