@@ -1217,6 +1217,157 @@ const getByBudgetItemId = async (_e, C, { budgetItemId }) => {
   return json(200, C, (r.Items && r.Items[0]) || null);
 };
 
+/* ---------- Transaction Allocations ---------- */
+const TXN_ALLOCATIONS_TABLE = process.env.TXN_ALLOCATIONS_TABLE || "TxnAllocations";
+
+// POST /allocations - Link transaction to budget line
+const createAllocation = async (e, C) => {
+  const { userId } = getUserFromEvent(e);
+  if (!userId) return json(401, C, { error: "Unauthorized" });
+
+  const data = B(e);
+  const { transactionId, projectId, budgetId, budgetItemId, allocatedAmount, notes } = data;
+
+  if (!transactionId || !projectId || !budgetItemId) {
+    return json(400, C, { error: "transactionId, projectId, and budgetItemId are required" });
+  }
+
+  if (!allocatedAmount || typeof allocatedAmount !== "number" || allocatedAmount <= 0) {
+    return json(400, C, { error: "allocatedAmount must be a positive number" });
+  }
+
+  const allocationId = uuidv4();
+  const ts = nowISO();
+
+  const item = {
+    allocationId,
+    transactionId,
+    projectId,
+    budgetId: budgetId || null,
+    budgetItemId,
+    allocatedAmount,
+    notes: notes || null,
+    createdBy: userId,
+    createdAt: ts,
+    updatedAt: ts,
+  };
+
+  await ddb.put({ TableName: TXN_ALLOCATIONS_TABLE, Item: item });
+  return json(201, C, item);
+};
+
+// POST /allocations/split - Split transaction across multiple line items
+const createAllocationSplit = async (e, C) => {
+  const { userId } = getUserFromEvent(e);
+  if (!userId) return json(401, C, { error: "Unauthorized" });
+
+  const data = B(e);
+  const { transactionId, allocations } = data;
+
+  if (!transactionId || !Array.isArray(allocations) || allocations.length === 0) {
+    return json(400, C, { error: "transactionId and allocations array are required" });
+  }
+
+  const ts = nowISO();
+  const createdAllocations = [];
+
+  for (const alloc of allocations) {
+    const { projectId, budgetId, budgetItemId, allocatedAmount, notes } = alloc;
+
+    if (!projectId || !budgetItemId || !allocatedAmount) {
+      return json(400, C, { error: "Each allocation must have projectId, budgetItemId, and allocatedAmount" });
+    }
+
+    if (typeof allocatedAmount !== "number" || allocatedAmount <= 0) {
+      return json(400, C, { error: "allocatedAmount must be a positive number" });
+    }
+
+    const allocationId = uuidv4();
+    const item = {
+      allocationId,
+      transactionId,
+      projectId,
+      budgetId: budgetId || null,
+      budgetItemId,
+      allocatedAmount,
+      notes: notes || null,
+      createdBy: userId,
+      createdAt: ts,
+      updatedAt: ts,
+    };
+
+    await ddb.put({ TableName: TXN_ALLOCATIONS_TABLE, Item: item });
+    createdAllocations.push(item);
+  }
+
+  return json(201, C, createdAllocations);
+};
+
+// PUT /allocations/{allocationId} - Edit allocation
+const updateAllocation = async (e, C, { allocationId }) => {
+  const { userId } = getUserFromEvent(e);
+  if (!userId) return json(401, C, { error: "Unauthorized" });
+
+  const data = B(e);
+  const { allocatedAmount, notes } = data;
+
+  if (!allocatedAmount || typeof allocatedAmount !== "number" || allocatedAmount <= 0) {
+    return json(400, C, { error: "allocatedAmount must be a positive number" });
+  }
+
+  const ts = nowISO();
+  const updateExpr = "SET allocatedAmount = :amt, notes = :notes, updatedAt = :ts";
+  const attrValues = {
+    ":amt": allocatedAmount,
+    ":notes": notes || null,
+    ":ts": ts,
+  };
+
+  await ddb.update({
+    TableName: TXN_ALLOCATIONS_TABLE,
+    Key: { allocationId },
+    UpdateExpression: updateExpr,
+    ExpressionAttributeValues: attrValues,
+  });
+
+  return json(200, C, { allocationId, allocatedAmount, notes, updatedAt: ts });
+};
+
+// DELETE /allocations/{allocationId} - Unlink allocation
+const deleteAllocation = async (e, C, { allocationId }) => {
+  const { userId } = getUserFromEvent(e);
+  if (!userId) return json(401, C, { error: "Unauthorized" });
+
+  await ddb.delete({
+    TableName: TXN_ALLOCATIONS_TABLE,
+    Key: { allocationId },
+  });
+
+  return json(200, C, { message: "Allocation deleted", allocationId });
+};
+
+// GET /allocations/project/{projectId} - Query allocations by project
+const getAllocationsByProject = async (_e, C, { projectId }) => {
+  const r = await ddb.query({
+    TableName: TXN_ALLOCATIONS_TABLE,
+    IndexName: "projectId-index",
+    KeyConditionExpression: "projectId = :pid",
+    ExpressionAttributeValues: { ":pid": projectId },
+  });
+  return json(200, C, r.Items || []);
+};
+
+// GET /allocations/transaction/{transactionId} - Query allocations by transaction
+const getAllocationsByTransaction = async (_e, C, { transactionId }) => {
+  const r = await ddb.query({
+    TableName: TXN_ALLOCATIONS_TABLE,
+    IndexName: "transactionId-index",
+    KeyConditionExpression: "transactionId = :tid",
+    ExpressionAttributeValues: { ":tid": transactionId },
+  });
+  return json(200, C, r.Items || []);
+};
+
 /* ============== Routes ============== */
 const routes = [
   { m: "GET",    r: /^\/projects\/health$/i,                                                    h: health },
@@ -1284,6 +1435,14 @@ const routes = [
   // Optional convenience lookups (not under /projects)
   { m: "GET",    r: /^\/budgets\/byBudgetId\/(?<budgetId>[^/]+)$/i,                             h: listByBudgetId },
   { m: "GET",    r: /^\/budgets\/byItemId\/(?<budgetItemId>[^/]+)$/i,                           h: getByBudgetItemId },
+
+  // Transaction Allocations
+  { m: "POST",   r: /^\/allocations$/i,                                                          h: createAllocation },
+  { m: "POST",   r: /^\/allocations\/split$/i,                                                   h: createAllocationSplit },
+  { m: "PUT",    r: /^\/allocations\/(?<allocationId>[^/]+)$/i,                                  h: updateAllocation },
+  { m: "DELETE", r: /^\/allocations\/(?<allocationId>[^/]+)$/i,                                  h: deleteAllocation },
+  { m: "GET",    r: /^\/allocations\/project\/(?<projectId>[^/]+)$/i,                            h: getAllocationsByProject },
+  { m: "GET",    r: /^\/allocations\/transaction\/(?<transactionId>[^/]+)$/i,                    h: getAllocationsByTransaction },
 ];
 
 /* ============== Entrypoint ============== */

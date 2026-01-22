@@ -69,6 +69,10 @@ provider:
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:BUDGETS_TABLE}
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:BUDGETS_TABLE}/index/*
 
+            # Transaction Allocations (+ GSIs for transactionId and projectId)
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:TXN_ALLOCATIONS_TABLE}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:TXN_ALLOCATIONS_TABLE}/index/*
+
             # Galleries (+ projectId GSI)
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:GALLERIES_TABLE}
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:GALLERIES_TABLE}/index/*

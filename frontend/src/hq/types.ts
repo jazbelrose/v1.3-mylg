@@ -23,6 +23,10 @@ export type HQTxn = {
   tags?: string[];
   note?: string;
   receiptUrl?: string;
+  // Allocation info
+  allocations?: TxnAllocation[];
+  totalAllocated?: number;
+  isFullyAllocated?: boolean;
 };
 
 export type HQAlert = {
@@ -30,3 +34,37 @@ export type HQAlert = {
   message: string;
   severity: "info" | "warning" | "critical";
 };
+
+export type TxnAllocation = {
+  allocationId: string;
+  transactionId: string;
+  projectId: string;
+  budgetId?: string | null;
+  budgetItemId: string;
+  allocatedAmount: number;
+  notes?: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AllocationRequest = {
+  transactionId: string;
+  projectId: string;
+  budgetId?: string;
+  budgetItemId: string;
+  allocatedAmount: number;
+  notes?: string;
+};
+
+export type AllocationSplitRequest = {
+  transactionId: string;
+  allocations: Array<{
+    projectId: string;
+    budgetId?: string;
+    budgetItemId: string;
+    allocatedAmount: number;
+    notes?: string;
+  }>;
+};
+
