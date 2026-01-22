@@ -40,6 +40,48 @@ import HqCategoryPicker from "@/hq/components/HqCategoryPicker";
 import AllocationModal from "@/hq/components/AllocationModal";
 import { getTransactionAllocatedTotal } from "@/hq/lib/hqStore";
 
+// Allocation state for display consistency
+type AllocationState = "UNALLOCATED" | "PARTIAL" | "FULL" | "OVER";
+
+function getAllocationState(txn: HqTransaction): {
+  state: AllocationState;
+  allocatedTotal: number;
+  txnAmount: number;
+  remaining: number;
+  overBy: number;
+} {
+  const allocatedTotal = getTransactionAllocatedTotal(txn);
+  const txnAmount = Math.abs(txn.amount);
+  const remaining = Math.max(0, txnAmount - allocatedTotal);
+  const overBy = Math.max(0, allocatedTotal - txnAmount);
+
+  let state: AllocationState = "UNALLOCATED";
+  if (allocatedTotal <= 0) {
+    state = "UNALLOCATED";
+  } else if (allocatedTotal >= txnAmount + 0.01) {
+    state = "OVER";
+  } else if (allocatedTotal >= txnAmount - 0.01) {
+    state = "FULL";
+  } else {
+    state = "PARTIAL";
+  }
+
+  return { state, allocatedTotal, txnAmount, remaining, overBy };
+}
+
+// Get unique project names from allocations (up to 2 + count)
+function getAllocationProjectChips(txn: HqTransaction): { names: string[]; moreCount: number } {
+  const allocations = txn.allocations || [];
+  if (allocations.length === 0) return { names: [], moreCount: 0 };
+
+  // Get unique project IDs and their names (we'll show projectId as fallback)
+  const projectIds = [...new Set(allocations.map((a) => a.projectId))];
+  const names = projectIds.slice(0, 2);
+  const moreCount = Math.max(0, projectIds.length - 2);
+
+  return { names, moreCount };
+}
+
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -1352,46 +1394,74 @@ const TransactionsPage: React.FC = () => {
                         {txn.direction === "out" || txn.amount < 0 ? (
                           <div className={styles.allocationCell}>
                             {(() => {
-                              const allocatedTotal = getTransactionAllocatedTotal(txn);
-                              const hasAllocations = allocatedTotal > 0;
-                              const txnAmount = Math.abs(txn.amount);
-                              const isFullyAllocated = allocatedTotal >= txnAmount - 0.01;
+                              const { state, allocatedTotal, txnAmount, remaining, overBy } =
+                                getAllocationState(txn);
+                              const hasAllocations = state !== "UNALLOCATED";
+                              const { names: projectIds, moreCount } =
+                                getAllocationProjectChips(txn);
+
+                              // Build tooltip text
+                              let tooltipText = "Link to budget";
+                              if (state === "FULL") {
+                                tooltipText = "Fully allocated";
+                              } else if (state === "OVER") {
+                                tooltipText = `Over-allocated by ${currency.format(overBy)}`;
+                              } else if (state === "PARTIAL") {
+                                tooltipText = `${currency.format(allocatedTotal)} / ${currency.format(txnAmount)} allocated`;
+                              }
 
                               return (
-                                <button
-                                  type="button"
-                                  className={[
-                                    styles.allocationChip,
-                                    hasAllocations
-                                      ? isFullyAllocated
+                                <>
+                                  {/* Link/Manage button */}
+                                  <button
+                                    type="button"
+                                    className={[
+                                      styles.allocationChip,
+                                      state === "FULL"
                                         ? styles.allocationFull
-                                        : styles.allocationPartial
-                                      : styles.allocationEmpty,
-                                  ]
-                                    .filter(Boolean)
-                                    .join(" ")}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (!canAdmin) return;
-                                    setAllocationTxn(txn);
-                                    setIsAllocationOpen(true);
-                                  }}
-                                  disabled={!canAdmin}
-                                  title={
-                                    hasAllocations
-                                      ? `Allocated: ${currency.format(allocatedTotal)}`
-                                      : "Link to budget"
-                                  }
-                                >
-                                  <Link2 size={12} />
-                                  {hasAllocations ? (
-                                    <span className={styles.allocationAmount}>
-                                      {currency.format(allocatedTotal)}
-                                    </span>
-                                  ) : (
-                                    <span className={styles.allocationLabel}>Link</span>
+                                        : state === "PARTIAL"
+                                          ? styles.allocationPartial
+                                          : state === "OVER"
+                                            ? styles.allocationOver
+                                            : styles.allocationEmpty,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" ")}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!canAdmin) return;
+                                      setAllocationTxn(txn);
+                                      setIsAllocationOpen(true);
+                                    }}
+                                    disabled={!canAdmin}
+                                    title={tooltipText}
+                                  >
+                                    <Link2 size={12} />
+                                    {hasAllocations ? (
+                                      <span className={styles.allocationAmount}>
+                                        {currency.format(allocatedTotal)}
+                                      </span>
+                                    ) : (
+                                      <span className={styles.allocationLabel}>Link</span>
+                                    )}
+                                  </button>
+
+                                  {/* Project chips - show when allocated */}
+                                  {hasAllocations && projectIds.length > 0 && (
+                                    <div className={styles.projectChips}>
+                                      {projectIds.map((pid, i) => (
+                                        <span key={pid + i} className={styles.projectChip}>
+                                          {pid.slice(0, 8)}
+                                        </span>
+                                      ))}
+                                      {moreCount > 0 && (
+                                        <span className={styles.projectChipMore}>
+                                          +{moreCount}
+                                        </span>
+                                      )}
+                                    </div>
                                   )}
-                                </button>
+                                </>
                               );
                             })()}
                           </div>

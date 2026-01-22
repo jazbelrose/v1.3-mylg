@@ -8,6 +8,7 @@ import {
   createSlideComment,
   createCommentEntry,
   DEFAULT_FILTER_OPTIONS,
+  type MentionableUser,
 } from '../lib/commentsTypes';
 import {
   fetchDeckVersionComments,
@@ -68,6 +69,9 @@ interface CommentsContextValue {
   totalCount: number;
   openCount: number;
   resolvedCount: number;
+
+  /** Team members for @mentions */
+  teamMembers: MentionableUser[];
 }
 
 const CommentsContext = createContext<CommentsContextValue | null>(null);
@@ -81,6 +85,8 @@ interface CommentsProviderProps {
   userAvatar?: string;
   /** Active deck version ID for persistence */
   versionId: string | undefined;
+  /** Team members for @mentions */
+  teamMembers?: MentionableUser[];
   /** Initial comments loaded from backend */
   initialComments?: SlideComment[];
   /** Callback when comments change (for persistence) */
@@ -97,6 +103,7 @@ export const CommentsProvider: React.FC<CommentsProviderProps> = ({
   userName,
   userAvatar,
   versionId,
+  teamMembers = [],
   initialComments = [],
   onCommentsChange,
   onBroadcastComment,
@@ -520,6 +527,7 @@ export const CommentsProvider: React.FC<CommentsProviderProps> = ({
       totalCount,
       openCount,
       resolvedCount,
+      teamMembers,
     }),
     [
       mode,
@@ -542,6 +550,7 @@ export const CommentsProvider: React.FC<CommentsProviderProps> = ({
       totalCount,
       openCount,
       resolvedCount,
+      teamMembers,
     ]
   );
 

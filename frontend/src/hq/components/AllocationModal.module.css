@@ -1,27 +1,27 @@
 .modal {
   position: relative;
-  max-width: 560px;
-  width: 95vw;
+  width: min(560px, 95vw);
   max-height: 85vh;
-  background: linear-gradient(160deg, rgba(12, 12, 12, 0.98), rgba(18, 18, 18, 0.95));
-  border-radius: 20px;
+  background: rgba(13, 14, 16, 0.95);
+  border-radius: 28px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
   outline: none;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  color: var(--text-primary, #f6f7fb);
 }
 
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(5, 6, 7, 0.72);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
+  z-index: 15000;
+  backdrop-filter: blur(6px);
 }
 
 .container {
@@ -41,22 +41,22 @@
 }
 
 .title {
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--text-primary, #f6f7fb);
   margin: 0;
 }
 
 .closeButton {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   border: none;
   background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary, rgba(246, 247, 251, 0.8));
   font-size: 20px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.2s ease, color 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -64,29 +64,29 @@
 
 .closeButton:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary, #f6f7fb);
 }
 
 .body {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 24px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
 .txnSummary {
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 16px 20px;
+  background: rgba(24, 26, 29, 0.9);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .txnVendor {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--text-primary, #f6f7fb);
   margin-bottom: 8px;
 }
 
@@ -98,14 +98,14 @@
 }
 
 .txnDate {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85rem;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
 }
 
 .txnAmount {
-  font-size: 15px;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: rgba(250, 51, 86, 0.95);
+  color: var(--brand, #fa3356);
   font-variant-numeric: tabular-nums;
 }
 
@@ -113,27 +113,37 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  color: var(--text-secondary, rgba(246, 247, 251, 0.8));
 }
 
 .separator {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+}
+
+.overWarning {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.fullyAllocated {
+  color: #2dd4bf;
+  font-weight: 500;
 }
 
 .sectionTitle {
-  font-size: 13px;
+  font-size: 0.85rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
   margin: 0 0 12px 0;
 }
 
 .existingAllocations {
-  padding: 16px;
+  padding: 16px 20px;
   background: rgba(45, 212, 191, 0.08);
-  border-radius: 12px;
+  border-radius: 14px;
   border: 1px solid rgba(45, 212, 191, 0.15);
 }
 
@@ -147,46 +157,52 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
+  padding: 12px 14px;
   background: rgba(255, 255, 255, 0.04);
-  border-radius: 8px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  transition: background 0.2s ease;
+}
+
+.allocationItem:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .allocationInfo {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .allocationProject {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+  color: var(--text-primary, #f6f7fb);
 }
 
 .allocationAmount {
-  font-size: 13px;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: rgba(45, 212, 191, 0.95);
+  color: #2dd4bf;
   font-variant-numeric: tabular-nums;
 }
 
 .removeButton {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   border: none;
-  background: rgba(250, 51, 86, 0.15);
-  color: rgba(250, 51, 86, 0.9);
+  background: rgba(250, 51, 86, 0.12);
+  color: var(--brand, #fa3356);
   font-size: 18px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .removeButton:hover:not(:disabled) {
-  background: rgba(250, 51, 86, 0.25);
+  background: rgba(250, 51, 86, 0.2);
 }
 
 .removeButton:disabled {
@@ -197,36 +213,36 @@
 .newAllocation {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .label {
-  font-size: 13px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary, #f6f7fb);
 }
 
 .select {
   width: 100%;
-  padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 14px;
+  padding: 14px 16px;
+  background: rgba(24, 26, 29, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  color: var(--text-primary, #f6f7fb);
+  font-size: 1rem;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 36px;
+  background-position: right 16px center;
+  padding-right: 40px;
 }
 
 .select:hover:not(:disabled) {
@@ -235,8 +251,8 @@
 
 .select:focus {
   outline: none;
-  border-color: rgba(250, 51, 86, 0.5);
-  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.15);
+  border-color: var(--focus, rgba(250, 51, 86, 0.65));
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.2);
 }
 
 .select:disabled {
@@ -246,23 +262,23 @@
 
 .searchInput {
   width: 100%;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 14px;
-  transition: all 0.15s ease;
+  padding: 14px 16px;
+  background: rgba(24, 26, 29, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  color: var(--text-primary, #f6f7fb);
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .searchInput:focus {
   outline: none;
-  border-color: rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--focus, rgba(250, 51, 86, 0.65));
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.2);
 }
 
 .searchInput::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
 }
 
 .budgetLinesList {
@@ -271,18 +287,18 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 4px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 8px;
+  background: rgba(24, 26, 29, 0.9);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .loading,
 .empty {
   padding: 24px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 14px;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+  font-size: 0.9rem;
 }
 
 .budgetLineItem {
@@ -292,9 +308,9 @@
   padding: 12px 14px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.2s ease, border-color 0.2s ease;
   text-align: left;
   width: 100%;
 }
@@ -311,28 +327,28 @@
 .budgetLineInfo {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   flex: 1;
   min-width: 0;
 }
 
 .budgetLineDescription {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+  color: var(--text-primary, #f6f7fb);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .budgetLineCategory {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
 }
 
 .budgetLineCost {
-  font-size: 13px;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary, rgba(246, 247, 251, 0.8));
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
   margin-left: 12px;
@@ -342,24 +358,30 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  padding: 12px 16px;
+  background: rgba(24, 26, 29, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.amountInputWrapper:focus-within {
+  border-color: var(--focus, rgba(250, 51, 86, 0.65));
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.2);
 }
 
 .currencySymbol {
-  font-size: 16px;
+  font-size: 1.125rem;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
 }
 
 .amountInput {
   flex: 1;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.95);
-  font-size: 18px;
+  color: var(--text-primary, #f6f7fb);
+  font-size: 1.25rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   min-width: 0;
@@ -381,22 +403,22 @@
 }
 
 .maxButton {
-  padding: 6px 12px;
+  padding: 8px 14px;
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: var(--text-secondary, rgba(246, 247, 251, 0.8));
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .maxButton:hover {
   background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary, #f6f7fb);
 }
 
 .footer {
@@ -404,26 +426,26 @@
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  padding: 16px 24px;
+  padding: 20px 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
 }
 
 .cancelButton {
-  padding: 10px 20px;
+  padding: 12px 20px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: var(--text-secondary, rgba(246, 247, 251, 0.8));
+  font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .cancelButton:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary, #f6f7fb);
 }
 
 .cancelButton:disabled {
@@ -432,19 +454,19 @@
 }
 
 .saveButton {
-  padding: 10px 24px;
-  background: linear-gradient(135deg, rgba(250, 51, 86, 0.9), rgba(250, 51, 86, 0.8));
+  padding: 12px 24px;
+  background: var(--brand, #fa3356);
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   color: white;
-  font-size: 14px;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.2s ease, transform 0.15s ease;
 }
 
 .saveButton:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(250, 51, 86, 1), rgba(250, 51, 86, 0.9));
+  background: rgba(250, 51, 86, 0.9);
   transform: translateY(-1px);
 }
 
@@ -461,22 +483,22 @@
   gap: 4px;
   max-height: 180px;
   overflow-y: auto;
-  padding: 4px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 8px;
+  background: rgba(24, 26, 29, 0.9);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .projectItem {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.2s ease, border-color 0.2s ease;
   text-align: left;
   width: 100%;
 }
@@ -491,22 +513,22 @@
 }
 
 .projectAvatar {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
 }
 
 .projectName {
   flex: 1;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+  color: var(--text-primary, #f6f7fb);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .projectChevron {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
   flex-shrink: 0;
 }
 
@@ -520,17 +542,17 @@
 .revisionItem {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(24, 26, 29, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .revisionItem:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.2);
 }
 
@@ -540,35 +562,35 @@
 }
 
 .revisionNumber {
-  font-size: 13px;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary, #f6f7fb);
 }
 
 .revisionName {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
 }
 
 .revisionCheck {
-  color: rgba(250, 51, 86, 0.9);
+  color: var(--brand, #fa3356);
 }
 
 .revisionBadge {
-  font-size: 10px;
+  font-size: 0.65rem;
   font-weight: 600;
   text-transform: uppercase;
-  padding: 2px 6px;
+  padding: 3px 8px;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  color: rgba(255, 255, 255, 0.6);
+  border-radius: 6px;
+  color: var(--text-secondary, rgba(246, 247, 251, 0.8));
 }
 
 /* Pending allocations */
 .pendingAllocations {
-  padding: 16px;
+  padding: 16px 20px;
   background: rgba(251, 191, 36, 0.08);
-  border-radius: 12px;
+  border-radius: 14px;
   border: 1px solid rgba(251, 191, 36, 0.15);
 }
 
@@ -579,13 +601,13 @@
 }
 
 .miniAvatar {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 .allocationLineDesc {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
 }
 
 /* Amount row with Add button */
@@ -599,27 +621,27 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .addButton {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 12px 20px;
-  background: rgba(45, 212, 191, 0.15);
+  gap: 8px;
+  padding: 14px 24px;
+  background: rgba(45, 212, 191, 0.12);
   border: 1px solid rgba(45, 212, 191, 0.3);
-  border-radius: 10px;
-  color: rgba(45, 212, 191, 0.95);
-  font-size: 14px;
+  border-radius: 12px;
+  color: #2dd4bf;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.2s ease, border-color 0.2s ease;
   flex-shrink: 0;
 }
 
 .addButton:hover:not(:disabled) {
-  background: rgba(45, 212, 191, 0.25);
+  background: rgba(45, 212, 191, 0.2);
   border-color: rgba(45, 212, 191, 0.4);
 }
 
@@ -630,14 +652,14 @@
 
 /* Tags for already-allocated items */
 .pendingTag {
-  font-size: 11px;
-  color: rgba(251, 191, 36, 0.9);
+  font-size: 0.7rem;
+  color: #fbbf24;
   font-style: italic;
 }
 
 .allocatedTag {
-  font-size: 11px;
-  color: rgba(45, 212, 191, 0.9);
+  font-size: 0.7rem;
+  color: #2dd4bf;
   font-style: italic;
 }
 
@@ -648,4 +670,65 @@
 
 .budgetLineItem.disabled:hover {
   background: transparent;
+}
+
+/* Marked for removal state */
+.markedForRemoval {
+  opacity: 0.5;
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.removalBadge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  background: rgba(239, 68, 68, 0.15);
+  border-radius: 6px;
+  color: #ef4444;
+}
+
+.undoButton {
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: var(--text-secondary, rgba(246, 247, 251, 0.8));
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.undoButton:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary, #f6f7fb);
+}
+
+.undoButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Close button (when no changes) */
+.closeButtonSecondary {
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: var(--text-secondary, rgba(246, 247, 251, 0.8));
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.closeButtonSecondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary, #f6f7fb);
+}
+
+.closeButtonSecondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

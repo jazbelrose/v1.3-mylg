@@ -631,7 +631,9 @@
   display: flex;
   justify-content: flex-start;
   align-items: center;
+  gap: 6px;
   min-width: 80px;
+  flex-wrap: wrap;
 }
 
 .allocationChip {
@@ -684,6 +686,51 @@
 .allocationFull:hover:not(:disabled) {
   background: rgba(45, 212, 191, 0.18);
   border-color: rgba(45, 212, 191, 0.4);
+}
+
+.allocationOver {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: rgba(239, 68, 68, 0.9);
+}
+
+.allocationOver:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Project chips next to allocation button */
+.projectChips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.projectChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projectChipMore {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .allocationAmount {

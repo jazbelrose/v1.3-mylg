@@ -9,6 +9,7 @@ import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
 import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import type { QuickLinksRef } from "@/dashboard/project/components/Shared/QuickLinksComponent";
 import { useFilesNavigation } from "@/dashboard/project/components/Shared/hooks/useFilesNavigation";
+import { useTeamMembers } from "@/dashboard/project/components/Shared/projectHeaderState/useTeamMembers";
 import SlidesSidebar from "./components/SlidesSidebar";
 import SlideEditor from "./components/SlideEditor";
 import SlidesEmptyToolbar from "./components/SlidesEmptyToolbar";
@@ -219,6 +220,9 @@ const SlidesPage: React.FC = () => {
   } = useData();
 
   const { ws } = useSocket();
+
+  // Team members for @mentions in comments
+  const teamMembers = useTeamMembers(activeProject ?? null);
 
   // Deck versions management
   const {
@@ -2329,6 +2333,7 @@ const SlidesPage: React.FC = () => {
             userId={userId}
             userName={userName}
             versionId={activeVersionId}
+            teamMembers={teamMembers}
             onBroadcastComment={handleBroadcastComment}
           >
           <div className="slides-workspace">

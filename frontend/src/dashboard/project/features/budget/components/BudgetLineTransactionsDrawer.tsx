@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { X, ExternalLink, AlertCircle } from "lucide-react";
 import { useOrg } from "@/app/contexts/useOrg";
 import {
@@ -80,7 +81,7 @@ const BudgetLineTransactionsDrawer: React.FC<BudgetLineTransactionsDrawerProps> 
 
   if (!isOpen) return null;
 
-  return (
+  const drawerContent = (
     <div
       className={styles.overlay}
       onClick={onClose}
@@ -185,6 +186,9 @@ const BudgetLineTransactionsDrawer: React.FC<BudgetLineTransactionsDrawerProps> 
       </div>
     </div>
   );
+
+  // Render in portal to escape stacking contexts and appear above all content
+  return createPortal(drawerContent, document.body);
 };
 
 export default BudgetLineTransactionsDrawer;

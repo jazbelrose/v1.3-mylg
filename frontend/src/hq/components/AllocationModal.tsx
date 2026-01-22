@@ -109,6 +109,7 @@ const AllocationModal: React.FC<Props> = ({
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [pendingAllocations, setPendingAllocations] = useState<PendingAllocation[]>([]);
+  const [pendingRemovals, setPendingRemovals] = useState<string[]>([]); // budgetItemIds to remove
 
   // Filter projects by search
   const filteredProjects = useMemo(() => {
@@ -120,11 +121,18 @@ const AllocationModal: React.FC<Props> = ({
   // Computed values
   const txnAmount = useMemo(() => Math.abs(txn?.amount || 0), [txn]);
   const existingAllocations = useMemo(() => txn?.allocations || [], [txn]);
+  
+  // Allocations still active (existing minus pending removals)
+  const activeExistingAllocations = useMemo(
+    () => existingAllocations.filter((a) => !pendingRemovals.includes(a.budgetItemId)),
+    [existingAllocations, pendingRemovals]
+  );
+
   const allocatedTotal = useMemo(() => {
-    const existingSum = existingAllocations.reduce((sum, a) => sum + (a.amount || 0), 0);
+    const existingSum = activeExistingAllocations.reduce((sum, a) => sum + (a.amount || 0), 0);
     const pendingSum = pendingAllocations.reduce((sum, a) => sum + a.amount, 0);
     return existingSum + pendingSum;
-  }, [existingAllocations, pendingAllocations]);
+  }, [activeExistingAllocations, pendingAllocations]);
   const unallocatedAmount = useMemo(
     () => Math.max(0, txnAmount - allocatedTotal),
     [txnAmount, allocatedTotal]
@@ -284,8 +292,38 @@ const AllocationModal: React.FC<Props> = ({
       setProjectSearchQuery("");
       setSearchQuery("");
       setPendingAllocations([]);
+      setPendingRemovals([]);
     }
   }, [isOpen, txn]);
+
+  // Computed: modal title based on state
+  const modalTitle = useMemo(() => {
+    if (existingAllocations.length > 0 || pendingAllocations.length > 0) {
+      return "Manage Allocations";
+    }
+    return "Link to Budget";
+  }, [existingAllocations.length, pendingAllocations.length]);
+
+  // Computed: has changes to save
+  const hasChanges = pendingAllocations.length > 0 || pendingRemovals.length > 0;
+
+  // Computed: save button text
+  const saveButtonText = useMemo(() => {
+    if (isSaving) return "Saving...";
+    if (!hasChanges) return "Close";
+    const adds = pendingAllocations.length;
+    const removes = pendingRemovals.length;
+    if (adds > 0 && removes > 0) {
+      return `Save Changes (+${adds}, -${removes})`;
+    }
+    if (adds > 0) {
+      return `Save ${adds} Allocation${adds !== 1 ? "s" : ""}`;
+    }
+    if (removes > 0) {
+      return `Remove ${removes} Allocation${removes !== 1 ? "s" : ""}`;
+    }
+    return "Save";
+  }, [isSaving, hasChanges, pendingAllocations.length, pendingRemovals.length]);
 
   // Filter budget items by search
   const filteredBudgetItems = useMemo(() => {
@@ -357,23 +395,34 @@ const AllocationModal: React.FC<Props> = ({
   }, []);
 
   const handleSaveAll = useCallback(async () => {
-    if (!txn || pendingAllocations.length === 0) {
-      toast.error("No allocations to save");
+    if (!txn) return;
+
+    // If no changes, just close
+    if (!hasChanges) {
+      onRequestClose();
       return;
     }
 
     setIsSaving(true);
 
     try {
+      // Process removals first
+      for (const budgetItemId of pendingRemovals) {
+        const existing = existingAllocations.find((a) => a.budgetItemId === budgetItemId);
+        if (existing) {
+          removeTransactionAllocation(orgId, txn.dedupeHash, budgetItemId);
+          await removeHqTransactionAllocation(orgId, txn.dedupeHash, budgetItemId);
+        }
+      }
+
+      // Process additions
       for (const alloc of pendingAllocations) {
-        // Optimistic update
         addTransactionAllocation(orgId, txn.dedupeHash, {
           budgetItemId: alloc.budgetItemId,
           projectId: alloc.projectId,
           amount: alloc.amount,
         });
 
-        // API call
         await addHqTransactionAllocation(orgId, txn.dedupeHash, {
           budgetItemId: alloc.budgetItemId,
           projectId: alloc.projectId,
@@ -386,52 +435,30 @@ const AllocationModal: React.FC<Props> = ({
         sendHqUpdated(ws, orgId, "transaction", txn.dedupeHash);
       }
 
-      toast.success(`Saved ${pendingAllocations.length} allocation(s)`);
+      const changes = [];
+      if (pendingAllocations.length > 0) changes.push(`added ${pendingAllocations.length}`);
+      if (pendingRemovals.length > 0) changes.push(`removed ${pendingRemovals.length}`);
+      toast.success(`Allocations updated (${changes.join(", ")})`);
       onSaved?.();
       onRequestClose();
     } catch (err) {
       console.error("Failed to save allocations", err);
       toast.error("Failed to save allocations");
-      // Rollback all optimistic updates
-      for (const alloc of pendingAllocations) {
-        removeTransactionAllocation(orgId, txn.dedupeHash, alloc.budgetItemId);
-      }
+      // Note: partial rollback is complex; user can retry
     } finally {
       setIsSaving(false);
     }
-  }, [txn, pendingAllocations, orgId, ws, onSaved, onRequestClose]);
+  }, [txn, hasChanges, pendingRemovals, pendingAllocations, existingAllocations, orgId, ws, onSaved, onRequestClose]);
 
-  const handleRemoveExisting = useCallback(
-    async (allocation: HqTransactionAllocation) => {
-      if (!txn) return;
+  // Queue an existing allocation for removal (don't delete immediately)
+  const handleQueueRemoval = useCallback((allocation: HqTransactionAllocation) => {
+    setPendingRemovals((prev) => [...prev, allocation.budgetItemId]);
+  }, []);
 
-      setIsSaving(true);
-
-      try {
-        // Optimistic update
-        removeTransactionAllocation(orgId, txn.dedupeHash, allocation.budgetItemId);
-
-        // API call
-        await removeHqTransactionAllocation(orgId, txn.dedupeHash, allocation.budgetItemId);
-
-        // Notify via WebSocket
-        if (ws) {
-          sendHqUpdated(ws, orgId, "transaction", txn.dedupeHash);
-        }
-
-        toast.success("Allocation removed");
-        onSaved?.();
-      } catch (err) {
-        console.error("Failed to remove allocation", err);
-        toast.error("Failed to remove allocation");
-        // Rollback optimistic update
-        addTransactionAllocation(orgId, txn.dedupeHash, allocation);
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [txn, orgId, ws, onSaved]
-  );
+  // Undo a pending removal
+  const handleUndoRemoval = useCallback((budgetItemId: string) => {
+    setPendingRemovals((prev) => prev.filter((id) => id !== budgetItemId));
+  }, []);
 
   // Set default amount when budget line selected
   useEffect(() => {
@@ -452,7 +479,7 @@ const AllocationModal: React.FC<Props> = ({
     >
       <div className={styles.container}>
         <header className={styles.header}>
-          <h2 className={styles.title}>Link to Budget</h2>
+          <h2 className={styles.title}>{modalTitle}</h2>
           <button
             type="button"
             className={styles.closeButton}
@@ -476,19 +503,31 @@ const AllocationModal: React.FC<Props> = ({
             <div className={styles.allocationStatus}>
               <span>Allocated: {currency.format(allocatedTotal)}</span>
               <span className={styles.separator}>•</span>
-              <span>Remaining: {currency.format(unallocatedAmount)}</span>
+              {allocatedTotal > txnAmount + 0.01 ? (
+                <span className={styles.overWarning}>
+                  Over by {currency.format(allocatedTotal - txnAmount)}
+                </span>
+              ) : allocatedTotal >= txnAmount - 0.01 ? (
+                <span className={styles.fullyAllocated}>Fully allocated</span>
+              ) : (
+                <span>Remaining: {currency.format(unallocatedAmount)}</span>
+              )}
             </div>
           </div>
 
           {/* Existing allocations */}
           {existingAllocations.length > 0 && (
             <div className={styles.existingAllocations}>
-              <h3 className={styles.sectionTitle}>Saved Allocations</h3>
+              <h3 className={styles.sectionTitle}>Allocations</h3>
               <div className={styles.allocationsList}>
                 {existingAllocations.map((alloc) => {
                   const proj = projects.find((p) => p.projectId === alloc.projectId);
+                  const isMarkedForRemoval = pendingRemovals.includes(alloc.budgetItemId);
                   return (
-                    <div key={alloc.budgetItemId} className={styles.allocationItem}>
+                    <div
+                      key={alloc.budgetItemId}
+                      className={`${styles.allocationItem} ${isMarkedForRemoval ? styles.markedForRemoval : ""}`}
+                    >
                       <div className={styles.allocationInfo}>
                         <div className={styles.allocationProjectRow}>
                           <ProjectAvatar
@@ -500,20 +539,38 @@ const AllocationModal: React.FC<Props> = ({
                           <span className={styles.allocationProject}>
                             {proj?.name || alloc.projectId}
                           </span>
+                          {isMarkedForRemoval && (
+                            <span className={styles.removalBadge}>Will be removed</span>
+                          )}
                         </div>
+                        <span className={styles.allocationLineDesc}>
+                          {alloc.budgetItemId.replace("LINE-", "").slice(0, 20)}...
+                        </span>
                         <span className={styles.allocationAmount}>
                           {currency.format(alloc.amount)}
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        className={styles.removeButton}
-                        onClick={() => handleRemoveExisting(alloc)}
-                        disabled={isSaving}
-                        aria-label="Remove allocation"
-                      >
-                        <X size={14} />
-                      </button>
+                      {isMarkedForRemoval ? (
+                        <button
+                          type="button"
+                          className={styles.undoButton}
+                          onClick={() => handleUndoRemoval(alloc.budgetItemId)}
+                          disabled={isSaving}
+                          aria-label="Undo removal"
+                        >
+                          Undo
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.removeButton}
+                          onClick={() => handleQueueRemoval(alloc)}
+                          disabled={isSaving}
+                          aria-label="Remove allocation"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -756,13 +813,11 @@ const AllocationModal: React.FC<Props> = ({
           </button>
           <button
             type="button"
-            className={styles.saveButton}
+            className={hasChanges ? styles.saveButton : styles.closeButtonSecondary}
             onClick={handleSaveAll}
-            disabled={isSaving || pendingAllocations.length === 0}
+            disabled={isSaving}
           >
-            {isSaving
-              ? "Saving..."
-              : `Save ${pendingAllocations.length} Allocation${pendingAllocations.length !== 1 ? "s" : ""}`}
+            {saveButtonText}
           </button>
         </footer>
       </div>

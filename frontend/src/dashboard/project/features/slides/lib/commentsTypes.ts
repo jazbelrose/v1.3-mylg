@@ -162,6 +162,80 @@ export function extractMentions(text: string): string[] {
   return Array.from(matches, (m) => m[1]);
 }
 
+/** TeamMember type for mention lookups */
+export interface MentionableUser {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  thumbnail?: string | null;
+}
+
+/**
+ * Parse text and identify @mention segments
+ * Returns an array of segments, each marked as mention or plain text
+ */
+export interface TextSegment {
+  type: 'text' | 'mention';
+  content: string;
+  /** For mentions: the username without @ */
+  username?: string;
+  /** For mentions: matched user info if found */
+  user?: MentionableUser;
+}
+
+export function parseTextWithMentions(
+  text: string,
+  users: MentionableUser[]
+): TextSegment[] {
+  const mentionRegex = /@(\w+)/g;
+  const segments: TextSegment[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  // Build a lookup map: lowercase firstName, lastName, and full name
+  const userMap = new Map<string, MentionableUser>();
+  for (const user of users) {
+    const firstName = user.firstName?.toLowerCase() || '';
+    const lastName = user.lastName?.toLowerCase() || '';
+    const fullName = `${firstName}${lastName}`.replace(/\s+/g, '');
+    if (firstName) userMap.set(firstName, user);
+    if (lastName) userMap.set(lastName, user);
+    if (fullName) userMap.set(fullName, user);
+  }
+
+  while ((match = mentionRegex.exec(text)) !== null) {
+    // Add text before the mention
+    if (match.index > lastIndex) {
+      segments.push({
+        type: 'text',
+        content: text.slice(lastIndex, match.index),
+      });
+    }
+
+    const username = match[1];
+    const user = userMap.get(username.toLowerCase());
+
+    segments.push({
+      type: 'mention',
+      content: match[0], // includes @
+      username,
+      user,
+    });
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text after last mention
+  if (lastIndex < text.length) {
+    segments.push({
+      type: 'text',
+      content: text.slice(lastIndex),
+    });
+  }
+
+  return segments;
+}
+
 /**
  * Convert percentage anchor to pixel position
  */

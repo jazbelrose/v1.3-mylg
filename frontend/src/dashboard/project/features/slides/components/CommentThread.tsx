@@ -1,10 +1,11 @@
 /**
  * CommentThread.tsx - Popover for viewing and editing a comment thread
  */
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { X, Send, Check, MoreVertical, Trash2, Edit2 } from 'lucide-react';
 import { useComments } from '../contexts/CommentsContext';
 import type { SlideComment, CommentEntry } from '../lib/commentsTypes';
+import { parseTextWithMentions } from '../lib/commentsTypes';
 import './CommentThread.css';
 
 interface CommentThreadProps {
@@ -25,7 +26,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
   // Reserved for future use in displaying current user's pending replies
   void _userName; void _userAvatar;
 
-  const { addReply, updateComment, deleteComment, resolveComment, reopenComment, deleteReply } = useComments();
+  const { addReply, updateComment, deleteComment, resolveComment, reopenComment, deleteReply, teamMembers } = useComments();
   const [replyText, setReplyText] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
@@ -33,7 +34,23 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
 
+  // Mention autocomplete state
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+
   const isResolved = comment.status === 'resolved';
+
+  // Filter team members for mention autocomplete
+  const mentionSuggestions = useMemo(() => {
+    if (mentionQuery === null) return [];
+    const query = mentionQuery.toLowerCase();
+    return teamMembers.filter((m) => {
+      const firstName = m.firstName?.toLowerCase() || '';
+      const lastName = m.lastName?.toLowerCase() || '';
+      return firstName.startsWith(query) || lastName.startsWith(query) ||
+        `${firstName} ${lastName}`.includes(query);
+    }).slice(0, 5); // Limit to 5 suggestions
+  }, [mentionQuery, teamMembers]);
 
   // Auto-focus reply input
   useEffect(() => {
@@ -55,7 +72,9 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (editingId) {
+        if (mentionQuery !== null) {
+          setMentionQuery(null);
+        } else if (editingId) {
           setEditingId(null);
           setEditText('');
         } else if (menuOpen) {
@@ -67,16 +86,78 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [onClose, editingId, menuOpen]);
+  }, [onClose, editingId, menuOpen, mentionQuery]);
 
   const handleSendReply = useCallback(() => {
     if (!replyText.trim()) return;
     addReply(comment.id, replyText.trim());
     setReplyText('');
+    setMentionQuery(null);
     inputRef.current?.focus();
   }, [replyText, comment.id, addReply]);
 
+  // Detect @mention trigger and track query
+  const handleReplyChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setReplyText(value);
+
+    // Check for @mention at cursor position
+    const cursorPos = e.target.selectionStart ?? value.length;
+    const textBeforeCursor = value.slice(0, cursorPos);
+    const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
+
+    if (mentionMatch) {
+      setMentionQuery(mentionMatch[1]);
+      setMentionIndex(0);
+    } else {
+      setMentionQuery(null);
+    }
+  }, []);
+
+  // Insert mention into text
+  const insertMention = useCallback((user: typeof teamMembers[0]) => {
+    if (mentionQuery === null) return;
+
+    const cursorPos = inputRef.current?.selectionStart ?? replyText.length;
+    const textBeforeCursor = replyText.slice(0, cursorPos);
+    const textAfterCursor = replyText.slice(cursorPos);
+
+    // Replace @query with @firstName
+    const mentionText = `@${user.firstName} `;
+    const newText = textBeforeCursor.replace(/@\w*$/, mentionText) + textAfterCursor;
+    setReplyText(newText);
+    setMentionQuery(null);
+
+    // Focus and set cursor after mention
+    setTimeout(() => {
+      if (inputRef.current) {
+        const newPos = newText.length - textAfterCursor.length;
+        inputRef.current.focus();
+        inputRef.current.setSelectionRange(newPos, newPos);
+      }
+    }, 0);
+  }, [mentionQuery, replyText]);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Handle mention autocomplete navigation
+    if (mentionQuery !== null && mentionSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIndex((i) => Math.min(i + 1, mentionSuggestions.length - 1));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        insertMention(mentionSuggestions[mentionIndex]);
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendReply();
@@ -128,6 +209,31 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
     if (days < 7) return `${days}d ago`;
     return date.toLocaleDateString();
   };
+
+  // Render text with @mentions highlighted
+  const renderTextWithMentions = useCallback((text: string) => {
+    const segments = parseTextWithMentions(text, teamMembers);
+    return segments.map((segment, i) => {
+      if (segment.type === 'mention') {
+        const displayName = segment.user
+          ? `@${segment.user.firstName}${segment.user.lastName ? ' ' + segment.user.lastName : ''}`
+          : segment.content;
+        const title = segment.user
+          ? `${segment.user.firstName} ${segment.user.lastName}`.trim()
+          : segment.username;
+        return (
+          <span
+            key={i}
+            className={`comment-mention${segment.user ? ' comment-mention--matched' : ''}`}
+            title={title}
+          >
+            {displayName}
+          </span>
+        );
+      }
+      return <React.Fragment key={i}>{segment.content}</React.Fragment>;
+    });
+  }, [teamMembers]);
 
   const renderEntry = (entry: CommentEntry, index: number) => {
     const isOwner = entry.authorId === currentUserId;
@@ -192,7 +298,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
             </div>
           </div>
         ) : (
-          <p className="comment-entry__text">{entry.text}</p>
+          <p className="comment-entry__text">{renderTextWithMentions(entry.text)}</p>
         )}
       </div>
     );
@@ -224,11 +330,35 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
 
       {/* Reply input */}
       <div className="comment-thread__reply-box">
+        {/* Mention autocomplete dropdown */}
+        {mentionQuery !== null && mentionSuggestions.length > 0 && (
+          <div className="mention-autocomplete">
+            {mentionSuggestions.map((user, i) => (
+              <button
+                key={user.userId}
+                className={`mention-autocomplete__item ${i === mentionIndex ? 'mention-autocomplete__item--active' : ''}`}
+                onClick={() => insertMention(user)}
+                onMouseEnter={() => setMentionIndex(i)}
+              >
+                {user.thumbnail ? (
+                  <img src={user.thumbnail} alt="" className="mention-autocomplete__avatar" />
+                ) : (
+                  <span className="mention-autocomplete__avatar-placeholder">
+                    {user.firstName?.charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <span className="mention-autocomplete__name">
+                  {user.firstName} {user.lastName}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
         <textarea
           ref={inputRef}
-          placeholder="Reply..."
+          placeholder="Reply... (use @ to mention)"
           value={replyText}
-          onChange={(e) => setReplyText(e.target.value)}
+          onChange={handleReplyChange}
           onKeyDown={handleKeyDown}
           rows={1}
         />
