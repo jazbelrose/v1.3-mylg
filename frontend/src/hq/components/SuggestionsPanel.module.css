@@ -1,0 +1,179 @@
+.panel {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.title {
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  background: rgba(74, 144, 226, 0.2);
+  color: rgba(74, 144, 226, 0.95);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0 8px;
+}
+
+.subtitle {
+  margin: 0 0 1rem 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.loading,
+.empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.9rem;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.suggestionCard {
+  background: rgba(14, 14, 14, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 1rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.suggestionCard:hover {
+  background: rgba(14, 14, 14, 0.8);
+  border-color: rgba(74, 144, 226, 0.4);
+  transform: translateX(4px);
+}
+
+.suggestionHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(74, 144, 226, 0.15);
+  color: rgba(74, 144, 226, 0.95);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.confidence {
+  flex: 1;
+  position: relative;
+}
+
+.confidenceBar {
+  height: 6px;
+  background: linear-gradient(
+    90deg,
+    rgba(74, 144, 226, 0.6),
+    rgba(74, 144, 226, 0.9)
+  );
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.confidenceText {
+  position: absolute;
+  top: -20px;
+  right: 0;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+}
+
+.suggestionBody {
+  margin-bottom: 0.75rem;
+}
+
+.itemName {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 0.25rem;
+}
+
+.projectName {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.25rem;
+}
+
+.budgetAmount {
+  font-size: 0.85rem;
+  color: rgba(132, 255, 191, 0.85);
+  font-weight: 500;
+}
+
+.suggestionFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.reason {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}
+
+.actionHint {
+  font-size: 0.8rem;
+  color: rgba(74, 144, 226, 0.8);
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.suggestionCard:hover .actionHint {
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .panel {
+    padding: 1rem;
+  }
+
+  .suggestionCard:hover {
+    transform: none;
+  }
+
+  .actionHint {
+    opacity: 1;
+  }
+}

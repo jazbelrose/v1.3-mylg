@@ -40,6 +40,9 @@ env:
   BUDGET_ID_INDEX: budgetId-index
   BUDGET_ITEM_ID_INDEX: budgetItemId-index
 
+  # ---- Transaction Allocations
+  TXN_ALLOCATIONS_TABLE: TxnAllocations
+
   # ---- Galleries / uploads
   GALLERIES_TABLE: Galleries
   GALLERIES_PROJECT_GSI: projectId-index

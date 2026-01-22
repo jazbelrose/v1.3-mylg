@@ -1,0 +1,274 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  font-family: var(--font-family-helvetica-special, "Helvetica Special", sans-serif);
+}
+
+.progressBanner {
+  background: rgba(74, 144, 226, 0.15);
+  border: 1px solid rgba(74, 144, 226, 0.3);
+  border-radius: 14px;
+  padding: 1.5rem;
+}
+
+.progressInfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.progressTitle {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.progressStats {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.progressPercent {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: rgba(74, 144, 226, 0.95);
+}
+
+.progressBar {
+  height: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, rgba(74, 144, 226, 0.8), rgba(74, 144, 226, 1));
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.filterButton {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 12px;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filterButton:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.filterButton.active {
+  background: rgba(74, 144, 226, 0.2);
+  border-color: rgba(74, 144, 226, 0.4);
+  color: rgba(74, 144, 226, 0.95);
+  font-weight: 600;
+}
+
+.loading,
+.emptyState {
+  padding: 3rem 2rem;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.emptyState h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.emptyState p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.transactionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.transactionCard {
+  background: rgba(14, 14, 14, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 1.25rem;
+  transition: all 0.2s ease;
+}
+
+.transactionCard:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(14, 14, 14, 0.9);
+}
+
+.transactionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.transactionInfo {
+  flex: 1;
+}
+
+.transactionName {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.transactionMeta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.transactionAmount {
+  font-size: 1.3rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.amountDebit {
+  color: rgba(250, 51, 86, 0.95);
+}
+
+.amountCredit {
+  color: rgba(132, 255, 191, 0.95);
+}
+
+.allocations {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.allocationsTitle {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.allocation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.allocation:last-child {
+  border-bottom: none;
+}
+
+.allocationProject {
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+}
+
+.allocationAmount {
+  color: rgba(74, 144, 226, 0.95);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.allocationRemaining {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(250, 200, 100, 0.9);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.actionButton,
+.actionButtonSecondary {
+  flex: 1;
+  min-width: 150px;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.actionButton {
+  background: rgba(74, 144, 226, 0.2);
+  color: rgba(74, 144, 226, 0.95);
+  border: 1px solid rgba(74, 144, 226, 0.4);
+}
+
+.actionButton:hover {
+  background: rgba(74, 144, 226, 0.3);
+  transform: translateY(-1px);
+}
+
+.actionButtonSecondary {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.actionButtonSecondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+@media (max-width: 768px) {
+  .progressInfo {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .transactionHeader {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .actionButton,
+  .actionButtonSecondary {
+    min-width: 100%;
+  }
+}

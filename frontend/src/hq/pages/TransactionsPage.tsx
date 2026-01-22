@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import HQLayout from "../components/HQLayout";
+import AttachTransactionModal from "../components/AttachTransactionModal";
 import type { HQTxn } from "../types";
 import styles from "./TransactionsPage.module.css";
 
@@ -60,16 +61,27 @@ const MOCK_TXNS: HQTxn[] = [
 const TransactionsPage: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState("");
+  const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
+  const [attachModalOpen, setAttachModalOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<HQTxn | null>(null);
 
   const filteredTxns = useMemo(() => {
-    if (!searchTerm) return MOCK_TXNS;
+    let txns = MOCK_TXNS;
+    
+    // Filter by unassigned if checkbox is checked
+    if (showUnassignedOnly) {
+      txns = txns.filter((txn) => !txn.isFullyAllocated);
+    }
+    
+    // Filter by search term
+    if (!searchTerm) return txns;
     const term = searchTerm.toLowerCase();
-    return MOCK_TXNS.filter((txn) =>
+    return txns.filter((txn) =>
       [txn.name, txn.merchant, ...(txn.tags ?? []), ...(txn.category ?? [])]
         .filter(Boolean)
         .some((field) => field?.toLowerCase().includes(term))
     );
-  }, [searchTerm]);
+  }, [searchTerm, showUnassignedOnly]);
 
   const toggleSelection = (id: string) => {
     setSelectedIds((prev) => {
@@ -99,6 +111,20 @@ const TransactionsPage: React.FC = () => {
 
   const selectionCount = selectedIds.size;
 
+  const handleAttachClick = (txn: HQTxn) => {
+    setSelectedTransaction(txn);
+    setAttachModalOpen(true);
+  };
+
+  const handleAttachSuccess = () => {
+    // Refresh transactions data
+    // In a real implementation, this would refetch from the API
+    // For now, we'll just log success
+    console.log("Transaction attached successfully");
+    // TODO: Implement actual data refresh when backend API is available
+    // Example: await refetchTransactions();
+  };
+
   return (
     <HQLayout
       title="Transactions"
@@ -123,6 +149,14 @@ const TransactionsPage: React.FC = () => {
             <option>Facilities</option>
             <option>Income</option>
           </select>
+          <label className={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={showUnassignedOnly}
+              onChange={(e) => setShowUnassignedOnly(e.target.checked)}
+            />
+            <span>Unassigned only</span>
+          </label>
         </div>
 
         {selectionCount > 0 ? (
@@ -162,6 +196,7 @@ const TransactionsPage: React.FC = () => {
                   <th scope="col">Category</th>
                   <th scope="col">Tags</th>
                   <th scope="col">Amount</th>
+                  <th scope="col">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -195,6 +230,15 @@ const TransactionsPage: React.FC = () => {
                       {txn.isDebit ? "-" : "+"}
                       {currency.format(txn.amount)}
                     </td>
+                    <td>
+                      <button
+                        type="button"
+                        className={styles.attachButton}
+                        onClick={() => handleAttachClick(txn)}
+                      >
+                        Attach
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -202,6 +246,13 @@ const TransactionsPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      <AttachTransactionModal
+        isOpen={attachModalOpen}
+        onClose={() => setAttachModalOpen(false)}
+        transaction={selectedTransaction}
+        onSuccess={handleAttachSuccess}
+      />
     </HQLayout>
   );
 };
