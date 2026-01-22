@@ -12,6 +12,32 @@
   align-items: center;
 }
 
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.checkboxLabel:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.checkboxLabel input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.checkboxLabel span {
+  user-select: none;
+}
+
 .filterField {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -109,6 +135,24 @@
   background: rgba(14, 14, 14, 0.68);
   text-align: center;
   color: rgba(255, 255, 255, 0.72);
+}
+
+.attachButton {
+  background: rgba(74, 144, 226, 0.2);
+  border: 1px solid rgba(74, 144, 226, 0.4);
+  color: #4a90e2;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.attachButton:hover,
+.attachButton:focus-visible {
+  background: rgba(74, 144, 226, 0.3);
+  transform: translateY(-1px);
 }
 
 @media (max-width: 768px) {
