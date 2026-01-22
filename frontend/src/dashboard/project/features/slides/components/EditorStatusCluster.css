@@ -1,0 +1,104 @@
+/* EditorStatusCluster.css - Right-side status controls styling */
+
+.editor-status-cluster {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.editor-status-cluster__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  position: relative;
+}
+
+.editor-status-cluster__btn:hover:not(:disabled) {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.editor-status-cluster__btn.is-active {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.editor-status-cluster__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.editor-status-cluster__btn:focus-visible {
+  outline: 2px solid rgba(250, 51, 86, 0.5);
+  outline-offset: 1px;
+}
+
+/* Badge for comment count */
+.editor-status-cluster__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--brand, #fa3356);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Divider */
+.editor-status-cluster__divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 0 4px;
+}
+
+/* Lock button special styling */
+.editor-status-cluster__btn--lock {
+  padding: 0 10px;
+}
+
+.editor-status-cluster__btn--lock.is-locked {
+  color: #facc15;
+  background: rgba(250, 204, 21, 0.1);
+  border-color: rgba(250, 204, 21, 0.25);
+}
+
+.editor-status-cluster__btn--lock.is-locked:hover {
+  background: rgba(250, 204, 21, 0.15);
+}
+
+/* Label */
+.editor-status-cluster__label {
+  white-space: nowrap;
+}
+
+/* Responsive: hide labels on smaller screens */
+@media (max-width: 1200px) {
+  .editor-status-cluster__label {
+    display: none;
+  }
+  
+  .editor-status-cluster__btn--lock {
+    padding: 0 8px;
+  }
+}

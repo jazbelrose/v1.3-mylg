@@ -1,0 +1,44 @@
+/* ToolModeGroup.css - Compact tool selector styling */
+
+.tool-mode-group {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.tool-mode-group__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.tool-mode-group__btn:hover:not(:disabled) {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tool-mode-group__btn.is-active {
+  color: #fff;
+  background: var(--brand, #fa3356);
+}
+
+.tool-mode-group__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tool-mode-group__btn:focus-visible {
+  outline: 2px solid rgba(250, 51, 86, 0.5);
+  outline-offset: 1px;
+}

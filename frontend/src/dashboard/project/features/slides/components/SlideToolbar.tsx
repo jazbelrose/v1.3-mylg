@@ -64,7 +64,8 @@ import {
   type LetterSpacing,
   type TextBlockType,
 } from "@/dashboard/project/features/editor/components/Brief/plugins/toolbarShared";
-import EditorToolbar from "./EditorToolbar";
+import EditorStatusCluster from "./EditorStatusCluster";
+import ToolModeGroup from "./ToolModeGroup";
 import type { EditorTool } from "../lib/commentsTypes";
 import "./SlideToolbar.css";
 
@@ -317,7 +318,7 @@ interface SlideToolbarProps {
   openCommentCount?: number;
   hasOpenPopover?: boolean;
   onClosePopover?: () => void;
-  onClearSelection?: () => void;
+  onOpenCommentsPanel?: () => void;
 }
 
 const SlideToolbar: React.FC<SlideToolbarProps> = ({
@@ -392,7 +393,7 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   openCommentCount = 0,
   hasOpenPopover = false,
   onClosePopover,
-  onClearSelection,
+  onOpenCommentsPanel,
 }) => {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -1753,6 +1754,17 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
             document.body
           )}
 
+        {/* Tool mode group: Select | Comment - LEFT side with creation tools */}
+        {onToolChange && (
+          <>
+            <Divider />
+            <ToolModeGroup
+              activeTool={activeTool}
+              onToolChange={onToolChange}
+            />
+          </>
+        )}
+
         <Divider />
       </div>
 
@@ -1761,18 +1773,17 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
       </div>
 
       <div className="toolbar-right">
-        {onToolChange && onCanEditChange && onShowCommentsChange && (
-          <EditorToolbar
-            activeTool={activeTool}
-            onToolChange={onToolChange}
+        {/* Status cluster: Pins toggle, Comments panel, Lock state - RIGHT side */}
+        {onCanEditChange && onShowCommentsChange && (
+          <EditorStatusCluster
+            showPins={showComments}
+            onShowPinsChange={onShowCommentsChange}
             canEdit={canEdit}
             onCanEditChange={onCanEditChange}
-            showComments={showComments}
-            onShowCommentsChange={onShowCommentsChange}
             openCommentCount={openCommentCount}
+            onOpenCommentsPanel={onOpenCommentsPanel}
             hasOpenPopover={hasOpenPopover}
             onClosePopover={onClosePopover}
-            onClearSelection={onClearSelection}
           />
         )}
         {versionDropdown}
