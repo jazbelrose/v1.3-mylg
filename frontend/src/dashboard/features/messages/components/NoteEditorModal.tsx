@@ -21,6 +21,7 @@ import { $getRoot, FORMAT_TEXT_COMMAND, REDO_COMMAND, SELECT_ALL_COMMAND, UNDO_C
 import Modal from "@/shared/ui/ModalWithStack";
 import Spinner from "@/shared/ui/Spinner";
 import { apiFetch, fileUrlsToKeys, projectFilePutUrl, projectFileViewUrl } from "@/shared/utils/api";
+import { orgFileViewUrl, orgFilePutUrl } from "@/hq/lib/hqApi";
 
 import styles from "./NoteEditorModal.module.css";
 
@@ -169,6 +170,8 @@ export type NoteEditorModalProps = {
   mode: Mode;
   projectId: string;
   canEdit: boolean;
+  /** Set to true for org-scoped files (uses HQ API instead of projects API) */
+  isOrgFile?: boolean;
   openFile?: OpenFile;
   editContent?: EditContent;
   onRequestClose: () => void;
@@ -182,6 +185,7 @@ export default function NoteEditorModal({
   mode,
   projectId,
   canEdit,
+  isOrgFile,
   openFile,
   editContent,
   onRequestClose,
@@ -311,7 +315,11 @@ export default function NoteEditorModal({
     try {
       let info: FileViewInfo;
       try {
-        const data = await apiFetch<unknown>(`${projectFileViewUrl(projectId)}?key=${encodeURIComponent(key)}`);
+        // Use org-specific API for org files, project API otherwise
+        const viewUrl = isOrgFile
+          ? `${orgFileViewUrl(projectId)}&key=${encodeURIComponent(key)}`
+          : `${projectFileViewUrl(projectId)}?key=${encodeURIComponent(key)}`;
+        const data = await apiFetch<unknown>(viewUrl);
         if (!data || typeof data !== "object") {
           throw new Error("Invalid file view response");
         }
@@ -400,7 +408,7 @@ export default function NoteEditorModal({
       // Reset lastAppliedRef to force editor to re-apply content (important for reload after save)
       lastAppliedRef.current = null;
     }
-  }, [isOpen, mode, openFile?.fileName, openFile?.fileUrl, projectId]);
+  }, [isOpen, isOrgFile, mode, openFile?.fileName, openFile?.fileUrl, projectId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -537,7 +545,9 @@ export default function NoteEditorModal({
       const key = keyFromUrl || openFile.fileUrl;
       const contentType = viewInfo?.contentType || inferContentType(openFile.fileName);
 
-      const put = await apiFetch<{ uploadUrl: string }>(projectFilePutUrl(projectId), {
+      // Use org-specific API for org files, project API otherwise
+      const putUrl = isOrgFile ? orgFilePutUrl(projectId) : projectFilePutUrl(projectId);
+      const put = await apiFetch<{ uploadUrl: string }>(putUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -568,7 +578,7 @@ export default function NoteEditorModal({
     } finally {
       setIsSaving(false);
     }
-  }, [canSave, editor, effectiveTitle, loadOpenFile, markdown, mode, onCreate, onRequestClose, onSave, openFile?.fileName, openFile?.fileUrl, projectId, viewInfo?.contentType, viewInfo?.etag]);
+  }, [canSave, editor, effectiveTitle, isOrgFile, loadOpenFile, markdown, mode, onCreate, onRequestClose, onSave, openFile?.fileName, openFile?.fileUrl, projectId, viewInfo?.contentType, viewInfo?.etag]);
 
   // For edit mode, derive initial content directly from props to avoid timing issues
   const effectiveInitialContent = useMemo(() => {

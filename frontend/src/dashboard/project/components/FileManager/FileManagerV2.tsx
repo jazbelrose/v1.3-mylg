@@ -47,7 +47,7 @@ import {
 } from 'lucide-react';
 import { useData } from '@/app/contexts/useData';
 import { useSocket } from '@/app/contexts/useSocket';
-import { FolderTree, FolderTreeItem } from './FolderTree';
+import { FolderTree, FolderTreeItem, getFolderIcon } from './FolderTree';
 import { Breadcrumb, BreadcrumbSegment } from './Breadcrumb';
 import { ContextMenu, ContextMenuAction } from './ContextMenu';
 import { ActionSheet } from './ActionSheet';
@@ -66,6 +66,7 @@ import { useSelectionStore } from './hooks/useSelectionStore';
 import { PerfHUD } from './components/PerfHUD';
 import { useFilesPerf } from './hooks/useFilesPerf';
 import { useFileTransferStore } from './hooks/useFileTransferStore';
+import { usePinnedAndRecent } from './hooks/usePinnedAndRecent';
 import { FolderPickerModal, FolderPickerFolder } from './FolderPickerModal';
 import { FileThumb } from '@/shared/ui/FileThumb';
 import { FileTransferStatus } from './components/FileTransferStatus';
@@ -92,6 +93,7 @@ const SYSTEM_FOLDERS: FolderOption[] = [
   { key: 'drawings', name: 'Drawings' },
   { key: 'invoices', name: 'Documents' },
   { key: 'downloads', name: 'Downloads' },
+  { key: 'notes', name: 'Notes' },
 ];
 
 const ROOT_FOLDER: FolderOption = { key: 'uploads', name: 'Project Files' };
@@ -216,6 +218,15 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       addCustomFolder,
     } = state;
 
+    // Pinned and recent files (persisted to localStorage)
+    const {
+      pinnedFiles,
+      recentFiles,
+      isPinned,
+      togglePin,
+      trackRecent,
+    } = usePinnedAndRecent(activeProject?.projectId as string | undefined);
+
     // Local UI state
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -330,10 +341,15 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
     // Open Quick Look for a file
     const openQuickLook = useCallback((index: number) => {
       if (index >= 0 && index < displayedFiles.length) {
+        const file = displayedFiles[index];
         setQuickLookIndex(index);
         setQuickLookOpen(true);
+        // Track as recently accessed
+        if (file) {
+          trackRecent({ url: file.url, fileName: file.fileName, folderKey });
+        }
       }
-    }, [displayedFiles.length]);
+    }, [displayedFiles, folderKey, trackRecent]);
 
     // RAF-throttled resize handling to prevent layout thrash
     const rafRef = useRef<number | null>(null);
@@ -541,6 +557,45 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
 
     const canCreateFolder = canUpload;
 
+    // Create folder programmatically (used for folder drops at root)
+    // Defined before useFileTransfers so it can be passed as a callback
+    const createFolderSilently = useCallback(async (folderName: string) => {
+      const projectId = (activeProject?.projectId as string | undefined) ?? undefined;
+      if (!projectId) {
+        console.warn('[FileManager] Cannot create folder without projectId');
+        return;
+      }
+
+      const existingKeys = new Set<string>([
+        ROOT_FOLDER.key,
+        ...folderDisplayList.map((f) => f.key),
+      ]);
+      const folderKeyValue = sanitizeFolderKey(folderName, existingKeys);
+      const newFolder: FolderOption = { key: folderKeyValue, name: folderName };
+      const updatedCustomFolders = Array.from(
+        new Map<string, FolderOption>(
+          [...customFolders, newFolder].map((f) => [f.key, f])
+        ).values()
+      );
+
+      addCustomFolder(newFolder);
+
+      try {
+        await apiFetch(`${EDIT_PROJECT_URL}/${projectId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customFolders: updatedCustomFolders,
+            [newFolder.key]: [],
+          }),
+        });
+        notify('success', `Folder "${newFolder.name}" created.`);
+      } catch (error) {
+        console.error('Error creating folder', error);
+        // Don't show error notification here as files are still uploading
+      }
+    }, [activeProject?.projectId, addCustomFolder, customFolders, folderDisplayList]);
+
     const {
       loadFiles,
       handleFileSelect,
@@ -555,6 +610,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       handleDownloadSingle,
       handleFolderDownload,
       handleFolderDelete,
+      invalidateCache,
     } = useFileTransfers({
       activeProject: activeProject || {},
       folderKey,
@@ -570,6 +626,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       projectMessages: projectMessages as Record<string, Message[]>,
       canDelete,
       orgId,
+      onFolderDropAtRoot: createFolderSilently,
     });
     
     // Transfer status store for progress tracking
@@ -585,7 +642,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       }
     }, [handleBulkDownload]);
 
-    // Create folder
+    // Create folder (interactive with prompt)
     const handleCreateFolder = useCallback(async () => {
       if (typeof window === 'undefined') return;
       const projectId = (activeProject?.projectId as string | undefined) ?? undefined;
@@ -654,11 +711,12 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
       async (targetFolderKey: string, targetFolderName: string) => {
         if (!activeProject?.projectId || moveTargetFiles.length === 0) return;
 
+        const projectId = activeProject.projectId as string;
         const movedCount = moveTargetFiles.length;
 
         try {
           // Call the move API
-          const response = await apiFetch(`${EDIT_PROJECT_URL}/${activeProject.projectId}/files/move`, {
+          const response = await apiFetch(`${EDIT_PROJECT_URL}/${projectId}/files/move`, {
             method: 'POST',
             body: JSON.stringify({
               fileKeys: moveTargetFiles.map((f) => f.key),
@@ -681,14 +739,18 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
           setMoveTargetFiles([]);
           setSelectedItems(new Set());
           
+          // Invalidate cache for BOTH source and target folders so UI updates immediately
+          invalidateCache(projectId, folderKey);         // source folder
+          invalidateCache(projectId, targetFolderKey);   // target folder
+          
           // Reload files to reflect changes
-          loadFiles();
+          loadFiles(true);  // force refresh
         } catch (error) {
           console.error('Failed to move files:', error);
           notify('error', 'Failed to move files. Please try again.');
         }
       },
-      [activeProject?.projectId, moveTargetFiles, loadFiles, setSelectedItems]
+      [activeProject?.projectId, moveTargetFiles, loadFiles, setSelectedItems, invalidateCache, folderKey]
     );
 
     // Handle rename
@@ -869,6 +931,18 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
               handleFolderDelete(folderPrefix, file.fileName);
             }
             break;
+          case 'pin':
+            if (file) {
+              togglePin({ url: file.url, fileName: file.fileName, folderKey });
+              notify('success', `Pinned "${file.fileName}"`);
+            }
+            break;
+          case 'unpin':
+            if (file) {
+              togglePin({ url: file.url, fileName: file.fileName, folderKey });
+              notify('success', `Unpinned "${file.fileName}"`);
+            }
+            break;
         }
       },
       [
@@ -883,6 +957,8 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
         handleFolderDelete,
         fileInputRef,
         openQuickLook,
+        togglePin,
+        folderKey,
       ]
     );
 
@@ -1438,10 +1514,39 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
               {!sidebarCollapsed && (
                 <FolderTree
                   currentFolder={folderKey}
-                  onFolderSelect={setFolderKey}
+                  onFolderSelect={(key) => {
+                    // Handle pinned/recent file selection - open Quick Look
+                    if (key.startsWith('pinned:') || key.startsWith('recent:')) {
+                      const fileUrl = key.replace(/^(pinned|recent):/, '');
+                      const fileIndex = displayedFiles.findIndex(f => f.url === fileUrl);
+                      if (fileIndex >= 0) {
+                        openQuickLook(fileIndex);
+                      } else {
+                        // File not in current view - try to find it globally
+                        const pinnedFile = pinnedFiles.find(f => f.url === fileUrl);
+                        const recentFile = recentFiles.find(f => f.url === fileUrl);
+                        const file = pinnedFile || recentFile;
+                        if (file?.folderKey) {
+                          // Navigate to the folder containing this file
+                          setFolderKey(file.folderKey);
+                        }
+                      }
+                      return;
+                    }
+                    // Regular folder selection
+                    setFolderKey(key);
+                  }}
                   rootFolder={folderTreeRoot}
                   systemFolders={folderTreeSystem}
                   customFolders={folderTreeCustom}
+                  pinnedFolders={pinnedFiles.map(f => ({
+                    key: `pinned:${f.url}`,
+                    name: f.fileName,
+                  }))}
+                  recentFolders={recentFiles.map(f => ({
+                    key: `recent:${f.url}`,
+                    name: f.fileName,
+                  }))}
                   isCollapsed={sidebarCollapsed}
                 />
               )}
@@ -1470,6 +1575,32 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                 >
                   {isDragging && (
                     <div className={styles.dropOverlay}>Drop files to upload</div>
+                  )}
+
+                  {/* Folder tiles at root (All Files view) */}
+                  {folderKey === 'uploads' && !isLoading && folderDisplayList.length > 0 && (
+                    <div className={styles.folderTilesSection}>
+                      <div className={styles.folderTilesHeader}>
+                        <Folder size={14} />
+                        <span>Folders</span>
+                      </div>
+                      <div className={styles.folderTilesGrid}>
+                        {folderDisplayList.map((folder) => (
+                          <button
+                            key={folder.key}
+                            type="button"
+                            className={styles.folderTile}
+                            onClick={() => setFolderKey(folder.key)}
+                            title={folder.name}
+                          >
+                            <div className={styles.folderTileIcon}>
+                              {getFolderIcon(folder.key, false, 24)}
+                            </div>
+                            <span className={styles.folderTileName}>{folder.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
 
                   {isLoading ? (
@@ -1671,6 +1802,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
               contextType={contextMenu.type}
               canDelete={canDelete}
               canUpload={canUpload}
+              isFilePinned={contextMenu.file ? isPinned(contextMenu.file.url) : false}
             />
           )}
 
@@ -1686,6 +1818,7 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
             fileName={actionSheetFile?.fileName}
             canDelete={canDelete}
             canUpload={canUpload}
+            isFilePinned={actionSheetFile ? isPinned(actionSheetFile.url) : false}
           />
 
           {/* Quick Look Preview Modal */}

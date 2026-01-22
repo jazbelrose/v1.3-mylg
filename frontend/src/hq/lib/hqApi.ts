@@ -473,3 +473,40 @@ export async function deleteHqFiles(
     body: JSON.stringify({ fileKeys }),
   });
 }
+
+export type HqFileViewResponse = {
+  key: string;
+  orgId: string;
+  downloadUrl: string;
+  rangeSupported: boolean;
+  sizeBytes: number | null;
+  contentType: string | null;
+  lastModified: string | null;
+  etag: string | null;
+  isTextLike: boolean;
+};
+
+/**
+ * GET /hq/files/view
+ * Returns metadata + a signed GET URL for an org-scoped file.
+ */
+export function orgFileViewUrl(orgId: string): string {
+  const base = getHqServiceBaseUrl();
+  return `${base}/hq/files/view?orgId=${encodeURIComponent(orgId)}`;
+}
+
+export type HqFilePutUrlResponse = {
+  orgId: string;
+  key: string;
+  uploadUrl: string;
+  requiresIfMatch: boolean;
+};
+
+/**
+ * POST /hq/files/put-url
+ * Returns a signed PUT URL for updating text-like org-scoped files in S3.
+ */
+export function orgFilePutUrl(orgId: string): string {
+  const base = getHqServiceBaseUrl();
+  return `${base}/hq/files/put-url?orgId=${encodeURIComponent(orgId)}`;
+}

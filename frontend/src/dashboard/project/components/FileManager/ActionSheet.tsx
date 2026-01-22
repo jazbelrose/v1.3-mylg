@@ -24,6 +24,8 @@ import {
   ExternalLink,
   Info,
   X,
+  Pin,
+  PinOff,
 } from 'lucide-react';
 import type { ContextMenuAction, ContextMenuItem } from './ContextMenu';
 import styles from './file-manager-v2.module.css';
@@ -43,11 +45,14 @@ export interface ActionSheetProps {
   canDelete?: boolean;
   /** Whether user can upload */
   canUpload?: boolean;
+  /** Whether the file is already pinned (for toggle behavior) */
+  isFilePinned?: boolean;
 }
 
 const FILE_MENU_ITEMS: ContextMenuItem[] = [
   { action: 'preview', label: 'Quick Look', icon: <Eye size={20} /> },
   { action: 'open', label: 'Open', icon: <ExternalLink size={20} />, dividerAfter: true },
+  { action: 'pin', label: 'Pin to Activity', icon: <Pin size={20} /> },
   { action: 'download', label: 'Download', icon: <Download size={20} /> },
   { action: 'copy-link', label: 'Copy Link', icon: <Link size={20} />, dividerAfter: true },
   { action: 'rename', label: 'Rename', icon: <Edit3 size={20} /> },
@@ -81,6 +86,7 @@ export function ActionSheet({
   fileName,
   canDelete = true,
   canUpload = true,
+  isFilePinned = false,
 }: ActionSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef<number | null>(null);
@@ -96,7 +102,15 @@ export function ActionSheet({
         items = EMPTY_MENU_ITEMS;
         break;
       default:
-        items = FILE_MENU_ITEMS;
+        // For files, replace pin/unpin based on current state
+        items = FILE_MENU_ITEMS.map(item => {
+          if (item.action === 'pin') {
+            return isFilePinned
+              ? { action: 'unpin' as const, label: 'Unpin from Activity', icon: <PinOff size={20} /> }
+              : item;
+          }
+          return item;
+        });
     }
 
     // Filter based on permissions
@@ -105,7 +119,7 @@ export function ActionSheet({
       if ((item.action === 'upload' || item.action === 'new-folder') && !canUpload) return false;
       return true;
     });
-  }, [contextType, canDelete, canUpload]);
+  }, [contextType, canDelete, canUpload, isFilePinned]);
 
   // Handle escape key
   useEffect(() => {

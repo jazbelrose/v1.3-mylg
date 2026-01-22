@@ -22,6 +22,8 @@ import {
   FolderPlus,
   ExternalLink,
   Info,
+  Pin,
+  PinOff,
 } from 'lucide-react';
 import styles from './file-manager-v2.module.css';
 
@@ -38,7 +40,9 @@ export type ContextMenuAction =
   | 'details'
   | 'new-folder'
   | 'upload'
-  | 'duplicate';
+  | 'duplicate'
+  | 'pin'
+  | 'unpin';
 
 export interface ContextMenuItem {
   action: ContextMenuAction;
@@ -66,11 +70,14 @@ export interface ContextMenuProps {
   canDelete?: boolean;
   /** Whether user can upload */
   canUpload?: boolean;
+  /** Whether the file is already pinned (for toggle behavior) */
+  isFilePinned?: boolean;
 }
 
 const FILE_MENU_ITEMS: ContextMenuItem[] = [
   { action: 'open', label: 'Open', icon: <Eye size={14} /> },
   { action: 'preview', label: 'Preview', icon: <ExternalLink size={14} />, dividerAfter: true },
+  { action: 'pin', label: 'Pin to Activity', icon: <Pin size={14} /> },
   { action: 'download', label: 'Download', icon: <Download size={14} /> },
   { action: 'copy-link', label: 'Copy Link', icon: <Link size={14} />, dividerAfter: true },
   { action: 'rename', label: 'Rename', icon: <Edit3 size={14} /> },
@@ -105,6 +112,7 @@ export function ContextMenu({
   contextType,
   canDelete = true,
   canUpload = true,
+  isFilePinned = false,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = React.useState(0);
@@ -120,7 +128,15 @@ export function ContextMenu({
         items = EMPTY_MENU_ITEMS;
         break;
       default:
-        items = FILE_MENU_ITEMS;
+        // For files, replace pin/unpin based on current state
+        items = FILE_MENU_ITEMS.map(item => {
+          if (item.action === 'pin') {
+            return isFilePinned
+              ? { action: 'unpin' as const, label: 'Unpin from Activity', icon: <PinOff size={14} /> }
+              : item;
+          }
+          return item;
+        });
     }
 
     // Filter based on permissions
@@ -129,7 +145,7 @@ export function ContextMenu({
       if ((item.action === 'upload' || item.action === 'new-folder') && !canUpload) return false;
       return true;
     });
-  }, [contextType, canDelete, canUpload]);
+  }, [contextType, canDelete, canUpload, isFilePinned]);
 
   // Close on click outside
   useEffect(() => {

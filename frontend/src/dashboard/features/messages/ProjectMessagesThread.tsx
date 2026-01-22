@@ -483,7 +483,7 @@ const ProjectMessagesThread: React.FC<ProjectMessagesThreadProps> = ({
     const s3FileName = `${fileStem}-${noteId}.md`;
     const displayFileName = `${title}.md`;
 
-    const baseKey = `projects/${projectId}/${folderKey}/notes/${s3FileName}`;
+    const baseKey = `projects/${projectId}/notes/${s3FileName}`;
     const storedKey = `public/${baseKey}`;
 
     const uploadTask = uploadData({

@@ -5,7 +5,8 @@ import { requireOrgMember, requireOrgAdmin } from "/opt/nodejs/utils/orgAuth.mjs
 
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
-import { S3Client, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import { S3Client, DeleteObjectsCommand, HeadObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
 import { createHash } from "node:crypto";
 
@@ -3160,6 +3161,170 @@ const deleteImportRun = async (e, C, { importRunId }) => {
 
 /* ------------ Org Files S3 ------------ */
 
+const TEXT_LIKE_EXTENSIONS = new Set([
+  "md",
+  "markdown",
+  "txt",
+  "json",
+  "csv",
+  "tsv",
+  "xml",
+  "css",
+  "html",
+  "yml",
+  "yaml",
+]);
+
+const isTextLikeKey = (key, contentType) => {
+  const lower = String(key || "").toLowerCase();
+  const ext = lower.split(".").pop() || "";
+  if (TEXT_LIKE_EXTENSIONS.has(ext)) return true;
+  const ct = String(contentType || "").toLowerCase();
+  if (ct.startsWith("text/")) return true;
+  if (ct.includes("json")) return true;
+  if (ct.includes("xml")) return true;
+  return false;
+};
+
+/**
+ * Normalize an S3 key from a raw query param for org files.
+ * Validates the key belongs to the specified org.
+ */
+const normalizeS3KeyForOrg = (orgId, rawKeyOrUrl) => {
+  if (!rawKeyOrUrl) return null;
+  const raw = String(rawKeyOrUrl).trim();
+  if (!raw) return null;
+
+  let key = raw;
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const parsed = new URL(raw);
+      key = parsed.pathname.startsWith("/") ? parsed.pathname.slice(1) : parsed.pathname;
+      key = decodeURIComponent(key);
+    } catch {
+      key = raw;
+    }
+  }
+
+  key = key.replace(/^\/+/, "");
+  // Amplify Storage public keys live under `public/`
+  if (!key.startsWith("public/")) {
+    key = `public/${key}`;
+  }
+
+  // Only allow access to files within the org's namespace.
+  const orgPrefix = `public/orgs/${orgId}/`;
+  if (!key.startsWith(orgPrefix)) return null;
+
+  return key;
+};
+
+/**
+ * GET /hq/files/view?orgId=...&key=public/orgs/.../file.md (or &url=https://...)
+ * Returns metadata + a signed GET URL for direct download/range fetching.
+ */
+const viewOrgFile = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId is required" });
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const key = normalizeS3KeyForOrg(orgId, q.key || q.url);
+  if (!key) return json(400, C, { error: "key (or url) is required and must be within org scope" });
+
+  try {
+    const head = await s3.send(
+      new HeadObjectCommand({
+        Bucket: FILE_BUCKET,
+        Key: key,
+      }),
+    );
+
+    const downloadUrl = await getSignedUrl(
+      s3,
+      new GetObjectCommand({
+        Bucket: FILE_BUCKET,
+        Key: key,
+      }),
+      { expiresIn: 600 },
+    );
+
+    const contentType = head.ContentType || null;
+    const sizeBytes = typeof head.ContentLength === "number" ? head.ContentLength : null;
+    const etag = head.ETag ? String(head.ETag).replace(/^\"|\"$/g, "") : null;
+
+    return json(200, C, {
+      key,
+      orgId,
+      downloadUrl,
+      rangeSupported: true,
+      sizeBytes,
+      contentType,
+      lastModified: head.LastModified ? new Date(head.LastModified).toISOString() : null,
+      etag,
+      isTextLike: isTextLikeKey(key, contentType),
+    });
+  } catch (err) {
+    const status = err?.$metadata?.httpStatusCode || 500;
+    const message = status === 404 ? "File not found" : err?.message || "Failed to view file";
+    console.error("view_org_file_error", { orgId, key, err });
+    return json(status, C, { error: message });
+  }
+};
+
+/**
+ * POST /hq/files/put-url?orgId=...
+ * Body: { key: string, contentType?: string, ifMatch?: string }
+ * Returns a signed PUT URL for updating text-like files directly in S3.
+ */
+const createOrgFilePutUrl = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId is required" });
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const body = B(e);
+  const key = normalizeS3KeyForOrg(orgId, body.key || body.url);
+  if (!key) return json(400, C, { error: "key (or url) is required and must be within org scope" });
+
+  const contentType = typeof body.contentType === "string" && body.contentType.trim()
+    ? body.contentType.trim()
+    : "text/plain; charset=utf-8";
+
+  // Gate: only allow text-like updates via this flow.
+  if (!isTextLikeKey(key, contentType)) {
+    return json(400, C, { error: "Only text-like files are supported for inline editing" });
+  }
+
+  const ifMatch = typeof body.ifMatch === "string" && body.ifMatch.trim()
+    ? body.ifMatch.trim().replace(/^\"|\"$/g, "")
+    : null;
+
+  try {
+    const command = new PutObjectCommand({
+      Bucket: FILE_BUCKET,
+      Key: key,
+      ContentType: contentType,
+      ...(ifMatch ? { IfMatch: ifMatch } : {}),
+    });
+
+    const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 600 });
+
+    return json(200, C, {
+      orgId,
+      key,
+      uploadUrl,
+      requiresIfMatch: Boolean(ifMatch),
+    });
+  } catch (err) {
+    console.error("create_org_file_put_url_error", { orgId, key, err });
+    const message = err?.message || "Failed to create upload URL";
+    return json(500, C, { error: message });
+  }
+};
+
 /**
  * Helper to derive thumbnail key from a file key.
  * Mirrors logic in projects/router.mjs.
@@ -3278,6 +3443,8 @@ const routes = [
   { m: "PATCH", r: /^\/hq\/accounts\/(?<accountId>[^/]+)\/?$/i, h: patchAccount },
   { m: "DELETE", r: /^\/hq\/accounts\/(?<accountId>[^/]+)\/?$/i, h: deleteAccount },
 
+  { m: "GET", r: /^\/hq\/files\/view\/?$/i, h: viewOrgFile },
+  { m: "POST", r: /^\/hq\/files\/put-url\/?$/i, h: createOrgFilePutUrl },
   { m: "POST", r: /^\/hq\/files\/delete\/?$/i, h: deleteOrgFiles },
 
   { m: "DELETE", r: /^\/hq\/reset\/?$/i, h: resetHq },

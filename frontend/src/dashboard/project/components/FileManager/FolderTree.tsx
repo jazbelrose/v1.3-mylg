@@ -23,6 +23,7 @@ import {
   Layout,
   Plus,
   Files,
+  StickyNote,
 } from 'lucide-react';
 import styles from './file-manager-v2.module.css';
 
@@ -73,10 +74,15 @@ const getFolderIcon = (key: string, isOpen: boolean = false, size = 15): React.R
       return <PenTool size={size} strokeWidth={1.5} />;
     case 'floorplans':
       return <Layout size={size} strokeWidth={1.5} />;
+    case 'notes':
+      return <StickyNote size={size} strokeWidth={1.5} />;
     default:
       return isOpen ? <FolderOpen size={size} strokeWidth={1.5} /> : <Folder size={size} strokeWidth={1.5} />;
   }
 };
+
+// Export getFolderIcon for use in other components (e.g., folder tiles)
+export { getFolderIcon };
 
 interface TreeItemProps {
   item: FolderTreeItem;

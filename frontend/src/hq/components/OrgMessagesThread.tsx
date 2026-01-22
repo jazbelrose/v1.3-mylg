@@ -435,7 +435,7 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
     const s3FileName = `${fileStem}-${noteId}.md`;
     const displayFileName = `${title}.md`;
 
-    const baseKey = `orgs/${orgId}/${folderKey}/notes/${s3FileName}`;
+    const baseKey = `orgs/${orgId}/notes/${s3FileName}`;
     const storedKey = `public/${baseKey}`;
 
     const uploadTask = uploadData({
@@ -1397,6 +1397,7 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
         mode={noteEditorState.isOpen ? noteEditorState.mode : "create"}
         projectId={orgId}
         canEdit={true}
+        isOrgFile={true}
         openFile={
           noteEditorState.isOpen && noteEditorState.mode === "open"
             ? { fileUrl: noteEditorState.fileUrl, fileName: noteEditorState.fileName, initialTitle: noteEditorState.initialTitle }

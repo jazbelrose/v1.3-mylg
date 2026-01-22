@@ -48,6 +48,8 @@ interface UseFileTransfersParams {
   canDelete: boolean;
   /** When provided, operates in org mode instead of project mode */
   orgId?: string;
+  /** Callback to create a custom folder when dropping a folder at root (uploads) */
+  onFolderDropAtRoot?: (folderName: string) => Promise<void>;
 }
 
 export const useFileTransfers = ({
@@ -65,6 +67,7 @@ export const useFileTransfers = ({
   projectMessages,
   canDelete,
   orgId,
+  onFolderDropAtRoot,
 }: UseFileTransfersParams) => {
   // Determine if we're in org mode
   const isOrgMode = Boolean(orgId);
@@ -520,6 +523,11 @@ export const useFileTransfers = ({
         }
         
         if (dropResult.isFolderDrop) {
+          // If dropping a folder at root ("uploads" or "All Files"), create a custom folder first
+          if (folderKey === "uploads" && dropResult.folderName && onFolderDropAtRoot) {
+            await onFolderDropAtRoot(dropResult.folderName);
+          }
+          
           // Folder drop - pass DroppedFile[] with relative paths preserved
           await uploadFiles(
             dropResult.files.map(df => df.file),
@@ -539,7 +547,7 @@ export const useFileTransfers = ({
         notify("error", "Failed to process dropped items");
       }
     },
-    [fetchS3Files, folderKey, setIsDragging, uploadFiles]
+    [fetchS3Files, folderKey, setIsDragging, uploadFiles, onFolderDropAtRoot]
   );
 
   const handleBulkDownload = useCallback(async () => {
@@ -835,6 +843,8 @@ export const useFileTransfers = ({
     handleDownloadSingle,
     handleFolderDownload,
     handleFolderDelete,
+    /** Invalidate cache for a specific folder */
+    invalidateCache: fileCache.invalidate,
   };
 };
 
