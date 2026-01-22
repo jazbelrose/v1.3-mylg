@@ -17,6 +17,7 @@ import DeckVersionDropdown from "./components/DeckVersionDropdown";
 import DeckVersionsModal from "./components/DeckVersionsModal";
 import { useDeckVersions } from "./hooks/useDeckVersions";
 import { useThumbnailQueue } from "./hooks/useThumbnailQueue";
+import { useSlideUndoStack, createSlideCommand } from "./hooks/useSlideUndoStack";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { ConfirmModal, PromptModal } from "@/shared/ui";
 import { v4 as uuidv4 } from "uuid";
@@ -240,6 +241,9 @@ const SlidesPage: React.FC = () => {
   const [versionToRename, setVersionToRename] = useState<{ versionId: string; name: string } | null>(null);
   const [deleteVersionConfirmOpen, setDeleteVersionConfirmOpen] = useState(false);
   const [versionToDelete, setVersionToDelete] = useState<string | null>(null);
+  // Dirty-check for version switching
+  const [switchVersionConfirmOpen, setSwitchVersionConfirmOpen] = useState(false);
+  const [pendingSwitchVersionId, setPendingSwitchVersionId] = useState<string | null>(null);
 
   // Computed active version ID for props
   const activeVersionId = activeVersion?.versionId ?? null;
@@ -255,6 +259,16 @@ const SlidesPage: React.FC = () => {
   const [zoom, setZoom] = useState(0);
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const uiThumbsEnabled = isUiThumbsEnabled();
+
+  // Slide-level undo/redo stack for structural changes (reorder, delete, duplicate)
+  const {
+    canUndo: canUndoSlide,
+    canRedo: canRedoSlide,
+    pushCommand: pushSlideCommand,
+    undo: undoSlideCommand,
+    redo: redoSlideCommand,
+    clearHistory: clearSlideHistory,
+  } = useSlideUndoStack();
 
   // Use files navigation hook for V2 overlay
   const { openFiles } = useFilesNavigation({
@@ -1205,6 +1219,176 @@ const SlidesPage: React.FC = () => {
   ]
   );
 
+  // Execute undo for slide structural changes
+  const executeSlideUndo = useCallback(() => {
+    const command = undoSlideCommand();
+    if (!command) return;
+
+    switch (command.type) {
+      case 'reorder': {
+        // Restore previous order
+        const slideMap = new Map(slides.map((s) => [s.id, s]));
+        const restored = command.previousOrder
+          .map((id) => slideMap.get(id))
+          .filter((s): s is Slide => !!s)
+          .map((s, idx) => ({ ...s, order: idx }));
+        setSlides(restored);
+        setIsDirty(true);
+        saveSlides(restored);
+        notify("info", "Undo: slide reorder");
+        break;
+      }
+      case 'delete': {
+        // Restore deleted slide at previous index
+        const restoredSlides = [...slides];
+        const restoredSlide = { ...command.deletedSlide, order: command.previousIndex };
+        restoredSlides.splice(command.previousIndex, 0, restoredSlide);
+        // Reorder all slides
+        const reordered = restoredSlides.map((s, idx) => ({ ...s, order: idx }));
+        setSlides(reordered);
+        setActiveSlideId(restoredSlide.id);
+        setIsDirty(true);
+        saveSlides(reordered);
+        notify("info", "Undo: slide delete");
+        break;
+      }
+      case 'bulkDelete': {
+        // Restore all deleted slides at their previous indices (sorted ascending)
+        let restoredSlides = [...slides];
+        const sortedDeleted = [...command.deletedSlides].sort((a, b) => a.index - b.index);
+        for (const { slide, index } of sortedDeleted) {
+          restoredSlides.splice(index, 0, slide);
+        }
+        // Reorder all slides
+        restoredSlides = restoredSlides.map((s, idx) => ({ ...s, order: idx }));
+        setSlides(restoredSlides);
+        setIsDirty(true);
+        saveSlides(restoredSlides);
+        notify("info", `Undo: delete ${sortedDeleted.length} slides`);
+        break;
+      }
+      case 'duplicate': {
+        // Remove the duplicated slide
+        const filtered = slides.filter((s) => s.id !== command.newSlideId);
+        const reordered = filtered.map((s, idx) => ({ ...s, order: idx }));
+        setSlides(reordered);
+        if (activeSlideId === command.newSlideId) {
+          setActiveSlideId(command.sourceSlideId);
+        }
+        setIsDirty(true);
+        saveSlides(reordered);
+        notify("info", "Undo: slide duplicate");
+        break;
+      }
+    }
+  }, [slides, activeSlideId, undoSlideCommand, saveSlides]);
+
+  // Execute redo for slide structural changes
+  const executeSlideRedo = useCallback(() => {
+    const command = redoSlideCommand();
+    if (!command) return;
+
+    switch (command.type) {
+      case 'reorder': {
+        // Apply new order
+        const slideMap = new Map(slides.map((s) => [s.id, s]));
+        const restored = command.newOrder
+          .map((id) => slideMap.get(id))
+          .filter((s): s is Slide => !!s)
+          .map((s, idx) => ({ ...s, order: idx }));
+        setSlides(restored);
+        setIsDirty(true);
+        saveSlides(restored);
+        notify("info", "Redo: slide reorder");
+        break;
+      }
+      case 'delete': {
+        // Re-delete the slide
+        const filtered = slides.filter((s) => s.id !== command.deletedSlide.id);
+        const reordered = filtered.map((s, idx) => ({ ...s, order: idx }));
+        setSlides(reordered);
+        if (activeSlideId === command.deletedSlide.id) {
+          setActiveSlideId(reordered[0]?.id ?? null);
+        }
+        setIsDirty(true);
+        saveSlides(reordered);
+        notify("info", "Redo: slide delete");
+        break;
+      }
+      case 'bulkDelete': {
+        // Re-delete all slides
+        const idsToDelete = new Set(command.deletedSlides.map((d) => d.slide.id));
+        const filtered = slides.filter((s) => !idsToDelete.has(s.id));
+        const reordered = filtered.map((s, idx) => ({ ...s, order: idx }));
+        setSlides(reordered);
+        if (activeSlideId && idsToDelete.has(activeSlideId)) {
+          setActiveSlideId(reordered[0]?.id ?? null);
+        }
+        setIsDirty(true);
+        saveSlides(reordered);
+        notify("info", `Redo: delete ${command.deletedSlides.length} slides`);
+        break;
+      }
+      case 'duplicate': {
+        // Re-duplicate the slide (need to find source slide)
+        const sourceSlide = slides.find((s) => s.id === command.sourceSlideId);
+        if (!sourceSlide) {
+          notify("error", "Cannot redo: source slide not found");
+          return;
+        }
+        const duplicatedSlide: Slide = {
+          ...sourceSlide,
+          id: command.newSlideId,
+          title: `${sourceSlide.title} (copy)`,
+          order: slides.length,
+          thumbnail: undefined,
+          thumbRevision: undefined,
+        };
+        const updated = [...slides, duplicatedSlide];
+        setSlides(updated);
+        setActiveSlideId(duplicatedSlide.id);
+        setIsDirty(true);
+        saveSlides(updated);
+        notify("info", "Redo: slide duplicate");
+        break;
+      }
+    }
+  }, [slides, activeSlideId, redoSlideCommand, saveSlides]);
+
+  // Keyboard shortcuts for slide-level undo/redo
+  // Uses Ctrl+Shift+Z / Ctrl+Shift+Y to avoid conflict with Lexical's Ctrl+Z
+  useEffect(() => {
+    const handleSlideUndoRedo = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+      
+      // Ctrl+Shift+Z for slide undo (both platforms)
+      if (cmdOrCtrl && e.shiftKey && e.key.toLowerCase() === 'z' && !e.altKey) {
+        // On Mac, Cmd+Shift+Z is typically redo in text editors
+        // We use it for slide undo only when there's something to undo
+        if (canUndoSlide) {
+          e.preventDefault();
+          e.stopPropagation();
+          executeSlideUndo();
+        }
+        return;
+      }
+      
+      // Ctrl+Shift+Y for slide redo
+      if (cmdOrCtrl && e.shiftKey && e.key.toLowerCase() === 'y') {
+        if (canRedoSlide) {
+          e.preventDefault();
+          e.stopPropagation();
+          executeSlideRedo();
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleSlideUndoRedo);
+    return () => window.removeEventListener('keydown', handleSlideUndoRedo);
+  }, [canUndoSlide, canRedoSlide, executeSlideUndo, executeSlideRedo]);
+
   const sendSlideEvent = useCallback(
     (action: string, payload: Record<string, unknown> = {}) => {
       if (!projectId || !ws || ws.readyState !== WebSocket.OPEN) return;
@@ -1218,6 +1402,30 @@ const SlidesPage: React.FC = () => {
             ...(activeVersionId && { versionId: activeVersionId }),
             action,
             ...payload,
+          })
+        );
+      } catch (error) {
+        console.warn(`[SlidesPage] websocket ${action} failed`, error);
+      }
+    },
+    [projectId, ws, userId, userName, activeVersionId]
+  );
+
+  // Broadcast comment events for real-time sync
+  const handleBroadcastComment = useCallback(
+    (action: string, comment: Record<string, unknown>) => {
+      if (!projectId || !ws || ws.readyState !== WebSocket.OPEN) return;
+      try {
+        ws.send(
+          JSON.stringify({
+            projectId,
+            conversationId: `project#${projectId}`,
+            username: userName || "Someone",
+            senderId: userId,
+            ...(activeVersionId && { versionId: activeVersionId }),
+            action,
+            comment,
+            slideId: (comment as { slideId?: string }).slideId,
           })
         );
       } catch (error) {
@@ -1378,25 +1586,44 @@ const SlidesPage: React.FC = () => {
   );
 
   const handleReorderSlides = useCallback((reorderedSlides: Slide[]) => {
+    const previousOrder = slides.map(s => s.id);
+    const newOrder = reorderedSlides.map(s => s.id);
+    
+    // Push undo command before making the change
+    pushSlideCommand(createSlideCommand('reorder', {
+      description: 'Reorder slides',
+      previousOrder,
+      newOrder,
+    }));
+
     setSlides(reorderedSlides);
     setIsDirty(true);
     saveSlides(reorderedSlides);
     sendSlideEvent("slideReordered", { slideIds: reorderedSlides.map((slide) => slide.id) });
-  }, [saveSlides]);
+  }, [slides, saveSlides, pushSlideCommand]);
 
   const handleDuplicateSlide = useCallback((slideId?: string) => {
     const targetSlideId = slideId || activeSlideId;
     const targetSlide = slides.find((s) => s.id === targetSlideId);
     if (!targetSlide) return;
 
+    const newSlideId = uuidv4();
     const duplicatedSlide: Slide = {
       ...targetSlide,
-      id: uuidv4(),
+      id: newSlideId,
       title: `${targetSlide.title} (Copy)`,
       order: slides.length,
     };
 
     const updatedSlides = [...slides, duplicatedSlide];
+    
+    // Push undo command for duplicate
+    pushSlideCommand(createSlideCommand('duplicate', {
+      description: `Duplicate slide "${targetSlide.title}"`,
+      newSlideId,
+      sourceSlideId: targetSlideId,
+    }));
+
     setSlides(updatedSlides);
     setActiveSlideId(duplicatedSlide.id);
     setIsDirty(true);
@@ -1404,7 +1631,7 @@ const SlidesPage: React.FC = () => {
     saveSlides(updatedSlides);
     sendSlideEvent("slideDuplicated", { slideId: duplicatedSlide.id, sourceSlideId: targetSlideId });
     notify("success", "Slide duplicated");
-  }, [slides, activeSlideId, saveSlides]);
+  }, [slides, activeSlideId, saveSlides, pushSlideCommand]);
 
   const performDeleteSlides = useCallback(
     (slideIds: string[]) => {
@@ -1413,9 +1640,16 @@ const SlidesPage: React.FC = () => {
         return;
       }
 
-      const deletedIndices = uniqueIds
-        .map((id) => slides.findIndex((s) => s.id === id))
-        .filter((idx) => idx >= 0);
+      // Capture deleted slides with their indices for undo
+      const deletedSlidesWithIndices = uniqueIds
+        .map((id) => {
+          const index = slides.findIndex((s) => s.id === id);
+          return index >= 0 ? { slide: slides[index], index } : null;
+        })
+        .filter((item): item is { slide: (typeof slides)[0]; index: number } => item !== null)
+        .sort((a, b) => a.index - b.index);
+
+      const deletedIndices = deletedSlidesWithIndices.map((item) => item.index);
       const anchorIndex = deletedIndices.length ? Math.min(...deletedIndices) : 0;
 
       const remainingSlides = slides.filter((s) => !uniqueIds.includes(s.id));
@@ -1423,6 +1657,20 @@ const SlidesPage: React.FC = () => {
         ...slide,
         order: idx,
       }));
+
+      // Push undo command before making changes
+      if (deletedSlidesWithIndices.length === 1) {
+        pushSlideCommand(createSlideCommand('delete', {
+          description: `Delete slide "${deletedSlidesWithIndices[0].slide.title}"`,
+          deletedSlide: deletedSlidesWithIndices[0].slide,
+          previousIndex: deletedSlidesWithIndices[0].index,
+        }));
+      } else {
+        pushSlideCommand(createSlideCommand('bulkDelete', {
+          description: `Delete ${deletedSlidesWithIndices.length} slides`,
+          deletedSlides: deletedSlidesWithIndices,
+        }));
+      }
 
       const activeStillExists =
         activeSlideId && !uniqueIds.includes(activeSlideId) && reorderedSlides.some((s) => s.id === activeSlideId);
@@ -1439,7 +1687,7 @@ const SlidesPage: React.FC = () => {
 
       notify("success", uniqueIds.length === 1 ? "Slide deleted" : `Deleted ${uniqueIds.length} slides`);
     },
-    [slides, activeSlideId, saveSlides]
+    [slides, activeSlideId, saveSlides, pushSlideCommand]
   );
 
   const requestDeleteSlides = useCallback(
@@ -1866,17 +2114,48 @@ const SlidesPage: React.FC = () => {
     setVersionToRename(null);
   }, [versionToRename, updateVersion]);
 
+  // Safe version switch with dirty-check
+  const handleSafeVersionSwitch = useCallback((versionId: string) => {
+    // Don't prompt if switching to the same version
+    if (versionId === activeVersionId) return;
+    
+    if (isDirty) {
+      // Show confirmation modal
+      setPendingSwitchVersionId(versionId);
+      setSwitchVersionConfirmOpen(true);
+    } else {
+      // No unsaved changes, switch directly
+      switchVersion(versionId);
+    }
+  }, [isDirty, activeVersionId, switchVersion]);
+
+  const handleConfirmVersionSwitch = useCallback(() => {
+    if (pendingSwitchVersionId) {
+      // Discard changes and switch
+      setIsDirty(false);
+      switchVersion(pendingSwitchVersionId);
+    }
+    setSwitchVersionConfirmOpen(false);
+    setPendingSwitchVersionId(null);
+  }, [pendingSwitchVersionId, switchVersion]);
+
+  const handleCancelVersionSwitch = useCallback(() => {
+    setSwitchVersionConfirmOpen(false);
+    setPendingSwitchVersionId(null);
+  }, []);
+
   // Version dropdown for the toolbar
   const versionDropdown = useMemo(() => (
     <DeckVersionDropdown
       versions={versions}
       activeVersion={activeVersion}
-      onVersionSelect={switchVersion}
+      onVersionSelect={handleSafeVersionSwitch}
       onManageVersions={() => setVersionsModalOpen(true)}
       onCreateVersion={async () => {
         // Create an empty version - users can duplicate via Manage Versions if needed
         const newVersion = await createVersion({ name: `Version ${versions.length + 1}` });
         if (newVersion) {
+          // New version is always safe to switch to (no existing content to lose)
           switchVersion(newVersion.versionId);
         }
       }}
@@ -1888,7 +2167,7 @@ const SlidesPage: React.FC = () => {
       onSetClientDefault={setClientDefaultVersion}
       accentColor={activeProject?.color}
     />
-  ), [versions, activeVersion, switchVersion, createVersion, canManageVersions, handleQuickRename, handleQuickDuplicate, handleQuickDelete, setDefaultVersion, setClientDefaultVersion, activeProject?.color]);
+  ), [versions, activeVersion, handleSafeVersionSwitch, switchVersion, createVersion, canManageVersions, handleQuickRename, handleQuickDuplicate, handleQuickDelete, setDefaultVersion, setClientDefaultVersion, activeProject?.color]);
 
   if (!projectId) {
     return <div>No project ID provided</div>;
@@ -1954,12 +2233,13 @@ const SlidesPage: React.FC = () => {
         onClose={() => setVersionsModalOpen(false)}
         versions={versions}
         activeVersionId={activeVersionId}
-        onSwitchVersion={switchVersion}
+        onSwitchVersion={handleSafeVersionSwitch}
         onCreateVersion={async (options) => {
           // Do not pass slides - if user wants to duplicate, they select via "Duplicate from" dropdown
           // which sets duplicateFromVersionId and the backend handles cloning
           const newVersion = await createVersion(options);
           if (newVersion) {
+            // New version is always safe to switch
             switchVersion(newVersion.versionId);
           }
           return newVersion;
@@ -1993,6 +2273,15 @@ const SlidesPage: React.FC = () => {
         onConfirm={handleConfirmDeleteVersion}
         message="Delete this version? This cannot be undone."
         confirmLabel="Delete"
+        cancelLabel="Cancel"
+      />
+      {/* Version switch dirty-check confirmation */}
+      <ConfirmModal
+        isOpen={switchVersionConfirmOpen}
+        onRequestClose={handleCancelVersionSwitch}
+        onConfirm={handleConfirmVersionSwitch}
+        message="You have unsaved changes. Switching versions will discard them. Continue?"
+        confirmLabel="Discard & Switch"
         cancelLabel="Cancel"
       />
       <QuickLinksComponent ref={quickLinksRef} hideTrigger />
@@ -2039,6 +2328,8 @@ const SlidesPage: React.FC = () => {
             activeSlideId={activeSlideId}
             userId={userId}
             userName={userName}
+            versionId={activeVersionId}
+            onBroadcastComment={handleBroadcastComment}
           >
           <div className="slides-workspace">
             <SlidesSidebar

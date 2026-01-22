@@ -101,7 +101,7 @@ const EditBallparkModal: React.FC<EditBallparkModalProps> = ({
     <Modal
       isOpen={isOpen}
       onRequestClose={onRequestClose}
-      contentLabel="Edit Ballpark"
+      contentLabel="Edit Target"
       closeTimeoutMS={300}
       className={{
         base: styles.modalContent,
@@ -116,7 +116,7 @@ const EditBallparkModal: React.FC<EditBallparkModalProps> = ({
       }}
     >
       <div className={styles.modalHeader}>
-        <div className={styles.modalTitle}>Edit Ballpark</div>
+        <div className={styles.modalTitle}>Client Budget</div>
         <button
           className={styles.iconButton}
           onClick={onRequestClose}
@@ -130,7 +130,7 @@ const EditBallparkModal: React.FC<EditBallparkModalProps> = ({
       <form onSubmit={handleSubmit} className={styles.form}>
         <div className={styles.fieldGroup}>
           <label className={styles.inputLabel} htmlFor={inputId}>
-            Estimate amount
+            Target amount
           </label>
           <div className={styles.currencyInputWrapper}>
             <span className={styles.currencyPrefix} aria-hidden="true">

@@ -1191,6 +1191,8 @@ const TransactionsPage: React.FC = () => {
                   {sort.key === "category" ? (sort.dir === "asc" ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : null}
                 </span>
               </button>
+              {/* Empty header for allocation column */}
+              <span />
               <button
                 type="button"
                 className={[styles.headerButton, styles.headerAmount].join(" ")}

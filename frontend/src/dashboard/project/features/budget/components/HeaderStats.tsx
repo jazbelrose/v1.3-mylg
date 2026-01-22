@@ -33,7 +33,6 @@ import { fetchHqAllocationSummary } from "@/hq/lib/hqApi";
 
 import summaryStyles from "./budget-header-summary.module.css";
 import mobileStyles from "./budget-header-mobile.module.css";
-import { OPEN_INVOICE_INFO_MODAL_EVENT } from "@/dashboard/project/components/Shared/projectHeaderState/useInvoiceInfoModal";
 
 /* =========================
    Types
@@ -938,22 +937,35 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
 
   const desktopAccentStyle = accentStyle;
 
-  const handleOpenInvoiceSettings = useCallback(() => {
-    window.dispatchEvent(new CustomEvent(OPEN_INVOICE_INFO_MODAL_EVENT));
-  }, []);
+  // Target (formerly Ballpark) value for inline header display
+  const targetValue = toNumber(budgetHeader?.headerBallPark);
+  const targetDisplay = targetValue > 0 ? formatUSD(targetValue) : null;
 
   const desktopContent = (
     <div className={summaryStyles.surface} style={desktopAccentStyle}>
       <div className={summaryStyles.headerRow}>
         <div className={summaryStyles.titleGroup}>
           <span className={summaryStyles.title}>Budget</span>
+          <span className={summaryStyles.headerSeparator}>·</span>
+          <button
+            type="button"
+            className={summaryStyles.targetPill}
+            onClick={handleOpenBallpark}
+            title="Edit target"
+          >
+            <span className={summaryStyles.targetLabel}>Target</span>
+            <span className={targetDisplay ? summaryStyles.targetValue : summaryStyles.targetPlaceholder}>
+              {targetDisplay ?? "Set target"}
+            </span>
+          </button>
+          <span className={summaryStyles.headerSeparator}>·</span>
           <div className={summaryStyles.dateControls}>
-            <span className={summaryStyles.dateLabel}>{headerDateText}</span>
+            <span className={summaryStyles.dateLabel}>As of {headerDateText}</span>
             <button
               type="button"
               className={summaryStyles.iconButton}
-              onClick={handleOpenInvoiceSettings}
-              aria-label="Edit invoice details"
+              onClick={handleOpenBallpark}
+              aria-label="Edit target"
             >
               <FontAwesomeIcon icon={faGear} />
             </button>
@@ -1020,7 +1032,8 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
           <div
             className={`${summaryStyles.cardsRow} ${summaryStyles.cardsRowTop}`}
           >
-            {metrics.slice(0, 3).map((m) => (
+            {/* Skip Ballpark (index 0), show next 3 cards */}
+            {metrics.slice(1, 4).map((m) => (
               <SummaryCard
                 key={m.title}
                 icon={m.icon}
@@ -1048,7 +1061,8 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
           <div
             className={`${summaryStyles.cardsRow} ${summaryStyles.cardsRowBottom}`}
           >
-            {metrics.slice(3).map((m) => (
+            {/* Show remaining cards after index 3 */}
+            {metrics.slice(4).map((m) => (
               <SummaryCard
                 key={m.title}
                 icon={m.icon}
@@ -1159,8 +1173,8 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
           <button
             type="button"
             className={mobileStyles.iconButton}
-            onClick={handleOpenInvoiceSettings}
-            aria-label="Edit invoice details"
+            onClick={handleOpenBallpark}
+            aria-label="Edit target"
           >
             <FontAwesomeIcon icon={faGear} />
           </button>
@@ -1218,6 +1232,21 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
             Create Budget
           </button>
         )}
+      </div>
+
+      {/* Target row for mobile */}
+      <div className={mobileStyles.targetRow}>
+        <button
+          type="button"
+          className={mobileStyles.targetPill}
+          onClick={handleOpenBallpark}
+        >
+          <span className={mobileStyles.targetLabel}>Target</span>
+          <span className={targetDisplay ? mobileStyles.targetValue : mobileStyles.targetPlaceholder}>
+            {targetDisplay ?? "Set target"}
+          </span>
+        </button>
+        <span className={mobileStyles.targetDate}>As of {headerDateText}</span>
       </div>
 
       <div className={mobileStyles.summaryLayout}>

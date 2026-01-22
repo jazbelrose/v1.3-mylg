@@ -2588,7 +2588,7 @@ const patchDeckVersion = async (e, C, { projectId, versionId }) => {
 
   // Build update expression
   const updates = {};
-  const allowedFields = ["name", "status", "notes", "slides", "allowedRoles"];
+  const allowedFields = ["name", "status", "notes", "slides", "allowedRoles", "slideComments"];
   for (const field of allowedFields) {
     if (body[field] !== undefined) {
       updates[field] = body[field];
@@ -2613,6 +2613,236 @@ const patchDeckVersion = async (e, C, { projectId, versionId }) => {
     isDefault: r.Attributes.isDefault === "true",
     isClientDefault: r.Attributes.isClientDefault === "true",
   });
+};
+
+// ============================================================================
+// SLIDE COMMENTS ENDPOINTS
+// ============================================================================
+
+// GET /projects/{projectId}/deck-versions/{versionId}/comments
+const getDeckVersionComments = async (_e, C, { projectId, versionId }) => {
+  const r = await ddb.get({
+    TableName: DECK_VERSIONS_TABLE,
+    Key: { projectId, versionId },
+    ProjectionExpression: "projectId, versionId, slideComments",
+  });
+
+  if (!r.Item) {
+    return json(404, C, { error: "Version not found" });
+  }
+
+  return json(200, C, {
+    projectId,
+    versionId,
+    comments: r.Item.slideComments || [],
+  });
+};
+
+// PUT /projects/{projectId}/deck-versions/{versionId}/comments
+// Bulk update all comments for a version
+const putDeckVersionComments = async (e, C, { projectId, versionId }) => {
+  const body = B(e);
+  const { userId, userName } = getUserFromEvent(e);
+  const now = nowISO();
+
+  if (!Array.isArray(body.comments)) {
+    return json(400, C, { error: "comments array is required" });
+  }
+
+  // Validate comment structure (basic validation)
+  for (const comment of body.comments) {
+    if (!comment.id || !comment.slideId || typeof comment.anchorX !== 'number' || typeof comment.anchorY !== 'number') {
+      return json(400, C, { error: "Invalid comment structure. Required: id, slideId, anchorX, anchorY" });
+    }
+  }
+
+  const r = await ddb.update({
+    TableName: DECK_VERSIONS_TABLE,
+    Key: { projectId, versionId },
+    UpdateExpression: "SET slideComments = :c, updatedAt = :u",
+    ExpressionAttributeValues: {
+      ":c": body.comments,
+      ":u": now,
+    },
+    ReturnValues: "ALL_NEW",
+  });
+
+  return json(200, C, {
+    projectId,
+    versionId,
+    comments: r.Attributes.slideComments || [],
+    updatedAt: r.Attributes.updatedAt,
+  });
+};
+
+// POST /projects/{projectId}/deck-versions/{versionId}/comments
+// Add a single comment
+const addDeckVersionComment = async (e, C, { projectId, versionId }) => {
+  const body = B(e);
+  const { userId, userName } = getUserFromEvent(e);
+  const now = nowISO();
+
+  const { slideId, anchorX, anchorY, text } = body;
+  if (!slideId || typeof anchorX !== 'number' || typeof anchorY !== 'number' || !text) {
+    return json(400, C, { error: "Required: slideId, anchorX, anchorY, text" });
+  }
+
+  const commentId = body.id || uuidv4();
+  const newComment = {
+    id: commentId,
+    slideId,
+    anchorX: Math.max(0, Math.min(100, anchorX)),
+    anchorY: Math.max(0, Math.min(100, anchorY)),
+    thread: [{
+      id: uuidv4(),
+      text,
+      authorId: userId,
+      authorName: userName || "Unknown",
+      authorAvatar: body.authorAvatar,
+      createdAt: now,
+    }],
+    status: "open",
+    createdAt: now,
+    updatedAt: now,
+    createdBy: userId,
+  };
+
+  // Get existing comments and append
+  const existing = await ddb.get({
+    TableName: DECK_VERSIONS_TABLE,
+    Key: { projectId, versionId },
+    ProjectionExpression: "slideComments",
+  });
+
+  const comments = existing.Item?.slideComments || [];
+  comments.push(newComment);
+
+  await ddb.update({
+    TableName: DECK_VERSIONS_TABLE,
+    Key: { projectId, versionId },
+    UpdateExpression: "SET slideComments = :c, updatedAt = :u",
+    ExpressionAttributeValues: {
+      ":c": comments,
+      ":u": now,
+    },
+  });
+
+  return json(201, C, { comment: newComment });
+};
+
+// DELETE /projects/{projectId}/deck-versions/{versionId}/comments/{commentId}
+const deleteDeckVersionComment = async (e, C, { projectId, versionId, commentId }) => {
+  const now = nowISO();
+
+  // Get existing comments
+  const existing = await ddb.get({
+    TableName: DECK_VERSIONS_TABLE,
+    Key: { projectId, versionId },
+    ProjectionExpression: "slideComments",
+  });
+
+  const comments = existing.Item?.slideComments || [];
+  const filtered = comments.filter((c) => c.id !== commentId);
+
+  if (filtered.length === comments.length) {
+    return json(404, C, { error: "Comment not found" });
+  }
+
+  await ddb.update({
+    TableName: DECK_VERSIONS_TABLE,
+    Key: { projectId, versionId },
+    UpdateExpression: "SET slideComments = :c, updatedAt = :u",
+    ExpressionAttributeValues: {
+      ":c": filtered,
+      ":u": now,
+    },
+  });
+
+  return json(204, C, "");
+};
+
+// PATCH /projects/{projectId}/deck-versions/{versionId}/comments/{commentId}
+// Update a single comment (reply, resolve, reopen, move, edit)
+const patchDeckVersionComment = async (e, C, { projectId, versionId, commentId }) => {
+  const body = B(e);
+  const { userId, userName } = getUserFromEvent(e);
+  const now = nowISO();
+
+  // Get existing comments
+  const existing = await ddb.get({
+    TableName: DECK_VERSIONS_TABLE,
+    Key: { projectId, versionId },
+    ProjectionExpression: "slideComments",
+  });
+
+  const comments = existing.Item?.slideComments || [];
+  const commentIndex = comments.findIndex((c) => c.id === commentId);
+
+  if (commentIndex === -1) {
+    return json(404, C, { error: "Comment not found" });
+  }
+
+  const comment = { ...comments[commentIndex] };
+
+  // Handle different update actions
+  if (body.action === "addReply" && body.text) {
+    comment.thread = [
+      ...comment.thread,
+      {
+        id: uuidv4(),
+        text: body.text,
+        authorId: userId,
+        authorName: userName || "Unknown",
+        authorAvatar: body.authorAvatar,
+        createdAt: now,
+      },
+    ];
+    comment.updatedAt = now;
+  } else if (body.action === "resolve") {
+    comment.status = "resolved";
+    comment.resolvedAt = now;
+    comment.resolvedBy = userId;
+    comment.updatedAt = now;
+  } else if (body.action === "reopen") {
+    comment.status = "open";
+    comment.resolvedAt = undefined;
+    comment.resolvedBy = undefined;
+    comment.updatedAt = now;
+  } else if (body.action === "move" && typeof body.anchorX === 'number' && typeof body.anchorY === 'number') {
+    comment.anchorX = Math.max(0, Math.min(100, body.anchorX));
+    comment.anchorY = Math.max(0, Math.min(100, body.anchorY));
+    comment.updatedAt = now;
+  } else if (body.action === "editEntry" && body.entryId && body.text) {
+    comment.thread = comment.thread.map((e) =>
+      e.id === body.entryId
+        ? { ...e, text: body.text, updatedAt: now }
+        : e
+    );
+    comment.updatedAt = now;
+  } else if (body.action === "deleteEntry" && body.entryId) {
+    // Don't allow deleting the root entry
+    if (comment.thread[0]?.id === body.entryId) {
+      return json(400, C, { error: "Cannot delete root comment. Delete the entire thread instead." });
+    }
+    comment.thread = comment.thread.filter((e) => e.id !== body.entryId);
+    comment.updatedAt = now;
+  } else {
+    return json(400, C, { error: "Invalid action or missing required fields" });
+  }
+
+  comments[commentIndex] = comment;
+
+  await ddb.update({
+    TableName: DECK_VERSIONS_TABLE,
+    Key: { projectId, versionId },
+    UpdateExpression: "SET slideComments = :c, updatedAt = :u",
+    ExpressionAttributeValues: {
+      ":c": comments,
+      ":u": now,
+    },
+  });
+
+  return json(200, C, { comment });
 };
 
 // DELETE /projects/{projectId}/deck-versions/{versionId}
@@ -3172,6 +3402,13 @@ const routes = [
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions\/(?<versionId>[^/]+)\/set-default$/i, h: setDefaultDeckVersion },
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions\/(?<versionId>[^/]+)\/set-client-default$/i, h: setClientDefaultDeckVersion },
   { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions\/(?<versionId>[^/]+)\/duplicate$/i, h: duplicateDeckVersion },
+
+  // Slide Comments (under deck versions)
+  { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions\/(?<versionId>[^/]+)\/comments$/i, h: getDeckVersionComments },
+  { m: "PUT",    r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions\/(?<versionId>[^/]+)\/comments$/i, h: putDeckVersionComments },
+  { m: "POST",   r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions\/(?<versionId>[^/]+)\/comments$/i, h: addDeckVersionComment },
+  { m: "PATCH",  r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions\/(?<versionId>[^/]+)\/comments\/(?<commentId>[^/]+)$/i, h: patchDeckVersionComment },
+  { m: "DELETE", r: /^\/projects\/(?<projectId>[^/]+)\/deck-versions\/(?<versionId>[^/]+)\/comments\/(?<commentId>[^/]+)$/i, h: deleteDeckVersionComment },
 
   // Budgets under project
   { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/budget$/i,                               h: listBudgetForProject },

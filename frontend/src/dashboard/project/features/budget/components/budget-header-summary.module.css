@@ -33,7 +33,60 @@
   display: flex;
   flex-direction: row;
   gap: 8px;
-  align-items: baseline;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.headerSeparator {
+  color: var(--budget-accent-text-muted);
+  opacity: 0.5;
+  font-size: 0.9rem;
+  user-select: none;
+}
+
+.targetPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--budget-accent-chip);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.targetPill:hover {
+  background: var(--budget-accent-chip-active);
+  border-color: var(--budget-accent-border);
+  transform: translateY(-1px);
+}
+
+.targetPill:focus-visible {
+  outline: none;
+  background: var(--budget-accent-chip-active);
+  box-shadow: 0 0 0 2px var(--budget-accent-soft);
+}
+
+.targetLabel {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--budget-accent-text-muted);
+}
+
+.targetValue {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--budget-accent-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.targetPlaceholder {
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--budget-accent-text-muted);
+  opacity: 0.7;
 }
 
 .dateControls {

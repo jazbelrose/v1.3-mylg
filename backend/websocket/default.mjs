@@ -185,6 +185,12 @@ export const handler = async (event) => {
     case "deckVersionDuplicated":
     case "deckVersionSetDefault":
     case "deckVersionSetClientDefault":
+    case "commentCreated":
+    case "commentUpdated":
+    case "commentDeleted":
+    case "commentResolved":
+    case "commentReopened":
+    case "replyAdded":
       return await forwardProjectEvent(payload);
 
     default:

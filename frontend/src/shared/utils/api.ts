@@ -896,6 +896,18 @@ export const duplicateVersionUrl = (projectId: string, versionId: string): strin
   `${PROJECTS_URL}/${projectId}/deck-versions/${versionId}/duplicate`;
 
 // ───────────────────────────────────────────────────────────────────────────────
+// Slide Comments API
+// ───────────────────────────────────────────────────────────────────────────────
+
+/** GET/PUT/POST /projects/{projectId}/deck-versions/{versionId}/comments */
+export const deckVersionCommentsUrl = (projectId: string, versionId: string): string =>
+  `${PROJECTS_URL}/${projectId}/deck-versions/${versionId}/comments`;
+
+/** PATCH/DELETE /projects/{projectId}/deck-versions/{versionId}/comments/{commentId} */
+export const deckVersionCommentUrl = (projectId: string, versionId: string, commentId: string): string =>
+  `${PROJECTS_URL}/${projectId}/deck-versions/${versionId}/comments/${commentId}`;
+
+// ───────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ───────────────────────────────────────────────────────────────────────────────
 
@@ -933,6 +945,113 @@ const clone = <T,>(value: T): T => {
 };
 
 const userProfilesCache = new Map<string, UserProfile>();
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Slide Comments API Functions
+// ───────────────────────────────────────────────────────────────────────────────
+
+export interface SlideCommentEntry {
+  id: string;
+  text: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  createdAt: string;
+  updatedAt?: string;
+  mentions?: string[];
+}
+
+export interface SlideComment {
+  id: string;
+  slideId: string;
+  anchorX: number;
+  anchorY: number;
+  thread: SlideCommentEntry[];
+  status: 'open' | 'resolved';
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+}
+
+/** Fetch all comments for a deck version */
+export async function fetchDeckVersionComments(
+  projectId: string,
+  versionId: string
+): Promise<SlideComment[]> {
+  const url = deckVersionCommentsUrl(projectId, versionId);
+  const data = await apiFetch<{ comments: SlideComment[] }>(url, { method: 'GET' });
+  return data.comments || [];
+}
+
+/** Bulk update all comments for a deck version */
+export async function updateDeckVersionComments(
+  projectId: string,
+  versionId: string,
+  comments: SlideComment[]
+): Promise<SlideComment[]> {
+  const url = deckVersionCommentsUrl(projectId, versionId);
+  const data = await apiFetch<{ comments: SlideComment[] }>(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ comments }),
+  });
+  return data.comments || [];
+}
+
+/** Add a single comment to a deck version */
+export async function addDeckVersionComment(
+  projectId: string,
+  versionId: string,
+  slideId: string,
+  anchorX: number,
+  anchorY: number,
+  text: string,
+  authorAvatar?: string
+): Promise<SlideComment> {
+  const url = deckVersionCommentsUrl(projectId, versionId);
+  const data = await apiFetch<{ comment: SlideComment }>(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slideId, anchorX, anchorY, text, authorAvatar }),
+  });
+  return data.comment;
+}
+
+/** Delete a comment from a deck version */
+export async function deleteDeckVersionComment(
+  projectId: string,
+  versionId: string,
+  commentId: string
+): Promise<void> {
+  const url = deckVersionCommentUrl(projectId, versionId, commentId);
+  await apiFetch(url, { method: 'DELETE' });
+}
+
+type CommentPatchAction = 
+  | { action: 'addReply'; text: string; authorAvatar?: string }
+  | { action: 'resolve' }
+  | { action: 'reopen' }
+  | { action: 'move'; anchorX: number; anchorY: number }
+  | { action: 'editEntry'; entryId: string; text: string }
+  | { action: 'deleteEntry'; entryId: string };
+
+/** Update a specific comment (add reply, resolve, reopen, move, edit entry) */
+export async function patchDeckVersionComment(
+  projectId: string,
+  versionId: string,
+  commentId: string,
+  patch: CommentPatchAction
+): Promise<SlideComment> {
+  const url = deckVersionCommentUrl(projectId, versionId, commentId);
+  const data = await apiFetch<{ comment: SlideComment }>(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  return data.comment;
+}
 
 // ───────────────────────────────────────────────────────────────────────────────
 // Core fetch with logging + retries + auth + CSRF + rate limiting

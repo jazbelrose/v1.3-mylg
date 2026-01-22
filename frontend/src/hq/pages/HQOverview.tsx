@@ -27,12 +27,10 @@ import {
   fetchHqChartSeries,
   fetchHqRecurringCommitments,
   fetchHqTopCategories,
-  fetchHqAllocationSummary,
   type HqChartSeriesRange,
   type HqChartSeriesResponse,
   type HqRecurringCommitmentsResponse,
   type HqTopCategoriesResponse,
-  type HqAllocationSummaryResponse,
 } from "@/hq/lib/hqApi";
 import type { HqAccount, HqAlert, HqTransaction } from "@/hq/types";
 import { todayPacificIsoDate } from "@/hq/lib/hqDate";
@@ -276,9 +274,6 @@ const HQOverview: React.FC = () => {
   const [recurringData, setRecurringData] = React.useState<HqRecurringCommitmentsResponse | null>(null);
   const [recurringError, setRecurringError] = React.useState<string | null>(null);
   const [recurringLoading, setRecurringLoading] = React.useState(false);
-
-  // Allocation summary for KPI
-  const [allocationSummary, setAllocationSummary] = React.useState<HqAllocationSummaryResponse | null>(null);
 
   const openImport = React.useCallback(() => {
     if (!canAdmin) return;
@@ -641,30 +636,6 @@ const HQOverview: React.FC = () => {
       cancelled = true;
     };
   }, [activeOrgId, recurringLocal]);
-
-  // Fetch allocation summary for KPI tiles
-  React.useEffect(() => {
-    if (!activeOrgId) {
-      setAllocationSummary(null);
-      return;
-    }
-
-    let cancelled = false;
-
-    fetchHqAllocationSummary(activeOrgId)
-      .then((res) => {
-        if (cancelled) return;
-        setAllocationSummary(res);
-      })
-      .catch(() => {
-        // Silently ignore - allocation data is optional
-        if (!cancelled) setAllocationSummary(null);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeOrgId]);
 
   const topCategories = React.useMemo(() => {
     return (topCategoriesData?.items || []).slice(0, HQ_OVERVIEW_TOP_CATEGORIES_PREVIEW_LIMIT);
@@ -1058,26 +1029,6 @@ const HQOverview: React.FC = () => {
                 In {preciseCurrency.format(totals.inflow)} · Out {preciseCurrency.format(totals.outflow)}
               </div>
             </div>
-            {allocationSummary ? (
-              <>
-                <div className={styles.kpi}>
-                  <div className={styles.kpiLabel}>Allocated to budgets</div>
-                  <div className={[styles.kpiValue, styles.kpiIn].join(" ")}>
-                    {currency.format(allocationSummary.totalAllocated)}
-                  </div>
-                  <div className={styles.kpiHint}>
-                    {allocationSummary.byProject.length} project{allocationSummary.byProject.length === 1 ? "" : "s"}
-                  </div>
-                </div>
-                <div className={styles.kpi}>
-                  <div className={styles.kpiLabel}>Unallocated spend</div>
-                  <div className={[styles.kpiValue, allocationSummary.totalUnallocated > 0 ? styles.kpiOut : ""].join(" ")}>
-                    {currency.format(allocationSummary.totalUnallocated)}
-                  </div>
-                  <div className={styles.kpiHint}>Outflow not linked to budgets</div>
-                </div>
-              </>
-            ) : null}
           </div>
         </section>
 

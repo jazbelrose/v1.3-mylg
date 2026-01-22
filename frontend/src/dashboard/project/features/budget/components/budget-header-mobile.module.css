@@ -31,6 +31,64 @@
   gap: 8px;
 }
 
+/* Target row - full-width pill with date */
+.targetRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.targetPill {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--budget-accent-soft);
+  border: 1px solid var(--budget-accent-border);
+  border-radius: 9999px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.targetPill:hover,
+.targetPill:focus-visible {
+  background: var(--budget-accent-softer);
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 1px var(--budget-accent-border), 0 0 0 4px var(--budget-accent-soft);
+  outline: none;
+}
+
+.targetLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.targetValue {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--budget-accent-text);
+}
+
+.targetPlaceholder {
+  font-size: 0.8rem;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.targetDate {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .titleGroup {
   display: flex;
   align-items: center;
