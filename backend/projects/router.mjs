@@ -1368,6 +1368,40 @@ const getAllocationsByTransaction = async (_e, C, { transactionId }) => {
   return json(200, C, r.Items || []);
 };
 
+// GET /projects/{projectId}/budget/actuals - Get actuals for all budget lines in a project
+const getBudgetActuals = async (_e, C, { projectId }) => {
+  // Get all allocations for this project
+  const allocationsResult = await ddb.query({
+    TableName: TXN_ALLOCATIONS_TABLE,
+    IndexName: "projectId-index",
+    KeyConditionExpression: "projectId = :pid",
+    ExpressionAttributeValues: { ":pid": projectId },
+  });
+
+  const allocations = allocationsResult.Items || [];
+
+  // Group by budgetItemId and sum allocated amounts
+  const actualsByBudgetItem = {};
+  for (const alloc of allocations) {
+    const itemId = alloc.budgetItemId;
+    if (!actualsByBudgetItem[itemId]) {
+      actualsByBudgetItem[itemId] = {
+        budgetItemId: itemId,
+        totalAllocated: 0,
+        allocationCount: 0,
+      };
+    }
+    actualsByBudgetItem[itemId].totalAllocated += alloc.allocatedAmount || 0;
+    actualsByBudgetItem[itemId].allocationCount += 1;
+  }
+
+  return json(200, C, {
+    projectId,
+    actualsByBudgetItem,
+    totalAllocations: allocations.length,
+  });
+};
+
 /* ============== Routes ============== */
 const routes = [
   { m: "GET",    r: /^\/projects\/health$/i,                                                    h: health },
@@ -1443,6 +1477,7 @@ const routes = [
   { m: "DELETE", r: /^\/allocations\/(?<allocationId>[^/]+)$/i,                                  h: deleteAllocation },
   { m: "GET",    r: /^\/allocations\/project\/(?<projectId>[^/]+)$/i,                            h: getAllocationsByProject },
   { m: "GET",    r: /^\/allocations\/transaction\/(?<transactionId>[^/]+)$/i,                    h: getAllocationsByTransaction },
+  { m: "GET",    r: /^\/projects\/(?<projectId>[^/]+)\/budget\/actuals$/i,                       h: getBudgetActuals },
 ];
 
 /* ============== Entrypoint ============== */
