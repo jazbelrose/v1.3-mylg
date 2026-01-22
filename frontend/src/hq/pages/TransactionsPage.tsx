@@ -35,6 +35,7 @@ import type { HqCategoryId, HqPaymentType, HqTransaction } from "@/hq/types";
 import type { HqUpdateType } from "@/hq/lib/hqWebSocket";
 import styles from "./TransactionsPage.module.css";
 import HqSelect from "@/hq/components/HqSelect";
+import DateRangePopover, { type DateRangePreset } from "@/hq/components/DateRangePopover";
 import TxnModalApply from "@/hq/components/TxnModalApply";
 import HqCategoryPicker from "@/hq/components/HqCategoryPicker";
 import AllocationModal from "@/hq/components/AllocationModal";
@@ -164,7 +165,6 @@ function effectivePaymentType(txn: HqTransaction): HqPaymentType {
   if (legacy === "recurring") return "unknown";
   return legacy as HqPaymentType;
 }
-type DateRangePreset = "all" | "7d" | "30d" | "90d" | "month" | "ytd";
 
 function txnTitle(txn: HqTransaction) {
   return txn.vendor || txn.counterparty || txn.rawDescription;
@@ -315,11 +315,21 @@ const TransactionsPage: React.FC = () => {
     return () => ro.disconnect();
   }, []);
 
+  // Handle preset date range changes (custom is handled via callback)
   React.useEffect(() => {
+    // Skip if custom - those are set directly via onCustomRangeChange
+    if (dateRange === "custom") return;
+
     const today = todayPacificIsoDate();
     if (dateRange === "all") {
       setStartDate("");
       setEndDate("");
+      return;
+    }
+
+    if (dateRange === "today") {
+      setStartDate(today);
+      setEndDate(today);
       return;
     }
 
@@ -351,6 +361,12 @@ const TransactionsPage: React.FC = () => {
     setStartDate(`${today.slice(0, 4)}-01-01`);
     setEndDate(today);
   }, [dateRange]);
+
+  // Handler for custom date range
+  const handleCustomDateRange = React.useCallback((from: string, to: string) => {
+    setStartDate(from);
+    setEndDate(to);
+  }, []);
 
   const accountsById = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -1086,19 +1102,13 @@ const TransactionsPage: React.FC = () => {
               </Popover>
             </div>
 
-            <HqSelect
+            <DateRangePopover
+              preset={dateRange}
+              customFrom={dateRange === "custom" ? startDate : undefined}
+              customTo={dateRange === "custom" ? endDate : undefined}
+              onPresetChange={(v) => setDateRange(v)}
+              onCustomRangeChange={handleCustomDateRange}
               className={styles.filterField}
-              value={dateRange}
-              onValueChange={(v) => setDateRange(v as DateRangePreset)}
-              ariaLabel="Filter by date range"
-              options={[
-                { value: "all", label: "Date: All time" },
-                { value: "7d", label: "Date: Last 7d" },
-                { value: "30d", label: "Date: Last 30d" },
-                { value: "90d", label: "Date: Last 90d" },
-                { value: "month", label: "Date: This month" },
-                { value: "ytd", label: "Date: YTD" },
-              ]}
             />
 
             <button

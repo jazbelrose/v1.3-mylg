@@ -1,0 +1,270 @@
+/* DateRangePopover - Premium date range selector */
+
+/* Trigger button */
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  background: rgba(24, 26, 29, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: var(--text-primary, #f6f7fb);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  white-space: nowrap;
+}
+
+.trigger:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.trigger:focus-visible {
+  outline: none;
+  border-color: var(--focus, rgba(250, 51, 86, 0.65));
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.2);
+}
+
+.trigger[data-state="open"] {
+  border-color: var(--brand, #fa3356);
+  background: rgba(250, 51, 86, 0.08);
+}
+
+.triggerIcon {
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+  flex-shrink: 0;
+}
+
+.triggerLabel {
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+  font-weight: 500;
+}
+
+.triggerSep {
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+}
+
+.triggerValue {
+  color: var(--text-primary, #f6f7fb);
+  font-weight: 600;
+}
+
+.triggerChevron {
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+  font-size: 0.75rem;
+  margin-left: 2px;
+}
+
+/* Popover content */
+.content {
+  width: 300px;
+  background: rgba(13, 14, 16, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 
+    0 24px 48px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  overflow: hidden;
+  z-index: 15000;
+  animation: popoverIn 0.15s ease-out;
+}
+
+@keyframes popoverIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Section */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+  padding: 0 4px;
+}
+
+/* Preset list */
+.presetList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.presetItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  padding: 0 12px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: var(--text-primary, #f6f7fb);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.presetItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.presetItem:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.presetItemSelected {
+  background: rgba(250, 51, 86, 0.12);
+}
+
+.presetItemSelected:hover {
+  background: rgba(250, 51, 86, 0.16);
+}
+
+.presetLabel {
+  flex: 1;
+}
+
+.presetCheck {
+  color: var(--brand, #fa3356);
+  flex-shrink: 0;
+}
+
+/* Custom date inputs */
+.customInputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.dateField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dateLabel {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+  padding-left: 2px;
+}
+
+.dateInput {
+  height: 40px;
+  padding: 0 12px;
+  background: rgba(24, 26, 29, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: var(--text-primary, #f6f7fb);
+  font-size: 0.85rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  color-scheme: dark;
+}
+
+.dateInput:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.dateInput:focus {
+  outline: none;
+  border-color: var(--focus, rgba(250, 51, 86, 0.65));
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.15);
+}
+
+.dateInput::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+/* Footer */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(24, 26, 29, 0.5);
+}
+
+.resetBtn {
+  height: 36px;
+  padding: 0 16px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: var(--text-secondary, rgba(246, 247, 251, 0.8));
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.resetBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-primary, #f6f7fb);
+}
+
+.resetBtn:focus-visible {
+  outline: none;
+  border-color: var(--text-secondary, rgba(246, 247, 251, 0.8));
+}
+
+.applyBtn {
+  height: 36px;
+  padding: 0 20px;
+  background: var(--brand, #fa3356);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.applyBtn:hover:not(:disabled) {
+  background: rgba(250, 51, 86, 0.9);
+}
+
+.applyBtn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.3);
+}
+
+.applyBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.applyBtn:active:not(:disabled) {
+  transform: scale(0.98);
+}
