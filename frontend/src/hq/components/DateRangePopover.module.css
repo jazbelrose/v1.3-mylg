@@ -4,17 +4,19 @@
 .trigger {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   height: 36px;
-  padding: 0 14px;
+  padding: 0 10px;
   background: rgba(24, 26, 29, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
   color: var(--text-primary, #f6f7fb);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   cursor: pointer;
   transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .trigger:hover {
@@ -50,6 +52,9 @@
 .triggerValue {
   color: var(--text-primary, #f6f7fb);
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .triggerChevron {

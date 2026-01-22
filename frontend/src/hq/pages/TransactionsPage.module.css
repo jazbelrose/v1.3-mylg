@@ -139,14 +139,14 @@
   position: relative;
   display: grid;
   grid-template-columns:
-    minmax(220px, 1.4fr)
-    minmax(160px, 0.85fr)
-    minmax(160px, 0.85fr)
-    minmax(160px, 0.9fr)
-    minmax(200px, 0.95fr)
-    minmax(260px, 1fr)
-    minmax(150px, 0.7fr);
-  gap: 8px;
+    minmax(200px, 1.4fr)
+    minmax(130px, 0.75fr)
+    minmax(130px, 0.75fr)
+    minmax(130px, 0.8fr)
+    minmax(180px, 0.9fr)
+    minmax(200px, 1fr)
+    minmax(120px, 0.6fr);
+  gap: 6px;
   padding: 10px 54px 10px 10px;
 }
 

@@ -121,8 +121,6 @@ const DateRangePopover: React.FC<Props> = ({
           aria-label="Select date range"
         >
           <Calendar size={14} className={styles.triggerIcon} aria-hidden />
-          <span className={styles.triggerLabel}>Date range</span>
-          <span className={styles.triggerSep}>·</span>
           <span className={styles.triggerValue}>{getTriggerText()}</span>
           <span className={styles.triggerChevron}>▾</span>
         </button>
