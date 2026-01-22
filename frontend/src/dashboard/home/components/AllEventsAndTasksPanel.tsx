@@ -438,6 +438,8 @@ export default function AllEventsAndTasksPanel({ className, selectedDayKey, onOp
         currentUserId={userId}
         currentUserEmail={user?.email}
         hideAssigneeFilter
+        showSweepDone={false}
+        hideCompleted={true}
         projectFilter={
           projectOptions.length
             ? {
