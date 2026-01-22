@@ -23,6 +23,8 @@ import {
 import type { LayoutMode } from "../lib/pictureFrameLayoutGenerator";
 import type { LayoutVariant, TasteModeId } from "../lib/magicLayoutTypes";
 import { isLexicalContentEffectivelyEmpty } from "../lib/lexicalContent";
+import { useComments } from "../contexts/CommentsContext";
+import CommentsOverlay from "./CommentsOverlay";
 import "./SlideEditor.css";
 
 interface SlideEditorProps {
@@ -65,6 +67,12 @@ interface SlideEditorProps {
   toolbarPortalContainer?: HTMLElement | null;
   // Deck version props
   versionDropdown?: React.ReactNode;
+  // Comments mode props
+  currentUserId?: string;
+  currentUserName?: string;
+  currentUserAvatar?: string;
+  /** Whether comments mode is enabled (CommentsProvider is available) */
+  commentsEnabled?: boolean;
 }
 
 // Fixed stage dimensions (16:9 aspect ratio) - never changes
@@ -104,6 +112,10 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   onCreateSlidesWithLayout,
   toolbarPortalContainer,
   versionDropdown,
+  currentUserId,
+  currentUserName,
+  currentUserAvatar,
+  commentsEnabled = false,
 }) => {
   const [toolbarActions, setToolbarActions] = useState<ToolbarActions | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<ContextMenuPosition | null>(null);
@@ -115,6 +127,11 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   const [fitScale, setFitScale] = useState(1);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const scaleRef = useRef(1);
+
+  // Comments mode - conditionally use context
+  const commentsContext = commentsEnabled ? useComments() : null;
+  const editorMode = commentsContext?.mode ?? 'edit';
+  const openCommentCount = commentsContext?.openCount ?? 0;
 
   const { saveSlide, markDirty } = useSlidePersistence({
     projectId,
@@ -445,6 +462,24 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
               toolbarActions.onDuplicateSelection();
             }
             break;
+          // Comments mode shortcuts (Cmd/Ctrl + Shift + M for comment mode)
+          case 'm':
+          case 'M':
+            if (event.shiftKey && commentsContext?.setMode) {
+              event.preventDefault();
+              event.stopPropagation();
+              commentsContext.setMode(commentsContext.mode === 'comment' ? 'edit' : 'comment');
+            }
+            break;
+        }
+      }
+
+      // Escape to return to Edit mode (no modifier required)
+      if (event.key === 'Escape' && commentsContext?.setMode && commentsContext.mode === 'comment') {
+        // Only switch mode if not editing a comment (no selected comment)
+        if (!commentsContext.selectedCommentId && !commentsContext.pendingPlacement) {
+          event.preventDefault();
+          commentsContext.setMode('edit');
         }
       }
     };
@@ -525,6 +560,9 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
       onUpdateTextBoxBorderRadius={toolbarActions.onUpdateTextBoxBorderRadius}
       onNewSlide={onNewSlide}
       versionDropdown={versionDropdown}
+      editorMode={editorMode}
+      onEditorModeChange={commentsContext?.setMode}
+      openCommentCount={openCommentCount}
     />
   ) : null;
 
@@ -641,6 +679,19 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
                     slidesMode={true}
                     scale={appliedScale}
                   />
+                  {/* Comments overlay - rendered on top of content */}
+                  {commentsEnabled && currentUserId && currentUserName && (
+                    <CommentsOverlay
+                      slideId={slide.id}
+                      canvasWidth={STAGE_WIDTH}
+                      canvasHeight={STAGE_HEIGHT}
+                      zoom={appliedScale}
+                      currentUserId={currentUserId}
+                      currentUserName={currentUserName}
+                      currentUserAvatar={currentUserAvatar}
+                      readOnly={editorMode === 'view'}
+                    />
+                  )}
                 </div>
               </div>
             </div>

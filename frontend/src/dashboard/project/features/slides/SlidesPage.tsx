@@ -31,6 +31,7 @@ import type { LayoutMode } from "./lib/pictureFrameLayoutGenerator";
 import { getProjectDashboardPath } from "@/shared/utils/projectUrl";
 import { apiFetch, GALLERY_UPLOAD_URL, getFileUrl, patchSlideThumbnail } from "@/shared/utils/api";
 import { DropdownProvider } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
+import { CommentsProvider } from "./contexts/CommentsContext";
 import { saveAs } from "file-saver";
 import { getPdfExportCaptureOptions, type PdfExportPreset } from "./lib/pdfExportPresets";
 import "./slides.css";
@@ -2033,6 +2034,12 @@ const SlidesPage: React.FC = () => {
           )}
         </div>
         <DropdownProvider>
+          <CommentsProvider
+            projectId={projectId}
+            activeSlideId={activeSlideId}
+            userId={userId}
+            userName={userName}
+          >
           <div className="slides-workspace">
             <SlidesSidebar
               slides={slides}
@@ -2090,6 +2097,9 @@ const SlidesPage: React.FC = () => {
                   onCreateSlidesWithLayout={handleCreateSlidesWithLayout}
                   toolbarPortalContainer={toolbarPortalNode}
                   versionDropdown={versionDropdown}
+                  currentUserId={userId}
+                  currentUserName={userName}
+                  commentsEnabled={true}
                 />
                 ) : (
                   <div className="slides-main__empty">
@@ -2099,6 +2109,7 @@ const SlidesPage: React.FC = () => {
               </div>
             </section>
           </div>
+          </CommentsProvider>
         </DropdownProvider>
 
         <OffscreenSlideRenderer ref={offscreenSlideRendererRef} />

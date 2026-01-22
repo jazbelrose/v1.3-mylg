@@ -64,6 +64,8 @@ import {
   type LetterSpacing,
   type TextBlockType,
 } from "@/dashboard/project/features/editor/components/Brief/plugins/toolbarShared";
+import EditorModeToggle from "./EditorModeToggle";
+import type { SlideEditorMode } from "../lib/commentsTypes";
 import "./SlideToolbar.css";
 
 function Divider() {
@@ -304,6 +306,11 @@ interface SlideToolbarProps {
 
   // Deck version props
   versionDropdown?: React.ReactNode;
+
+  // Comments mode props
+  editorMode?: SlideEditorMode;
+  onEditorModeChange?: (mode: SlideEditorMode) => void;
+  openCommentCount?: number;
 }
 
 const SlideToolbar: React.FC<SlideToolbarProps> = ({
@@ -369,6 +376,9 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
   onUpdatePictureFrameBorder,
   onUpdateTextBoxBorder,
   versionDropdown,
+  editorMode = 'edit',
+  onEditorModeChange,
+  openCommentCount = 0,
 }) => {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -1737,6 +1747,13 @@ const SlideToolbar: React.FC<SlideToolbarProps> = ({
       </div>
 
       <div className="toolbar-right">
+        {onEditorModeChange && (
+          <EditorModeToggle
+            mode={editorMode}
+            onModeChange={onEditorModeChange}
+            openCommentCount={openCommentCount}
+          />
+        )}
         {versionDropdown}
         <div className="save-status">
           {isSaving ? (

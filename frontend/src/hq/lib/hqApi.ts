@@ -590,6 +590,34 @@ export async function fetchHqBudgetLineAllocations(
   );
 }
 
+export type HqAllocationsByProjectResponse = {
+  projectId: string;
+  /** Map of budgetItemId -> allocated amount (absolute value in dollars) */
+  allocations: Record<string, number>;
+};
+
+/**
+ * POST /hq/allocations/by-project
+ * Get allocation totals for multiple budget items in a project (batch endpoint).
+ */
+export async function fetchHqAllocationsByProject(
+  orgId: string,
+  projectId: string,
+  budgetItemIds?: string[]
+): Promise<HqAllocationsByProjectResponse> {
+  const base = getHqServiceBaseUrl();
+  const params = new URLSearchParams({ orgId, projectId });
+  return apiFetch<HqAllocationsByProjectResponse>(
+    `${base}/hq/allocations/by-project?${params.toString()}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ budgetItemIds: budgetItemIds ?? [] }),
+      suppressErrorLog: true,
+    }
+  );
+}
+
 /* ------------ Org Files API ------------ */
 
 export type HqFileDeleteResponse = {

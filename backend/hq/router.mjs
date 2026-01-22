@@ -4249,6 +4249,68 @@ const getAllocationsByBudgetItem = async (e, C) => {
   });
 };
 
+// POST /hq/allocations/by-project?orgId=...&projectId=...
+// Body: { budgetItemIds: string[] }
+// Get allocation totals for multiple budget items in a project (batch endpoint)
+const getAllocationsByProject = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const body = B(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const projectId = q.projectId ? String(q.projectId).trim() : "";
+  if (!projectId) return json(400, C, { error: "projectId required" });
+
+  const budgetItemIds = Array.isArray(body.budgetItemIds) ? body.budgetItemIds.map(id => String(id).trim()).filter(Boolean) : [];
+
+  // Aggregate allocations by budget item for this project
+  const allocationsByItem = {};
+  for (const id of budgetItemIds) {
+    allocationsByItem[id] = 0;
+  }
+
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+      ExclusiveStartKey: lastKey,
+    });
+
+    for (const txn of page.Items || []) {
+      const allocations = Array.isArray(txn.allocations) ? txn.allocations : [];
+      for (const alloc of allocations) {
+        if (alloc.projectId !== projectId) continue;
+        const itemId = alloc.budgetItemId;
+        if (!itemId) continue;
+        
+        // If budgetItemIds was provided, only include those; otherwise include all
+        if (budgetItemIds.length > 0 && !budgetItemIds.includes(itemId)) continue;
+        
+        if (!(itemId in allocationsByItem)) {
+          allocationsByItem[itemId] = 0;
+        }
+        allocationsByItem[itemId] += Number(alloc.amount) || 0;
+      }
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  // Round all values
+  for (const k of Object.keys(allocationsByItem)) {
+    allocationsByItem[k] = round2(allocationsByItem[k]);
+  }
+
+  return json(200, C, {
+    projectId,
+    allocations: allocationsByItem,
+  });
+};
+
 /* ------------ Routes ------------ */
 const routes = [
   { m: "GET", r: /^\/hq\/health$/i, h: health },
@@ -4284,6 +4346,7 @@ const routes = [
   { m: "DELETE", r: /^\/hq\/transactions\/(?<dedupeHash>[^/]+)\/allocations\/(?<budgetItemId>[^/]+)\/?$/i, h: removeTransactionAllocation },
   { m: "GET", r: /^\/hq\/allocations\/summary\/?$/i, h: getAllocationSummary },
   { m: "GET", r: /^\/hq\/allocations\/by-budget-item\/?$/i, h: getAllocationsByBudgetItem },
+  { m: "POST", r: /^\/hq\/allocations\/by-project\/?$/i, h: getAllocationsByProject },
 
   { m: "POST", r: /^\/hq\/accounts\/?$/i, h: createAccount },
   { m: "PATCH", r: /^\/hq\/accounts\/(?<accountId>[^/]+)\/?$/i, h: patchAccount },

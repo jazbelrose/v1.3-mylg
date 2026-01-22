@@ -15,7 +15,7 @@ import { Link2 } from "lucide-react";
 import AttachmentPreviewModal, { type AttachmentPreviewItem } from "@/shared/ui/AttachmentPreviewModal";
 import BudgetLineTransactionsDrawer from "./BudgetLineTransactionsDrawer";
 import { useOrg } from "@/app/contexts/useOrg";
-import { fetchHqAllocationSummary, type HqAllocationSummaryResponse } from "@/hq/lib/hqApi";
+import { fetchHqAllocationsByProject } from "@/hq/lib/hqApi";
 import styles from "@/dashboard/project/features/budget/pages/budget-page.module.css";
 import { formatUSD } from "@/shared/utils/budgetUtils";
 import type { Task } from "@/shared/utils/api";
@@ -144,22 +144,25 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
   const [attachmentPreviewIndex, setAttachmentPreviewIndex] = useState(0);
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
 
-  // Fetch allocation data for budget line items
+  // Extract budget item IDs for batch fetch
+  const budgetItemIds = useMemo(
+    () => dataSource.map((item) => item.budgetItemId),
+    [dataSource]
+  );
+
+  // Fetch allocation data for budget line items using batch endpoint
   useEffect(() => {
-    if (!activeOrgId || !projectId) {
+    if (!activeOrgId || !projectId || budgetItemIds.length === 0) {
       setAllocationsByBudgetItem({});
       return;
     }
 
     let cancelled = false;
 
-    fetchHqAllocationSummary(activeOrgId)
-      .then(() => {
+    fetchHqAllocationsByProject(activeOrgId, projectId, budgetItemIds)
+      .then((res) => {
         if (cancelled) return;
-        // For now, we don't have per-budget-item allocation data in the summary.
-        // This would need a dedicated endpoint or batch call.
-        // The drawer fetches per-item data on demand.
-        setAllocationsByBudgetItem({});
+        setAllocationsByBudgetItem(res.allocations ?? {});
       })
       .catch(() => {
         if (!cancelled) setAllocationsByBudgetItem({});
@@ -168,7 +171,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
     return () => {
       cancelled = true;
     };
-  }, [activeOrgId, projectId]);
+  }, [activeOrgId, projectId, budgetItemIds]);
 
     useEffect(() => {
       if (typeof window === "undefined") return;
