@@ -1143,24 +1143,24 @@ const TransactionsPage: React.FC = () => {
           {items.length ? (
             <div className={styles.tableHeader} role="row">
               {canAdmin ? (
-                <div className={styles.headerCheckbox}>
-                  <input
-                    type="checkbox"
-                    className={styles.rowCheckbox}
-                    checked={selectedRows.size > 0 && selectedRows.size === items.length}
-                    ref={(el) => {
-                      if (el) el.indeterminate = selectedRows.size > 0 && selectedRows.size < items.length;
-                    }}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedRows(new Set(items.map((t) => t.dedupeHash).filter(Boolean)));
-                      } else {
-                        setSelectedRows(new Set());
-                      }
-                    }}
-                    aria-label="Select all transactions"
-                  />
-                </div>
+                <button
+                  type="button"
+                  className={styles.selectAllButton}
+                  onClick={() => {
+                    if (selectedRows.size === items.length) {
+                      setSelectedRows(new Set());
+                    } else {
+                      setSelectedRows(new Set(items.map((t) => t.dedupeHash).filter(Boolean)));
+                    }
+                  }}
+                  aria-label={selectedRows.size === items.length ? "Deselect all" : "Select all"}
+                  title={selectedRows.size === items.length ? "Deselect all" : "Select all"}
+                >
+                  <span className={[
+                    styles.selectAllIndicator,
+                    selectedRows.size > 0 ? styles.selectAllActive : ""
+                  ].filter(Boolean).join(" ")} />
+                </button>
               ) : null}
               <button
                 type="button"
@@ -1315,32 +1315,8 @@ const TransactionsPage: React.FC = () => {
                         onKeyDown={(e) => handleRowKeyDown(txn, index, e)}
                         onContextMenu={(e) => handleContextMenu(txn, index, e)}
                       >
-                        {canAdmin ? (
-                          <div className={styles.checkboxCell}>
-                            <input
-                              type="checkbox"
-                              className={styles.rowCheckbox}
-                              checked={isSelected}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                const hash = txn.dedupeHash;
-                                if (hash) {
-                                  setSelectedRows((prev) => {
-                                    const next = new Set(prev);
-                                    if (e.target.checked) {
-                                      next.add(hash);
-                                    } else {
-                                      next.delete(hash);
-                                    }
-                                    return next;
-                                  });
-                                }
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                              aria-label={`Select ${txnTitle(txn)}`}
-                            />
-                          </div>
-                        ) : null}
+                        {/* Selection rail indicator */}
+                        {isSelected ? <div className={styles.selectionRail} aria-hidden /> : null}
                         <div className={styles.txnCell}>
                           <div className={styles.icon} aria-hidden>
                             {typeIcon(iconType)}

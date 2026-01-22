@@ -14,7 +14,9 @@ import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { toast } from "react-toastify";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { FaExclamationTriangle, FaTrash } from "react-icons/fa";
-import { deleteHqImportRun, fetchHqSummary, resetHqData } from "@/hq/lib/hqApi";
+import { Download, Upload } from "lucide-react";
+import { deleteHqImportRun, downloadHqBundle, downloadHqCsv, fetchHqSummary, resetHqData } from "@/hq/lib/hqApi";
+import ImportBundleModal from "@/hq/components/ImportBundleModal";
 import "@/dashboard/home/pages/dashboard-styles.css";
 import Modal from "@/shared/ui/ModalWithStack";
 import HeaderShell from "@/shared/ui/HeaderShell";
@@ -127,6 +129,45 @@ const HQLayout: React.FC<HQLayoutProps> = ({
 
   const [isShredMenuOpen, setIsShredMenuOpen] = useState(false);
   const [isShredding, setIsShredding] = useState(false);
+
+  // Export/Import state
+  const [isExporting, setIsExporting] = useState(false);
+  const [showImportBundle, setShowImportBundle] = useState(false);
+
+  const handleExportCsv = useCallback(async () => {
+    if (!activeOrgId || isExporting) return;
+    setIsExporting(true);
+    setIsShredMenuOpen(false);
+    try {
+      await downloadHqCsv(activeOrgId);
+      toast.success("CSV exported!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Export failed");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [activeOrgId, isExporting]);
+
+  const handleExportBundle = useCallback(async () => {
+    if (!activeOrgId || isExporting) return;
+    setIsExporting(true);
+    setIsShredMenuOpen(false);
+    try {
+      await downloadHqBundle(activeOrgId);
+      toast.success("Backup exported!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Export failed");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [activeOrgId, isExporting]);
+
+  const handleOpenImportBundle = useCallback(() => {
+    setIsShredMenuOpen(false);
+    setShowImportBundle(true);
+  }, []);
 
   type ShredConfirmAction = null | "remove-csv" | "remove-bank" | "remove-everything";
   const [confirmAction, setConfirmAction] = useState<ShredConfirmAction>(null);
@@ -323,6 +364,63 @@ const HQLayout: React.FC<HQLayoutProps> = ({
 
               <DropdownMenu.Portal>
                 <DropdownMenu.Content className={styles.dataLayersMenu} sideOffset={8} align="end" collisionPadding={12}>
+                  {/* Export & Backup section */}
+                  <DropdownMenu.Label className={styles.dataLayersMenuLabel}>Export & Backup</DropdownMenu.Label>
+                  <div className={styles.dataLayersMenuItems}>
+                    <DropdownMenu.Item asChild>
+                      <button
+                        type="button"
+                        className={styles.dataLayersMenuItem}
+                        onClick={handleExportCsv}
+                        disabled={isExporting}
+                      >
+                        <span className={styles.dataLayersMenuItemTitle}>
+                          <Download size={14} style={{ marginRight: 6, verticalAlign: "middle" }} />
+                          Export CSV
+                        </span>
+                        <span className={styles.dataLayersMenuItemDesc}>
+                          Download transactions as a spreadsheet.
+                        </span>
+                      </button>
+                    </DropdownMenu.Item>
+
+                    <DropdownMenu.Item asChild>
+                      <button
+                        type="button"
+                        className={styles.dataLayersMenuItem}
+                        onClick={handleExportBundle}
+                        disabled={isExporting}
+                      >
+                        <span className={styles.dataLayersMenuItemTitle}>
+                          <Download size={14} style={{ marginRight: 6, verticalAlign: "middle" }} />
+                          Export Backup (.memry.json)
+                        </span>
+                        <span className={styles.dataLayersMenuItemDesc}>
+                          Full backup with categories, rules & accounts.
+                        </span>
+                      </button>
+                    </DropdownMenu.Item>
+
+                    <DropdownMenu.Item asChild>
+                      <button
+                        type="button"
+                        className={styles.dataLayersMenuItem}
+                        onClick={handleOpenImportBundle}
+                      >
+                        <span className={styles.dataLayersMenuItemTitle}>
+                          <Upload size={14} style={{ marginRight: 6, verticalAlign: "middle" }} />
+                          Import Backup
+                        </span>
+                        <span className={styles.dataLayersMenuItemDesc}>
+                          Restore from a .memry.json backup file.
+                        </span>
+                      </button>
+                    </DropdownMenu.Item>
+                  </div>
+
+                  <DropdownMenu.Separator className={styles.dataLayersMenuSeparator} />
+
+                  {/* Shred section */}
                   <DropdownMenu.Label className={styles.dataLayersMenuLabel}>Data layers</DropdownMenu.Label>
                   <div className={styles.dataLayersMenuHint}>
                     Choose what to delete. Accounts stay unless you pick the full reset.
@@ -751,6 +849,13 @@ const HQLayout: React.FC<HQLayoutProps> = ({
       <div className={`dashboard-wrapper ${styles.wrapper}`}>
         {shredConfirmModal}
         {whatStaysModal}
+        {activeOrgId && (
+          <ImportBundleModal
+            orgId={activeOrgId}
+            isOpen={showImportBundle}
+            onRequestClose={() => setShowImportBundle(false)}
+          />
+        )}
         <div className={styles.headerContainer}>
           {flags.isDesktop ? pageHeader : mobilePageHeader}
         </div>

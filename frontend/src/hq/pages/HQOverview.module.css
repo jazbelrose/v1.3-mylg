@@ -98,6 +98,48 @@
   background: rgba(255, 255, 255, 0.09);
 }
 
+.moreMenuWrapper {
+  position: relative;
+}
+
+.moreMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  background: rgba(30, 30, 30, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 6px;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.moreMenu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.moreMenu button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.moreMenu button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .hero {
   margin-top: 10px;
   border-radius: 18px;

@@ -44,6 +44,9 @@ provider:
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.env.ORG_MEMBERS_TABLE}/index/*
         - Effect: Allow
           Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:HeadObject
             - s3:DeleteObject
             - s3:DeleteObjects
           Resource:
