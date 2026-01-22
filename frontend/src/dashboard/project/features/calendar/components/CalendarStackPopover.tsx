@@ -648,6 +648,16 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
       return `${done}/${descendantTasks.length}`;
     };
 
+    const isFocusBlockComplete = (focusId: string, fallbackDone: boolean): boolean => {
+      const descendantTasks = collectDescendants(focusId)
+        .map((taskId) => byTaskId.get(taskId))
+        .filter((row): row is RowBase => Boolean(row))
+        .filter((row) => !isFocusBlockTaskId(row.taskId ?? ""));
+
+      if (descendantTasks.length === 0) return fallbackDone;
+      return descendantTasks.every((row) => row.isDone);
+    };
+
     const buildFocusPreviewTitles = (focusId: string): string | undefined => {
       const descendantTasks = collectDescendants(focusId)
         .map((taskId) => byTaskId.get(taskId))
@@ -667,11 +677,16 @@ export const CalendarStackPopover: React.FC<CalendarStackPopoverProps> = ({
       const progressLabel = isFocusBlock && taskId ? buildProgressLabel(taskId) : undefined;
       const preview = isFocusBlock && taskId ? buildFocusPreviewTitles(taskId) : undefined;
 
+      // For focus blocks, compute isDone based on all children being done
+      const computedIsDone = isFocusBlock && taskId
+        ? isFocusBlockComplete(taskId, row.isDone)
+        : row.isDone;
+
       flattened.push({
         child: row.child,
         title: row.title,
         time: row.time,
-        isDone: row.isDone,
+        isDone: computedIsDone,
         isFocusBlock,
         focusId: taskId,
         hasChildren,

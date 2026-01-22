@@ -1414,8 +1414,17 @@ export function CommandPanel({
       if (hideCompleted && item.type === 'task') {
         const task = item as TimelineTask;
         const status = typeof task.status === 'string' ? task.status.trim().toLowerCase() : '';
+        
+        // Check if task itself is done
         if (task.done || status === 'done' || status === 'completed') {
           return false;
+        }
+        
+        // For focus block containers, also hide if all children are done
+        if (task.focusGroup && task.focusGroup.totalCount > 0) {
+          if (task.focusGroup.doneCount >= task.focusGroup.totalCount) {
+            return false;
+          }
         }
       }
       
