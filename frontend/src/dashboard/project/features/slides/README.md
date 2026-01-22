@@ -23,9 +23,15 @@ Navigate to `/projects/:projectId/:projectName/slides` or use the "Slides" tab i
 
 ### Creating Slides
 
-1. Click the "+" button in the top toolbar
-2. The new slide will be created and automatically selected
-3. Start editing content in the Lexical editor
+1. Click the "+" button in the top toolbar or press `Ctrl+Shift+N`
+2. A template picker modal appears with layout options:
+   - **Basic**: Blank, Title Slide, Section Header
+   - **Content**: Title + Content, Two Columns, Quote
+   - **Media**: Image + Text, Full Image
+   - **Comparison**: Before & After, Key Stats
+3. Select a template to create the new slide with that layout
+4. The new slide will be created and automatically selected
+5. Start editing content in the Lexical editor
 
 ### Editing Slides
 
@@ -51,6 +57,16 @@ Navigate to `/projects/:projectId/:projectName/slides` or use the "Slides" tab i
 - **Save**: Manually trigger save
 - **List Files**: Browse project files (recently added)
 
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Shift+N` | Open template picker for new slide |
+| `Alt+N` | Toggle speaker notes panel |
+| `Ctrl+Shift+Z` | Undo slide-level changes (reorder, delete, duplicate) |
+| `Ctrl+Shift+Y` | Redo slide-level changes |
+| `N` (presentation mode) | Toggle speaker notes view |
+
 ### Canvas Shortcuts
 
 - **Copy on drag (SVG)**: Hold `Ctrl` (Windows/Linux) or `⌘` (macOS) while dragging an SVG object to duplicate it.
@@ -61,13 +77,17 @@ Navigate to `/projects/:projectId/:projectName/slides` or use the "Slides" tab i
 
 ```
 frontend/src/dashboard/project/features/slides/
-├── SlidesPage.tsx              # Main container (579 lines)
+├── SlidesPage.tsx              # Main container
 ├── components/
 │   ├── SlideEditor.tsx         # Lexical editor wrapper
 │   ├── SlideEditor.css         # Editor styling
 │   ├── SlidesSidebar.tsx       # Thumbnails & navigation
-│   └── SlideToolbar.tsx        # Action buttons & status
-│   └── SlideToolbar.css        # Toolbar styling
+│   ├── SlideToolbar.tsx        # Action buttons & status
+│   ├── SlideToolbar.css        # Toolbar styling
+│   ├── SpeakerNotesPanel.tsx   # Collapsible speaker notes
+│   ├── SpeakerNotesPanel.css   # Notes panel styling
+│   ├── TemplatePickerModal.tsx # Slide template selection
+│   └── TemplatePickerModal.css # Template picker styling
 ├── hooks/
 │   ├── useSlidePersistence.ts  # Auto-save & debouncing
 │   └── useSlideProvider.ts     # Yjs provider management
@@ -75,6 +95,7 @@ frontend/src/dashboard/project/features/slides/
 │   ├── yjs.ts                  # Connection manager & caching
 │   ├── thumbnails.ts           # S3 upload & generation
 │   ├── thumbnails_old.ts       # Legacy implementation
+│   ├── slideTemplates.ts       # Predefined template layouts
 │   └── featureFlags.ts         # localStorage toggles
 ├── slides.test.ts              # Unit tests (11 cases)
 ├── README.md                   # This documentation

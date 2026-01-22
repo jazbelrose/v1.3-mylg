@@ -14,7 +14,9 @@ import SlidesSidebar from "./components/SlidesSidebar";
 import SlideEditor from "./components/SlideEditor";
 import SlidesEmptyToolbar from "./components/SlidesEmptyToolbar";
 import SpeakerNotesPanel from "./components/SpeakerNotesPanel";
+import TemplatePickerModal from "./components/TemplatePickerModal";
 import OffscreenSlideRenderer, { type OffscreenSlideCaptureOptions, type OffscreenSlideRendererRef } from "./components/OffscreenSlideRenderer";
+import type { SlideTemplate } from "./lib/slideTemplates";
 import DeckVersionDropdown from "./components/DeckVersionDropdown";
 import DeckVersionsModal from "./components/DeckVersionsModal";
 import { useDeckVersions } from "./hooks/useDeckVersions";
@@ -264,6 +266,8 @@ const SlidesPage: React.FC = () => {
   const [zoom, setZoom] = useState(0);
   // Speaker notes panel state
   const [notesExpanded, setNotesExpanded] = useState(false);
+  // Template picker modal state
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const uiThumbsEnabled = isUiThumbsEnabled();
 
@@ -1381,6 +1385,13 @@ const SlidesPage: React.FC = () => {
         return;
       }
       
+      // Ctrl+Shift+N to open template picker for new slide
+      if (cmdOrCtrl && e.shiftKey && e.key.toLowerCase() === 'n' && !e.altKey) {
+        e.preventDefault();
+        setTemplatePickerOpen(true);
+        return;
+      }
+      
       // Ctrl+Shift+Z for slide undo (both platforms)
       if (cmdOrCtrl && e.shiftKey && e.key.toLowerCase() === 'z' && !e.altKey) {
         // On Mac, Cmd+Shift+Z is typically redo in text editors
@@ -1454,13 +1465,18 @@ const SlidesPage: React.FC = () => {
     [projectId, ws, userId, userName, activeVersionId]
   );
 
-  const handleNewSlide = useCallback(() => {
+  /**
+   * Create a new slide, optionally from a template.
+   * When called with no template, opens the template picker modal.
+   * When called with a template, creates a slide with that template's content.
+   */
+  const handleNewSlide = useCallback((template?: SlideTemplate) => {
     const newSlide: Slide = {
       id: uuidv4(),
       title: `Slide ${slides.length + 1}`,
       order: slides.length,
-      backgroundColor: '#101112',
-      content: JSON.stringify({
+      backgroundColor: template?.backgroundColor || '#101112',
+      content: template?.content || JSON.stringify({
         root: {
           children: [
             {
@@ -1490,6 +1506,21 @@ const SlidesPage: React.FC = () => {
     saveSlides(updatedSlides);
     sendSlideEvent("slideCreated", { slideId: newSlide.id });
   }, [slides, saveSlides]);
+
+  /**
+   * Open the template picker modal
+   */
+  const handleOpenTemplatePicker = useCallback(() => {
+    setTemplatePickerOpen(true);
+  }, []);
+
+  /**
+   * Handle template selection from the picker
+   */
+  const handleSelectTemplate = useCallback((template: SlideTemplate) => {
+    handleNewSlide(template);
+    setTemplatePickerOpen(false);
+  }, [handleNewSlide]);
 
   /**
    * Create multiple slides with Magic Layout content
@@ -2314,6 +2345,12 @@ const SlidesPage: React.FC = () => {
         confirmLabel="Discard & Switch"
         cancelLabel="Cancel"
       />
+      {/* Template picker modal for new slides */}
+      <TemplatePickerModal
+        isOpen={templatePickerOpen}
+        onClose={() => setTemplatePickerOpen(false)}
+        onSelectTemplate={handleSelectTemplate}
+      />
       <QuickLinksComponent ref={quickLinksRef} hideTrigger />
       
       <div className="slides-shell">
@@ -2346,7 +2383,7 @@ const SlidesPage: React.FC = () => {
         <div className="slides-toolbar-shell" ref={toolbarPortalRef}>
           {!activeSlide && (
             <SlidesEmptyToolbar
-              onNewSlide={handleNewSlide}
+              onNewSlide={handleOpenTemplatePicker}
               onImportPdf={handleImportPdfClick}
               isImportingPdf={isImportingPdf}
             />
@@ -2415,7 +2452,7 @@ const SlidesPage: React.FC = () => {
                   onZoomOut={handleZoomOut}
                   onResetZoom={handleResetZoom}
                   onSetZoom={handleSetZoom}
-                  onNewSlide={handleNewSlide}
+                  onNewSlide={handleOpenTemplatePicker}
                   onCreateSlidesWithLayout={handleCreateSlidesWithLayout}
                   toolbarPortalContainer={toolbarPortalNode}
                   versionDropdown={versionDropdown}
