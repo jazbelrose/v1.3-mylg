@@ -2399,6 +2399,7 @@ const listTransactions = async (e, C) => {
       importRunId: t.importRunId,
       dedupeHash: t.dedupeHash,
       createdAt: t.createdAt,
+      allocations: Array.isArray(t.allocations) ? t.allocations : [],
     }));
 
     if (accountId) {
@@ -2449,6 +2450,7 @@ const listTransactions = async (e, C) => {
       importRunId: t.importRunId,
       dedupeHash: t.dedupeHash,
       createdAt: t.createdAt,
+      allocations: Array.isArray(t.allocations) ? t.allocations : [],
     },
   }));
 

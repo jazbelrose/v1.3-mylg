@@ -1,0 +1,123 @@
+/* SpeakerNotesPanel.css - Speaker notes collapsible panel */
+
+.speaker-notes-panel {
+  position: relative;
+  background: rgba(20, 20, 24, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  transition: height 0.2s ease;
+}
+
+.speaker-notes-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.speaker-notes-panel__header:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.speaker-notes-panel__header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.speaker-notes-panel__title {
+  font-weight: 500;
+}
+
+.speaker-notes-panel__indicator {
+  color: #facc15;
+  font-size: 18px;
+  line-height: 1;
+  margin-left: 4px;
+}
+
+.speaker-notes-panel__content {
+  padding: 0 16px 12px;
+  animation: notes-slide-down 0.2s ease;
+}
+
+@keyframes notes-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.speaker-notes-panel__textarea {
+  width: 100%;
+  min-height: 80px;
+  max-height: 200px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.speaker-notes-panel__textarea::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.speaker-notes-panel__textarea:focus {
+  outline: none;
+  border-color: rgba(250, 51, 86, 0.5);
+  box-shadow: 0 0 0 3px rgba(250, 51, 86, 0.1);
+}
+
+.speaker-notes-panel__textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.speaker-notes-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding: 0 4px;
+}
+
+.speaker-notes-panel__hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.speaker-notes-panel__char-count {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  font-variant-numeric: tabular-nums;
+}
+
+/* When panel is expanded, add subtle top glow */
+.speaker-notes-panel--expanded {
+  border-top-color: rgba(250, 51, 86, 0.2);
+}
+
+/* Responsive - hide hint on small screens */
+@media (max-width: 600px) {
+  .speaker-notes-panel__hint {
+    display: none;
+  }
+}

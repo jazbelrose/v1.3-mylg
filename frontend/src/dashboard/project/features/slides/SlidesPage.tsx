@@ -13,6 +13,7 @@ import { useTeamMembers } from "@/dashboard/project/components/Shared/projectHea
 import SlidesSidebar from "./components/SlidesSidebar";
 import SlideEditor from "./components/SlideEditor";
 import SlidesEmptyToolbar from "./components/SlidesEmptyToolbar";
+import SpeakerNotesPanel from "./components/SpeakerNotesPanel";
 import OffscreenSlideRenderer, { type OffscreenSlideCaptureOptions, type OffscreenSlideRendererRef } from "./components/OffscreenSlideRenderer";
 import DeckVersionDropdown from "./components/DeckVersionDropdown";
 import DeckVersionsModal from "./components/DeckVersionsModal";
@@ -261,6 +262,8 @@ const SlidesPage: React.FC = () => {
   const [isDirty, setIsDirty] = useState(false);
   // Zoom state: 0 = "fit to view", otherwise percentage (25-300)
   const [zoom, setZoom] = useState(0);
+  // Speaker notes panel state
+  const [notesExpanded, setNotesExpanded] = useState(false);
   const quickLinksRef = useRef<QuickLinksRef>(null);
   const uiThumbsEnabled = isUiThumbsEnabled();
 
@@ -1366,6 +1369,13 @@ const SlidesPage: React.FC = () => {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
       
+      // Alt+N to toggle speaker notes panel
+      if (e.altKey && e.key.toLowerCase() === 'n' && !cmdOrCtrl && !e.shiftKey) {
+        e.preventDefault();
+        toggleNotesPanel();
+        return;
+      }
+      
       // Ctrl+Shift+Z for slide undo (both platforms)
       if (cmdOrCtrl && e.shiftKey && e.key.toLowerCase() === 'z' && !e.altKey) {
         // On Mac, Cmd+Shift+Z is typically redo in text editors
@@ -1391,7 +1401,7 @@ const SlidesPage: React.FC = () => {
 
     window.addEventListener('keydown', handleSlideUndoRedo);
     return () => window.removeEventListener('keydown', handleSlideUndoRedo);
-  }, [canUndoSlide, canRedoSlide, executeSlideUndo, executeSlideRedo]);
+  }, [canUndoSlide, canRedoSlide, executeSlideUndo, executeSlideRedo, toggleNotesPanel]);
 
   const sendSlideEvent = useCallback(
     (action: string, payload: Record<string, unknown> = {}) => {
@@ -1743,6 +1753,22 @@ const SlidesPage: React.FC = () => {
       }
     }
   }, [uiThumbsEnabled]);
+
+  // Handler for speaker notes changes
+  const handleNotesChange = useCallback((notes: string) => {
+    if (!activeSlideId) return;
+    setSlides((prev) =>
+      prev.map((slide) =>
+        slide.id === activeSlideId ? { ...slide, notes } : slide
+      )
+    );
+    setIsDirty(true);
+  }, [activeSlideId]);
+
+  // Toggle speaker notes panel
+  const toggleNotesPanel = useCallback(() => {
+    setNotesExpanded((prev) => !prev);
+  }, []);
 
   const handleSlideBackgroundColorChange = useCallback((color: string) => {
     if (!activeSlideId) return;
@@ -2403,6 +2429,16 @@ const SlidesPage: React.FC = () => {
                   </div>
                 )}
               </div>
+              {/* Speaker Notes Panel - below editor */}
+              {activeSlide && (
+                <SpeakerNotesPanel
+                  notes={activeSlide.notes ?? ''}
+                  onChange={handleNotesChange}
+                  isExpanded={notesExpanded}
+                  onToggle={toggleNotesPanel}
+                  disabled={isSaving}
+                />
+              )}
             </section>
           </div>
           </CommentsProvider>

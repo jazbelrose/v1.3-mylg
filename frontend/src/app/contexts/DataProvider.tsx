@@ -77,6 +77,7 @@ export interface Slide {
   thumbRevision?: number;
   order?: number;
   content?: string; // Lexical JSON
+  notes?: string; // Speaker notes (plain text or Lexical JSON)
   backgroundColor?: string; // Slide background color
   backgroundImage?: string; // S3 key or URL for slide background image
   [k: string]: unknown;
