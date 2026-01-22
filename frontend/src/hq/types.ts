@@ -195,9 +195,21 @@ export type HqTransaction = {
 
   projectId?: string;
 
+  /** Allocations linking this transaction to budget line items */
+  allocations?: HqTransactionAllocation[];
+
   importRunId: string;
   dedupeHash: string;
   createdAt: string; // ISO
+};
+
+/** Allocation linking a transaction to a budget line item */
+export type HqTransactionAllocation = {
+  budgetItemId: string; // LINE-{uuid} from Budgets table
+  projectId: string;
+  amount: number; // Allocated portion of the transaction (positive, in same currency)
+  allocatedAt: string; // ISO timestamp
+  allocatedBy?: string; // userId who made the allocation
 };
 
 export type HqAlert = {

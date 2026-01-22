@@ -306,3 +306,83 @@
     padding: 16px;
   }
 }
+
+/* Per-slide thumbnail generation status indicator */
+.slides-sidebar__thumb-status {
+  position: absolute;
+  top: 52px;
+  right: 8px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.slides-sidebar__thumb-status--done {
+  opacity: 0;
+  transform: scale(0.8);
+  pointer-events: none;
+  animation: thumb-status-done-fade 1.5s ease forwards;
+}
+
+@keyframes thumb-status-done-fade {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+.slides-sidebar__thumb-status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.slides-sidebar__thumb-status-icon--success {
+  color: #4ade80;
+}
+
+.slides-sidebar__thumb-status-icon--error {
+  color: #f87171;
+}
+
+.slides-sidebar__thumb-status-icon .animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.slides-sidebar__thumb-status-icon .animate-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}

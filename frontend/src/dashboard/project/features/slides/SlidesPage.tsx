@@ -16,6 +16,7 @@ import OffscreenSlideRenderer, { type OffscreenSlideCaptureOptions, type Offscre
 import DeckVersionDropdown from "./components/DeckVersionDropdown";
 import DeckVersionsModal from "./components/DeckVersionsModal";
 import { useDeckVersions } from "./hooks/useDeckVersions";
+import { useThumbnailQueue } from "./hooks/useThumbnailQueue";
 import { notify } from "@/shared/ui/ToastNotifications";
 import { ConfirmModal, PromptModal } from "@/shared/ui";
 import { v4 as uuidv4 } from "uuid";
@@ -482,6 +483,26 @@ const SlidesPage: React.FC = () => {
     [makeUiThumbnail, queueThumbnailPersist]
   );
 
+  // Thumbnail job queue for immediate generation on create/import
+  // This fixes the bug where thumbnails only appeared after visiting each slide
+  const {
+    enqueueAll: enqueueThumbnails,
+    statusMap: thumbnailStatusMap,
+    isActive: _isThumbnailQueueActive, // eslint-disable-line @typescript-eslint/no-unused-vars
+  } = useThumbnailQueue({
+    projectId,
+    onThumbnailGenerated: useCallback((slideId: string, thumbnailUrl: string) => {
+      // Apply thumbnail update when queue generates one
+      void waitForThumbnailReady(thumbnailUrl)
+        .then((readyUrl) => {
+          applyThumbnailUpdate(slideId, readyUrl);
+        })
+        .catch((error) => {
+          console.warn(`[ThumbnailQueue] Ready-check failed for slide ${slideId}:`, error);
+        });
+    }, [applyThumbnailUpdate]),
+  });
+
   const enqueueThumbBackfill = useCallback((slideId: string) => {
     if (!slideId) return;
     const now = Date.now();
@@ -828,6 +849,16 @@ const SlidesPage: React.FC = () => {
             setActiveSlideId(firstImported.id);
           }
         }
+
+        // Queue imported slides for immediate thumbnail generation
+        // This fixes the bug where thumbnails only appeared after visiting each slide
+        const slidesToQueue = sortedSlides.filter(
+          (s: Slide) => !s.thumbnail && s.content && s.content.length > 0
+        );
+        if (slidesToQueue.length > 0) {
+          console.log(`[SlidesPage] Queuing ${slidesToQueue.length} imported slides for thumbnail generation`);
+          enqueueThumbnails(slidesToQueue, 'high');
+        }
       }
 
       setPdfImportStatus("idle");
@@ -838,7 +869,7 @@ const SlidesPage: React.FC = () => {
 
     window.addEventListener("ws-message", onWsMessage as EventListener);
     return () => window.removeEventListener("ws-message", onWsMessage as EventListener);
-  }, [projectId, makeUiThumbnail, uiThumbsEnabled, userId, activeVersionId, sanitizeThumbnailForPersist, updateVersion, fetchVersions]);
+  }, [projectId, makeUiThumbnail, uiThumbsEnabled, userId, activeVersionId, sanitizeThumbnailForPersist, updateVersion, fetchVersions, enqueueThumbnails]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1281,9 +1312,14 @@ const SlidesPage: React.FC = () => {
       saveSlides(updatedSlides);
       sendSlideEvent("slideCreated", { slideIds: newSlides.map((s) => s.id) });
 
+      // Queue new slides for immediate thumbnail generation
+      // This fixes the bug where Magic Layout thumbnails only appeared after visiting each slide
+      console.log(`[SlidesPage] Queuing ${newSlides.length} Magic Layout slides for thumbnail generation`);
+      enqueueThumbnails(newSlides, 'high');
+
       notify("success", `Created ${newSlides.length} new slide${newSlides.length > 1 ? 's' : ''} with layout`);
     },
-    [slides, saveSlides]
+    [slides, saveSlides, enqueueThumbnails]
   );
 
   const handleSlideSelect = useCallback(
@@ -2018,6 +2054,7 @@ const SlidesPage: React.FC = () => {
                 });
               }}
               onExportSlide={handleExport}
+              thumbnailStatusMap={thumbnailStatusMap}
             />
 
             <section className="slides-main" aria-live="polite">

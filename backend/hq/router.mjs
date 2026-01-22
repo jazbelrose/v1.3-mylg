@@ -3940,6 +3940,315 @@ const exportCsv = async (e, C) => {
   };
 };
 
+/* ------------ Transaction Allocations ------------ */
+
+// Helper to find a transaction by dedupeHash
+const findTxnByDedupeHash = async (orgId, dedupeHash) => {
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+      ExclusiveStartKey: lastKey,
+    });
+    const found = (page.Items || []).find((t) => t.dedupeHash === dedupeHash);
+    if (found) return found;
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+  return null;
+};
+
+// POST /hq/transactions/:dedupeHash/allocations?orgId=...
+// Add an allocation linking a transaction to a budget line item
+const addTransactionAllocation = async (e, C, { dedupeHash }) => {
+  const userId = requireCallerUserId(e);
+  const orgId = pkForOrg(Q(e).orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  dedupeHash = String(dedupeHash || "").trim();
+  if (!dedupeHash) return json(400, C, { error: "dedupeHash required" });
+
+  const body = B(e);
+  const budgetItemId = typeof body.budgetItemId === "string" ? body.budgetItemId.trim() : "";
+  const projectId = typeof body.projectId === "string" ? body.projectId.trim() : "";
+  const amount = typeof body.amount === "number" ? body.amount : Number(body.amount);
+
+  if (!budgetItemId) return json(400, C, { error: "budgetItemId required" });
+  if (!projectId) return json(400, C, { error: "projectId required" });
+  if (!Number.isFinite(amount) || amount <= 0) return json(400, C, { error: "amount must be a positive number" });
+
+  const txn = await findTxnByDedupeHash(orgId, dedupeHash);
+  if (!txn) return json(404, C, { error: "Transaction not found" });
+
+  const existingAllocations = Array.isArray(txn.allocations) ? txn.allocations : [];
+  // Remove any existing allocation to the same budgetItemId (upsert behavior)
+  const filtered = existingAllocations.filter((a) => a.budgetItemId !== budgetItemId);
+
+  const newAllocation = {
+    budgetItemId,
+    projectId,
+    amount: round2(amount),
+    allocatedAt: nowISO(),
+    allocatedBy: userId,
+  };
+
+  const updatedAllocations = [...filtered, newAllocation];
+
+  await ddb.update({
+    TableName: HQ_TABLE,
+    Key: { orgId, sk: txn.sk },
+    UpdateExpression: "SET allocations = :a",
+    ExpressionAttributeValues: { ":a": updatedAllocations },
+  });
+
+  return json(200, C, {
+    ok: true,
+    orgId,
+    dedupeHash,
+    allocations: updatedAllocations,
+  });
+};
+
+// DELETE /hq/transactions/:dedupeHash/allocations/:budgetItemId?orgId=...
+// Remove an allocation from a transaction
+const removeTransactionAllocation = async (e, C, { dedupeHash, budgetItemId }) => {
+  const userId = requireCallerUserId(e);
+  const orgId = pkForOrg(Q(e).orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  dedupeHash = String(dedupeHash || "").trim();
+  budgetItemId = String(budgetItemId || "").trim();
+  if (!dedupeHash) return json(400, C, { error: "dedupeHash required" });
+  if (!budgetItemId) return json(400, C, { error: "budgetItemId required" });
+
+  const txn = await findTxnByDedupeHash(orgId, dedupeHash);
+  if (!txn) return json(404, C, { error: "Transaction not found" });
+
+  const existingAllocations = Array.isArray(txn.allocations) ? txn.allocations : [];
+  const filtered = existingAllocations.filter((a) => a.budgetItemId !== budgetItemId);
+
+  if (filtered.length === existingAllocations.length) {
+    return json(404, C, { error: "Allocation not found" });
+  }
+
+  const updateExpr = filtered.length > 0 ? "SET allocations = :a" : "REMOVE allocations";
+  const exprValues = filtered.length > 0 ? { ":a": filtered } : undefined;
+
+  await ddb.update({
+    TableName: HQ_TABLE,
+    Key: { orgId, sk: txn.sk },
+    UpdateExpression: updateExpr,
+    ExpressionAttributeValues: exprValues,
+  });
+
+  return json(200, C, {
+    ok: true,
+    orgId,
+    dedupeHash,
+    allocations: filtered,
+  });
+};
+
+// PUT /hq/transactions/:dedupeHash/allocations?orgId=...
+// Replace all allocations for a transaction
+const updateTransactionAllocations = async (e, C, { dedupeHash }) => {
+  const userId = requireCallerUserId(e);
+  const orgId = pkForOrg(Q(e).orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  dedupeHash = String(dedupeHash || "").trim();
+  if (!dedupeHash) return json(400, C, { error: "dedupeHash required" });
+
+  const body = B(e);
+  const allocations = Array.isArray(body.allocations) ? body.allocations : [];
+
+  // Validate all allocations
+  const validated = [];
+  for (const a of allocations) {
+    const budgetItemId = typeof a.budgetItemId === "string" ? a.budgetItemId.trim() : "";
+    const projectId = typeof a.projectId === "string" ? a.projectId.trim() : "";
+    const amount = typeof a.amount === "number" ? a.amount : Number(a.amount);
+
+    if (!budgetItemId || !projectId) continue;
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+
+    validated.push({
+      budgetItemId,
+      projectId,
+      amount: round2(amount),
+      allocatedAt: nowISO(),
+      allocatedBy: userId,
+    });
+  }
+
+  const txn = await findTxnByDedupeHash(orgId, dedupeHash);
+  if (!txn) return json(404, C, { error: "Transaction not found" });
+
+  const updateExpr = validated.length > 0 ? "SET allocations = :a" : "REMOVE allocations";
+  const exprValues = validated.length > 0 ? { ":a": validated } : undefined;
+
+  await ddb.update({
+    TableName: HQ_TABLE,
+    Key: { orgId, sk: txn.sk },
+    UpdateExpression: updateExpr,
+    ExpressionAttributeValues: exprValues,
+  });
+
+  return json(200, C, {
+    ok: true,
+    orgId,
+    dedupeHash,
+    allocations: validated,
+  });
+};
+
+// GET /hq/allocations/summary?orgId=...
+// Get org-wide allocation summary for KPI cards
+const getAllocationSummary = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const orgId = pkForOrg(Q(e).orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  let totalAllocated = 0;
+  let totalUnallocated = 0;
+  const byProject = new Map(); // projectId -> { allocated, transactionCount }
+
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+      ExclusiveStartKey: lastKey,
+    });
+
+    for (const txn of page.Items || []) {
+      const txnAmount = Math.abs(Number(txn.amount) || 0);
+      const allocations = Array.isArray(txn.allocations) ? txn.allocations : [];
+
+      if (allocations.length === 0) {
+        // Only count outgoing transactions as unallocated
+        if (txn.direction === "out" && txnAmount > 0) {
+          totalUnallocated += txnAmount;
+        }
+        continue;
+      }
+
+      let txnAllocatedTotal = 0;
+      const projectsInTxn = new Set();
+
+      for (const a of allocations) {
+        const allocAmount = Number(a.amount) || 0;
+        txnAllocatedTotal += allocAmount;
+        totalAllocated += allocAmount;
+
+        const pid = a.projectId || "unknown";
+        projectsInTxn.add(pid);
+        if (!byProject.has(pid)) {
+          byProject.set(pid, { allocated: 0, transactionCount: 0 });
+        }
+        byProject.get(pid).allocated += allocAmount;
+      }
+
+      // Count transaction once per project it's allocated to
+      for (const pid of projectsInTxn) {
+        byProject.get(pid).transactionCount += 1;
+      }
+
+      // Remaining unallocated portion
+      const remaining = txnAmount - txnAllocatedTotal;
+      if (remaining > 0.01 && txn.direction === "out") {
+        totalUnallocated += remaining;
+      }
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  const byProjectArray = Array.from(byProject.entries())
+    .map(([projectId, data]) => ({
+      projectId,
+      allocated: round2(data.allocated),
+      transactionCount: data.transactionCount,
+    }))
+    .sort((a, b) => b.allocated - a.allocated);
+
+  return json(200, C, {
+    orgId,
+    totalAllocated: round2(totalAllocated),
+    totalUnallocated: round2(totalUnallocated),
+    byProject: byProjectArray,
+  });
+};
+
+// GET /hq/allocations/by-budget-item?orgId=...&projectId=...&budgetItemId=...
+// Get all transactions allocated to a specific budget line item
+const getAllocationsByBudgetItem = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const projectId = q.projectId ? String(q.projectId).trim() : "";
+  const budgetItemId = q.budgetItemId ? String(q.budgetItemId).trim() : "";
+  if (!projectId) return json(400, C, { error: "projectId required" });
+  if (!budgetItemId) return json(400, C, { error: "budgetItemId required" });
+
+  const transactions = [];
+  let totalAllocated = 0;
+
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+      ExclusiveStartKey: lastKey,
+    });
+
+    for (const txn of page.Items || []) {
+      const allocations = Array.isArray(txn.allocations) ? txn.allocations : [];
+      const matchingAlloc = allocations.find(
+        (a) => a.budgetItemId === budgetItemId && a.projectId === projectId
+      );
+
+      if (matchingAlloc) {
+        const allocAmount = Number(matchingAlloc.amount) || 0;
+        totalAllocated += allocAmount;
+
+        transactions.push({
+          dedupeHash: txn.dedupeHash,
+          accountId: txn.accountId,
+          postedAt: txn.postedAt,
+          amount: txn.amount,
+          allocatedAmount: allocAmount,
+          vendor: txn.vendor,
+          rawDescription: txn.rawDescription,
+          categoryId: txn.categoryId,
+        });
+      }
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  // Sort by date descending
+  transactions.sort((a, b) => (b.postedAt || "").localeCompare(a.postedAt || ""));
+
+  return json(200, C, {
+    projectId,
+    budgetItemId,
+    totalAllocated: round2(totalAllocated),
+    transactions,
+  });
+};
+
 /* ------------ Routes ------------ */
 const routes = [
   { m: "GET", r: /^\/hq\/health$/i, h: health },
@@ -3968,6 +4277,13 @@ const routes = [
   { m: "POST", r: /^\/hq\/transactions\/apply\/?$/i, h: applyTransactionsBulk },
 
   { m: "PATCH", r: /^\/hq\/transactions\/(?<dedupeHash>[^/]+)\/?$/i, h: patchTransaction },
+
+  // Transaction Allocations
+  { m: "POST", r: /^\/hq\/transactions\/(?<dedupeHash>[^/]+)\/allocations\/?$/i, h: addTransactionAllocation },
+  { m: "PUT", r: /^\/hq\/transactions\/(?<dedupeHash>[^/]+)\/allocations\/?$/i, h: updateTransactionAllocations },
+  { m: "DELETE", r: /^\/hq\/transactions\/(?<dedupeHash>[^/]+)\/allocations\/(?<budgetItemId>[^/]+)\/?$/i, h: removeTransactionAllocation },
+  { m: "GET", r: /^\/hq\/allocations\/summary\/?$/i, h: getAllocationSummary },
+  { m: "GET", r: /^\/hq\/allocations\/by-budget-item\/?$/i, h: getAllocationsByBudgetItem },
 
   { m: "POST", r: /^\/hq\/accounts\/?$/i, h: createAccount },
   { m: "PATCH", r: /^\/hq\/accounts\/(?<accountId>[^/]+)\/?$/i, h: patchAccount },

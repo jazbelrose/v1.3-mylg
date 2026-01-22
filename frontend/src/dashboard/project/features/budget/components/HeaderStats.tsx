@@ -8,6 +8,7 @@ import {
   faFileInvoiceDollar,
   faCalculator,
   faGear,
+  faChartLine,
 } from "@fortawesome/free-solid-svg-icons";
 
 import EditBallparkModal from "@/dashboard/project/features/budget/components/EditBallparkModal";
@@ -42,7 +43,8 @@ type MetricTitle =
   | "Actual Cost"
   | "Reconciled Cost"
   | "Effective Markup"
-  | "Final Cost";
+  | "Final Cost"
+  | "Variance";
 
 type GroupBy = "none" | "areaGroup" | "invoiceGroup" | "category";
 
@@ -306,6 +308,9 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
   const [invoiceRevision, setInvoiceRevision] = useState<BudgetHeaderData | null>(null);
 
+  // Allocated cost from HQ transactions (placeholder - will be fetched from API)
+  const [allocatedTotal, setAllocatedTotal] = useState<number | null>(null);
+
   const { ws } = useSocket();
 
   useEffect(() => {
@@ -551,9 +556,49 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
         disableHover: true,
         disablePointer: true,
       },
+      // Variance card: shows difference between budgeted and allocated (from HQ transactions)
+      (() => {
+        const allocated = allocatedTotal ?? 0;
+        const variance = budgetedTotal - allocated;
+        const variancePercent = budgetedTotal > 0 ? (variance / budgetedTotal) * 100 : 0;
+        const isUnderBudget = variance >= 0;
+        const hasAllocationData = allocatedTotal !== null;
+
+        // Color: teal for under budget, red for over budget, muted if no data
+        const varianceColor = !hasAllocationData
+          ? "rgba(148, 163, 184, 0.6)"
+          : isUnderBudget
+          ? "rgba(45, 212, 191, 0.95)"
+          : "rgba(250, 51, 86, 0.95)";
+
+        const varianceValue = hasAllocationData
+          ? `${isUnderBudget ? "+" : ""}${formatUSD(variance)}`
+          : "—";
+
+        const varianceDescription = hasAllocationData
+          ? `${Math.abs(variancePercent).toFixed(1)}% ${isUnderBudget ? "under" : "over"} budget`
+          : "No allocations yet";
+
+        return {
+          title: "Variance" as MetricTitle,
+          tag: "Spend",
+          icon: faChartLine,
+          color: varianceColor,
+          value: varianceValue,
+          chartValue: variance,
+          description: varianceDescription,
+          field: null,
+          isSelectable: false,
+          onSelect: undefined,
+          ariaLabel: "Budget variance from allocated transactions",
+          disableHover: true,
+          disablePointer: true,
+        };
+      })(),
     ];
   }, [
     activeMode,
+    allocatedTotal,
     budgetHeader,
     handleOpenBallpark,
     handleSelectActual,

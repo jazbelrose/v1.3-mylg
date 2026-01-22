@@ -4,11 +4,13 @@ import ReactDOM from "react-dom";
 import { GripVertical } from "lucide-react";
 import { Copy, Download, Trash2 } from "lucide-react";
 import { Pencil } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { Slide } from "@/app/contexts/DataProvider";
 import { useThumbnail } from "../hooks/useThumbnail";
 import { isUiThumbsEnabled } from "../lib/featureFlags";
 import { isLexicalContentEffectivelyEmpty } from "../lib/lexicalContent";
 import { warmThumbsForVisibleRange } from "../lib/thumbnails";
+import type { ThumbnailJobStatus } from "../lib/thumbnailJobQueue";
 import { getFileUrl, normalizeFileUrl } from "@/shared/utils/api";
 import { useDropdown } from "@/dashboard/project/features/editor/components/Brief/contexts/DropdownContext";
 import "./SlidesSidebar.css";
@@ -221,6 +223,8 @@ interface SlidesSidebarProps {
   onRequestDeleteSelected?: (ids: string[]) => void;
   onRenameSlide?: (slideId: string, title: string) => void;
   scrollToSlideId?: string | null;
+  /** Map of slideId -> thumbnail generation status for showing per-slide indicators */
+  thumbnailStatusMap?: Map<string, ThumbnailJobStatus>;
 }
 
 const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
@@ -238,6 +242,7 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
   onRequestDeleteSelected,
   onRenameSlide,
   scrollToSlideId,
+  thumbnailStatusMap,
 }) => {
   const uiThumbsEnabled = isUiThumbsEnabled();
   const { activeDropdown, openDropdown, closeDropdown, dropdownRef } = useDropdown();
@@ -421,6 +426,32 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
               </div>
 
               <SlideThumbnail slide={slide} projectId={projectId} />
+
+              {/* Per-slide thumbnail generation status indicator */}
+              {thumbnailStatusMap?.get(slide.id) && (
+                <div className={`slides-sidebar__thumb-status slides-sidebar__thumb-status--${thumbnailStatusMap.get(slide.id)}`}>
+                  {thumbnailStatusMap.get(slide.id) === 'pending' && (
+                    <span className="slides-sidebar__thumb-status-icon" title="Queued for thumbnail generation">
+                      <Loader2 size={12} className="animate-pulse" />
+                    </span>
+                  )}
+                  {thumbnailStatusMap.get(slide.id) === 'generating' && (
+                    <span className="slides-sidebar__thumb-status-icon" title="Generating thumbnail...">
+                      <Loader2 size={12} className="animate-spin" />
+                    </span>
+                  )}
+                  {thumbnailStatusMap.get(slide.id) === 'done' && (
+                    <span className="slides-sidebar__thumb-status-icon slides-sidebar__thumb-status-icon--success" title="Thumbnail ready">
+                      <CheckCircle2 size={12} />
+                    </span>
+                  )}
+                  {thumbnailStatusMap.get(slide.id) === 'failed' && (
+                    <span className="slides-sidebar__thumb-status-icon slides-sidebar__thumb-status-icon--error" title="Thumbnail generation failed">
+                      <AlertCircle size={12} />
+                    </span>
+                  )}
+                </div>
+              )}
 
               <div className="slides-sidebar__title" title={displayTitle}>
                 {isRenaming ? (

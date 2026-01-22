@@ -281,7 +281,7 @@ export function importTransactions(
 export function updateTransaction(
   orgId: string,
   dedupeHash: string,
-  patch: Partial<Pick<HqTransaction, "categoryId" | "projectId" | "isInternalTransfer">>
+  patch: Partial<Pick<HqTransaction, "categoryId" | "projectId" | "isInternalTransfer" | "allocations">>
 ) {
   updateState(orgId, (prev) => {
     const transactions = prev.transactions.map((txn) =>
@@ -293,4 +293,85 @@ export function updateTransaction(
 
 export function setTransactionCategory(orgId: string, dedupeHash: string, categoryId: HqCategoryId | undefined) {
   updateTransaction(orgId, dedupeHash, { categoryId });
+}
+
+/** Add an allocation to a transaction (optimistic update) */
+export function addTransactionAllocation(
+  orgId: string,
+  dedupeHash: string,
+  allocation: {
+    budgetItemId: string;
+    projectId: string;
+    amount: number;
+    allocatedAt?: string;
+    allocatedBy?: string;
+  }
+) {
+  updateState(orgId, (prev) => {
+    const transactions = prev.transactions.map((txn) => {
+      if (txn.dedupeHash !== dedupeHash) return txn;
+      const existing = txn.allocations || [];
+      // Remove any existing allocation to the same budget item (replace)
+      const filtered = existing.filter((a) => a.budgetItemId !== allocation.budgetItemId);
+      const newAllocation = {
+        ...allocation,
+        allocatedAt: allocation.allocatedAt || new Date().toISOString(),
+      };
+      return { ...txn, allocations: [...filtered, newAllocation] };
+    });
+    return { ...prev, transactions };
+  });
+}
+
+/** Remove an allocation from a transaction (optimistic update) */
+export function removeTransactionAllocation(
+  orgId: string,
+  dedupeHash: string,
+  budgetItemId: string
+) {
+  updateState(orgId, (prev) => {
+    const transactions = prev.transactions.map((txn) => {
+      if (txn.dedupeHash !== dedupeHash) return txn;
+      const existing = txn.allocations || [];
+      const filtered = existing.filter((a) => a.budgetItemId !== budgetItemId);
+      return { ...txn, allocations: filtered.length > 0 ? filtered : undefined };
+    });
+    return { ...prev, transactions };
+  });
+}
+
+/** Update all allocations for a transaction (replace) */
+export function setTransactionAllocations(
+  orgId: string,
+  dedupeHash: string,
+  allocations: Array<{
+    budgetItemId: string;
+    projectId: string;
+    amount: number;
+    allocatedAt: string;
+    allocatedBy?: string;
+  }>
+) {
+  updateTransaction(orgId, dedupeHash, { allocations: allocations.length > 0 ? allocations : undefined });
+}
+
+/** Get total allocated amount for a transaction */
+export function getTransactionAllocatedTotal(txn: HqTransaction): number {
+  if (!txn.allocations || txn.allocations.length === 0) return 0;
+  return txn.allocations.reduce((sum, a) => sum + (a.amount || 0), 0);
+}
+
+/** Check if transaction is fully allocated */
+export function isTransactionFullyAllocated(txn: HqTransaction): boolean {
+  const allocated = getTransactionAllocatedTotal(txn);
+  const total = Math.abs(txn.amount || 0);
+  // Allow small rounding tolerance
+  return allocated >= total - 0.01;
+}
+
+/** Get unallocated amount for a transaction */
+export function getTransactionUnallocatedAmount(txn: HqTransaction): number {
+  const allocated = getTransactionAllocatedTotal(txn);
+  const total = Math.abs(txn.amount || 0);
+  return Math.max(0, total - allocated);
 }

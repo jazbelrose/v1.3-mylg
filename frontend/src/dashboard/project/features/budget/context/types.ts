@@ -5,6 +5,20 @@ export type BudgetStats = {
   actualCost: number;
   finalCost: number;
   effectiveMarkup: number;
+  /** Total amount allocated from HQ transactions (derived) */
+  allocatedCost?: number;
+  /** Variance = budgetedCost - allocatedCost (positive = under budget) */
+  variance?: number;
+  /** Variance as percentage of budgetedCost */
+  variancePercent?: number;
+};
+
+export type BudgetLineAllocationSummary = {
+  budgetItemId: string;
+  allocatedAmount: number;
+  transactionCount: number;
+  variance: number; // budgeted - allocated
+  variancePercent: number;
 };
 
 export type PieDataItem = {

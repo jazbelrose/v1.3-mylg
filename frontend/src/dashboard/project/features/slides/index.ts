@@ -8,5 +8,7 @@ export { default as DeckVersionsModal } from "./components/DeckVersionsModal";
 export { useSlidePersistence } from "./hooks/useSlidePersistence";
 export { useSlideProvider } from "./hooks/useSlideProvider";
 export { useDeckVersions } from "./hooks/useDeckVersions";
+export { useThumbnailQueue } from "./hooks/useThumbnailQueue";
 export * from "./lib/yjs";
 export * from "./lib/slideExport";
+export * from "./lib/thumbnailJobQueue";

@@ -449,6 +449,147 @@ export async function applyHqTransactionsBulk(
   });
 }
 
+/* ------------ Transaction Allocation API ------------ */
+
+export type HqAllocationInput = {
+  budgetItemId: string;
+  projectId: string;
+  amount: number;
+};
+
+export type HqTransactionAllocationResponse = {
+  ok: boolean;
+  orgId: string;
+  dedupeHash: string;
+  allocations: Array<{
+    budgetItemId: string;
+    projectId: string;
+    amount: number;
+    allocatedAt: string;
+    allocatedBy?: string;
+  }>;
+};
+
+/**
+ * POST /hq/transactions/:dedupeHash/allocations
+ * Add an allocation linking a transaction to a budget line item.
+ */
+export async function addHqTransactionAllocation(
+  orgId: string,
+  dedupeHash: string,
+  allocation: HqAllocationInput
+): Promise<HqTransactionAllocationResponse> {
+  const base = getHqServiceBaseUrl();
+  return apiFetch<HqTransactionAllocationResponse>(
+    `${base}/hq/transactions/${encodeURIComponent(dedupeHash)}/allocations?orgId=${encodeURIComponent(orgId)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(allocation),
+    }
+  );
+}
+
+/**
+ * DELETE /hq/transactions/:dedupeHash/allocations/:budgetItemId
+ * Remove an allocation from a transaction.
+ */
+export async function removeHqTransactionAllocation(
+  orgId: string,
+  dedupeHash: string,
+  budgetItemId: string
+): Promise<HqTransactionAllocationResponse> {
+  const base = getHqServiceBaseUrl();
+  return apiFetch<HqTransactionAllocationResponse>(
+    `${base}/hq/transactions/${encodeURIComponent(dedupeHash)}/allocations/${encodeURIComponent(budgetItemId)}?orgId=${encodeURIComponent(orgId)}`,
+    {
+      method: "DELETE",
+    }
+  );
+}
+
+/**
+ * PUT /hq/transactions/:dedupeHash/allocations
+ * Replace all allocations for a transaction (bulk update).
+ */
+export async function updateHqTransactionAllocations(
+  orgId: string,
+  dedupeHash: string,
+  allocations: HqAllocationInput[]
+): Promise<HqTransactionAllocationResponse> {
+  const base = getHqServiceBaseUrl();
+  return apiFetch<HqTransactionAllocationResponse>(
+    `${base}/hq/transactions/${encodeURIComponent(dedupeHash)}/allocations?orgId=${encodeURIComponent(orgId)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ allocations }),
+    }
+  );
+}
+
+export type HqAllocationSummaryResponse = {
+  orgId: string;
+  totalAllocated: number;
+  totalUnallocated: number;
+  byProject: Array<{
+    projectId: string;
+    allocated: number;
+    transactionCount: number;
+  }>;
+};
+
+/**
+ * GET /hq/allocations/summary
+ * Get org-wide allocation summary (for KPI cards).
+ */
+export async function fetchHqAllocationSummary(orgId: string): Promise<HqAllocationSummaryResponse> {
+  const base = getHqServiceBaseUrl();
+  return apiFetch<HqAllocationSummaryResponse>(
+    `${base}/hq/allocations/summary?orgId=${encodeURIComponent(orgId)}`,
+    {
+      method: "GET",
+      suppressErrorLog: true,
+    }
+  );
+}
+
+export type HqBudgetLineAllocationsResponse = {
+  projectId: string;
+  budgetItemId: string;
+  totalAllocated: number;
+  transactions: Array<{
+    dedupeHash: string;
+    accountId: string;
+    postedAt: string;
+    amount: number;
+    allocatedAmount: number;
+    vendor?: string;
+    rawDescription: string;
+    categoryId?: string;
+  }>;
+};
+
+/**
+ * GET /hq/allocations/by-budget-item
+ * Get all transactions allocated to a specific budget line item.
+ */
+export async function fetchHqBudgetLineAllocations(
+  orgId: string,
+  projectId: string,
+  budgetItemId: string
+): Promise<HqBudgetLineAllocationsResponse> {
+  const base = getHqServiceBaseUrl();
+  const params = new URLSearchParams({ orgId, projectId, budgetItemId });
+  return apiFetch<HqBudgetLineAllocationsResponse>(
+    `${base}/hq/allocations/by-budget-item?${params.toString()}`,
+    {
+      method: "GET",
+      suppressErrorLog: true,
+    }
+  );
+}
+
 /* ------------ Org Files API ------------ */
 
 export type HqFileDeleteResponse = {
