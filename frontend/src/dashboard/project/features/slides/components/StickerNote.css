@@ -1,0 +1,238 @@
+/* Sticker note and reaction styles */
+
+.sticker-note {
+  position: absolute;
+  width: 200px;
+  min-height: 120px;
+  padding: 12px;
+  background: #FFF9C4;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: move;
+  z-index: 90;
+  transition: all 0.2s ease;
+  font-family: 'Comic Sans MS', 'Chalkboard SE', 'Comic Neue', cursive, sans-serif;
+}
+
+.sticker-note:hover,
+.sticker-note--selected {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  z-index: 95;
+}
+
+.sticker-note--selected {
+  outline: 2px solid #FF6B35;
+  outline-offset: 2px;
+}
+
+.sticker-note__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.sticker-note__author {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.sticker-note__actions {
+  position: relative;
+}
+
+.sticker-note__menu-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sticker-note__menu-button:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.sticker-note__menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 100px;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  z-index: 100;
+}
+
+.sticker-note__menu button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  color: rgba(0, 0, 0, 0.8);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sticker-note__menu button:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.sticker-note__menu-danger {
+  color: #D32F2F !important;
+}
+
+.sticker-note__content {
+  margin-bottom: 8px;
+}
+
+.sticker-note__content p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(0, 0, 0, 0.85);
+  word-wrap: break-word;
+}
+
+.sticker-note__edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sticker-note__textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 6px;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  color: rgba(0, 0, 0, 0.85);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.sticker-note__textarea:focus {
+  outline: none;
+  border-color: #FF6B35;
+}
+
+.sticker-note__edit-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.sticker-note__save {
+  padding: 4px 10px;
+  background: #4CAF50;
+  border: none;
+  border-radius: 3px;
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sticker-note__save:hover {
+  background: #45A049;
+}
+
+.sticker-note__cancel {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  color: rgba(0, 0, 0, 0.7);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sticker-note__cancel:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.sticker-note__footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sticker-note__time {
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+/* Reaction stickers */
+.sticker-reaction {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: white;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 90;
+}
+
+.sticker-reaction:hover,
+.sticker-reaction--selected {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  z-index: 95;
+}
+
+.sticker-reaction--selected {
+  border-color: #FF6B35;
+}
+
+.sticker-reaction__emoji {
+  font-size: 28px;
+  line-height: 1;
+  user-select: none;
+}
+
+.sticker-reaction__delete {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: #D32F2F;
+  border: 1px solid white;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sticker-reaction__delete:hover {
+  background: #B71C1C;
+  transform: scale(1.1);
+}
