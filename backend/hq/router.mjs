@@ -3410,6 +3410,536 @@ const deleteOrgFiles = async (e, C) => {
   }
 };
 
+/* ------------ Export/Import Bundle (Memry Ledger Backup) ------------ */
+
+const MEMRY_BUNDLE_VERSION = 1;
+
+/**
+ * GET /hq/export-bundle
+ * Exports all categorization data (transactions, rules, accounts) as a .memry.json backup
+ * for lossless round-trip import to any org.
+ */
+const exportBundle = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const from = q.from ? String(q.from).trim() : "";
+  const to = q.to ? String(q.to).trim() : "";
+
+  // Collect all data types
+  const transactions = [];
+  const accounts = [];
+  const categoryRules = [];
+  const importRuns = [];
+
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o",
+      ExpressionAttributeValues: { ":o": orgId },
+      ExclusiveStartKey: lastKey,
+    });
+
+    for (const item of page.Items || []) {
+      const sk = item.sk || "";
+      if (sk.startsWith("TXN#")) {
+        const postedAt = item.postedAt || "";
+        if (from && postedAt < from) continue;
+        if (to && postedAt > to) continue;
+        transactions.push({
+          dedupeHash: item.dedupeHash,
+          accountId: item.accountId,
+          postedAt: item.postedAt,
+          authorizedAt: item.authorizedAt,
+          amount: item.amount,
+          currency: item.currency || "USD",
+          rawDescription: item.rawDescription,
+          normalizedDescription: item.normalizedDescription,
+          vendor: item.vendor,
+          vendorKey: item.vendorKey,
+          counterparty: item.counterparty,
+          paymentType: item.paymentType,
+          type: item.type,
+          direction: item.direction,
+          categoryId: item.categoryId,
+          categoryConfidence: item.categoryConfidence,
+          isInternalTransfer: item.isInternalTransfer,
+          isRecurring: item.isRecurring,
+          recurringCandidate: item.recurringCandidate,
+          recurringSeriesId: item.recurringSeriesId,
+          projectId: item.projectId,
+          locationCity: item.locationCity,
+          locationState: item.locationState,
+          cardLast4: item.cardLast4,
+          referenceId: item.referenceId,
+          importRunId: item.importRunId,
+          createdAt: item.createdAt,
+        });
+      } else if (sk.startsWith("ACCOUNT#")) {
+        accounts.push({
+          accountId: item.accountId,
+          name: item.name || item.accountName,
+          institution: item.institution,
+          currency: item.currency || "USD",
+          accountMask: item.accountMask,
+          notes: item.notes,
+          includeInCashOnHand: item.includeInCashOnHand,
+          anchorDate: item.anchorDate,
+          anchorBalance: item.anchorBalance,
+          archivedAt: item.archivedAt,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+        });
+      } else if (sk.startsWith("RULE#")) {
+        categoryRules.push({
+          ruleId: item.ruleId,
+          priority: item.priority,
+          matchType: item.matchType,
+          pattern: item.pattern,
+          categoryId: item.categoryId,
+          projectId: item.projectId,
+          scope: item.scope,
+          accountId: item.accountId,
+          cardLast4: item.cardLast4,
+          direction: item.direction,
+          method: item.method,
+          applyMode: item.applyMode,
+          amountMin: item.amountMin,
+          amountMax: item.amountMax,
+          frequencyHint: item.frequencyHint,
+          enabled: item.enabled,
+          createdAt: item.createdAt,
+        });
+      } else if (sk.startsWith("IMPORT#")) {
+        importRuns.push({
+          importRunId: item.importRunId,
+          accountId: item.accountId,
+          filename: item.filename,
+          rowCount: item.rowCount,
+          importedCount: item.importedCount,
+          duplicateCount: item.duplicateCount,
+          status: item.status,
+          warnings: item.warnings,
+          createdAt: item.createdAt,
+        });
+      }
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  const bundle = {
+    _format: "memry-ledger-bundle",
+    _version: MEMRY_BUNDLE_VERSION,
+    exportedAt: nowISO(),
+    sourceOrgId: orgId,
+    dateRange: { from: from || null, to: to || null },
+    stats: {
+      transactionCount: transactions.length,
+      accountCount: accounts.length,
+      categoryRuleCount: categoryRules.length,
+      importRunCount: importRuns.length,
+    },
+    accounts,
+    categoryRules,
+    importRuns,
+    transactions,
+  };
+
+  return json(200, C, bundle);
+};
+
+/**
+ * POST /hq/import-bundle
+ * Imports categorization data from a .memry.json backup.
+ * Matches by dedupeHash to apply categories to existing transactions.
+ * Options:
+ *   - mode: "categorization" (default, only updates categorization fields on matching txns)
+ *           "full" (creates missing accounts/rules, then applies categorization)
+ *   - conflictResolution: "skip" | "overwrite" | "merge" (default: "merge")
+ *   - createMissingAccounts: true/false (default: true for "full" mode)
+ *   - createCategoryRules: true/false (default: true for "full" mode)
+ */
+const importBundle = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const body = B(e);
+  const bundle = body.bundle || body;
+
+  // Validate bundle format
+  if (bundle._format !== "memry-ledger-bundle") {
+    return json(400, C, { error: "Invalid bundle format. Expected memry-ledger-bundle." });
+  }
+  if (typeof bundle._version !== "number" || bundle._version > MEMRY_BUNDLE_VERSION) {
+    return json(400, C, { error: `Unsupported bundle version: ${bundle._version}` });
+  }
+
+  const mode = String(body.mode || "categorization").toLowerCase();
+  const conflictResolution = String(body.conflictResolution || "merge").toLowerCase();
+  const createMissingAccounts = body.createMissingAccounts !== false && mode === "full";
+  const createCategoryRules = body.createCategoryRules !== false && mode === "full";
+  const dryRun = body.dryRun === true;
+
+  const bundleTxns = Array.isArray(bundle.transactions) ? bundle.transactions : [];
+  const bundleAccounts = Array.isArray(bundle.accounts) ? bundle.accounts : [];
+  const bundleRules = Array.isArray(bundle.categoryRules) ? bundle.categoryRules : [];
+
+  const results = {
+    mode,
+    conflictResolution,
+    dryRun,
+    transactions: { matched: 0, updated: 0, skipped: 0, notFound: 0, conflicts: [] },
+    accounts: { created: 0, skipped: 0, mapped: {} },
+    categoryRules: { created: 0, skipped: 0 },
+  };
+
+  // Step 1: Handle account mapping (for cross-org import)
+  // Build map from bundle accountId → target accountId
+  const accountIdMap = {};
+  const existingAccounts = await ddb.query({
+    TableName: HQ_TABLE,
+    KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+    ExpressionAttributeValues: { ":o": orgId, ":p": "ACCOUNT#" },
+  });
+  const existingAccountsByName = new Map();
+  for (const acc of existingAccounts.Items || []) {
+    const name = String(acc.name || acc.accountName || "").toLowerCase().trim();
+    existingAccountsByName.set(name, acc);
+  }
+
+  for (const bundleAcc of bundleAccounts) {
+    const name = String(bundleAcc.name || "").toLowerCase().trim();
+    const existing = existingAccountsByName.get(name);
+    if (existing) {
+      // Map bundle accountId to existing accountId
+      accountIdMap[bundleAcc.accountId] = existing.accountId;
+      results.accounts.skipped += 1;
+    } else if (createMissingAccounts && !dryRun) {
+      // Create new account
+      const newAccountId = uuidv4();
+      accountIdMap[bundleAcc.accountId] = newAccountId;
+      await ddb.put({
+        TableName: HQ_TABLE,
+        Item: {
+          orgId,
+          sk: skAccount(newAccountId),
+          entityType: "account",
+          accountId: newAccountId,
+          name: bundleAcc.name,
+          institution: bundleAcc.institution || "Unknown",
+          currency: bundleAcc.currency || "USD",
+          accountMask: bundleAcc.accountMask,
+          notes: bundleAcc.notes,
+          includeInCashOnHand: bundleAcc.includeInCashOnHand !== false,
+          anchorDate: bundleAcc.anchorDate,
+          anchorBalance: bundleAcc.anchorBalance,
+          createdAt: nowISO(),
+          updatedAt: nowISO(),
+        },
+      });
+      results.accounts.created += 1;
+    } else {
+      // No mapping available
+      accountIdMap[bundleAcc.accountId] = null;
+    }
+  }
+  results.accounts.mapped = accountIdMap;
+
+  // Step 2: Import category rules
+  if (createCategoryRules && bundleRules.length > 0) {
+    const existingRules = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "RULE#" },
+    });
+    const existingPatterns = new Set(
+      (existingRules.Items || []).map((r) => `${r.matchType}:${r.pattern}:${r.categoryId}`)
+    );
+
+    for (const rule of bundleRules) {
+      const key = `${rule.matchType}:${rule.pattern}:${rule.categoryId}`;
+      if (existingPatterns.has(key)) {
+        results.categoryRules.skipped += 1;
+        continue;
+      }
+      if (!dryRun) {
+        const newRuleId = uuidv4();
+        await ddb.put({
+          TableName: HQ_TABLE,
+          Item: {
+            orgId,
+            sk: skRule(newRuleId),
+            entityType: "categoryRule",
+            ruleId: newRuleId,
+            priority: rule.priority || 100,
+            matchType: rule.matchType || "vendor",
+            pattern: rule.pattern,
+            categoryId: rule.categoryId,
+            projectId: rule.projectId,
+            scope: rule.scope || "org",
+            direction: rule.direction,
+            method: rule.method,
+            applyMode: rule.applyMode || "uncategorized",
+            amountMin: rule.amountMin,
+            amountMax: rule.amountMax,
+            frequencyHint: rule.frequencyHint,
+            enabled: rule.enabled !== false,
+            createdAt: nowISO(),
+          },
+        });
+      }
+      results.categoryRules.created += 1;
+    }
+  }
+
+  // Step 3: Apply categorization to matching transactions
+  // Build lookup map by dedupeHash
+  const bundleTxnMap = new Map();
+  for (const txn of bundleTxns) {
+    if (txn.dedupeHash) {
+      bundleTxnMap.set(txn.dedupeHash, txn);
+    }
+  }
+
+  // Scan existing transactions and apply categorization
+  let lastKey;
+  const toUpdate = [];
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+      ExclusiveStartKey: lastKey,
+    });
+
+    for (const existing of page.Items || []) {
+      const bundleTxn = bundleTxnMap.get(existing.dedupeHash);
+      if (!bundleTxn) {
+        continue; // No match in bundle
+      }
+
+      results.transactions.matched += 1;
+
+      // Determine what fields to update based on conflict resolution
+      const existingHasCat = existing.categoryId && existing.categoryId !== "OTHER";
+      const bundleHasCat = bundleTxn.categoryId && bundleTxn.categoryId !== "OTHER";
+
+      let shouldUpdate = false;
+      const updates = {};
+
+      if (conflictResolution === "skip" && existingHasCat) {
+        // Skip if already categorized
+        results.transactions.skipped += 1;
+        continue;
+      } else if (conflictResolution === "overwrite") {
+        // Always apply bundle values
+        shouldUpdate = true;
+        if (bundleTxn.categoryId) updates.categoryId = bundleTxn.categoryId;
+        if (typeof bundleTxn.categoryConfidence === "number") updates.categoryConfidence = bundleTxn.categoryConfidence;
+        if (typeof bundleTxn.isInternalTransfer === "boolean") updates.isInternalTransfer = bundleTxn.isInternalTransfer;
+        if (typeof bundleTxn.isRecurring === "boolean") updates.isRecurring = bundleTxn.isRecurring;
+        if (bundleTxn.recurringSeriesId) updates.recurringSeriesId = bundleTxn.recurringSeriesId;
+        if (bundleTxn.paymentType) updates.paymentType = bundleTxn.paymentType;
+        if (bundleTxn.vendor) updates.vendor = bundleTxn.vendor;
+        if (bundleTxn.projectId) updates.projectId = bundleTxn.projectId;
+      } else {
+        // merge: only update fields that are empty/OTHER in existing
+        if (!existingHasCat && bundleHasCat) {
+          updates.categoryId = bundleTxn.categoryId;
+          if (typeof bundleTxn.categoryConfidence === "number") updates.categoryConfidence = bundleTxn.categoryConfidence;
+          shouldUpdate = true;
+        }
+        if (existing.isInternalTransfer == null && typeof bundleTxn.isInternalTransfer === "boolean") {
+          updates.isInternalTransfer = bundleTxn.isInternalTransfer;
+          shouldUpdate = true;
+        }
+        if (existing.isRecurring == null && typeof bundleTxn.isRecurring === "boolean") {
+          updates.isRecurring = bundleTxn.isRecurring;
+          shouldUpdate = true;
+        }
+        if (!existing.recurringSeriesId && bundleTxn.recurringSeriesId) {
+          updates.recurringSeriesId = bundleTxn.recurringSeriesId;
+          shouldUpdate = true;
+        }
+        if (!existing.paymentType && bundleTxn.paymentType) {
+          updates.paymentType = bundleTxn.paymentType;
+          shouldUpdate = true;
+        }
+        if (!existing.vendor && bundleTxn.vendor) {
+          updates.vendor = bundleTxn.vendor;
+          shouldUpdate = true;
+        }
+        if (!existing.projectId && bundleTxn.projectId) {
+          updates.projectId = bundleTxn.projectId;
+          shouldUpdate = true;
+        }
+
+        // Track conflicts for reporting
+        if (existingHasCat && bundleHasCat && existing.categoryId !== bundleTxn.categoryId) {
+          results.transactions.conflicts.push({
+            dedupeHash: existing.dedupeHash,
+            existingCategory: existing.categoryId,
+            bundleCategory: bundleTxn.categoryId,
+            postedAt: existing.postedAt,
+            vendor: existing.vendor || bundleTxn.vendor,
+          });
+        }
+      }
+
+      if (shouldUpdate && Object.keys(updates).length > 0) {
+        toUpdate.push({ sk: existing.sk, updates });
+      }
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  // Count not found (bundle txns that didn't match any existing)
+  const matchedHashes = new Set();
+  // Re-scan to count (or track during above)
+  results.transactions.notFound = bundleTxns.length - results.transactions.matched;
+
+  // Apply updates
+  if (!dryRun) {
+    for (const batch of chunk(toUpdate, 25)) {
+      await Promise.all(
+        batch.map(({ sk, updates }) => {
+          const sets = [];
+          const values = {};
+          let idx = 0;
+          for (const [key, val] of Object.entries(updates)) {
+            sets.push(`#k${idx} = :v${idx}`);
+            values[`:v${idx}`] = val;
+            idx += 1;
+          }
+          const names = {};
+          idx = 0;
+          for (const key of Object.keys(updates)) {
+            names[`#k${idx}`] = key;
+            idx += 1;
+          }
+          return ddb.update({
+            TableName: HQ_TABLE,
+            Key: { orgId, sk },
+            UpdateExpression: `SET ${sets.join(", ")}`,
+            ExpressionAttributeNames: names,
+            ExpressionAttributeValues: values,
+          });
+        })
+      );
+    }
+  }
+
+  results.transactions.updated = toUpdate.length;
+
+  return json(200, C, {
+    ok: true,
+    orgId,
+    sourceOrgId: bundle.sourceOrgId,
+    results,
+  });
+};
+
+/**
+ * GET /hq/export-csv
+ * Simple CSV export of transactions with categorization for spreadsheet use.
+ */
+const exportCsv = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const from = q.from ? String(q.from).trim() : "";
+  const to = q.to ? String(q.to).trim() : "";
+
+  // Get accounts for name lookup
+  const accountsRes = await ddb.query({
+    TableName: HQ_TABLE,
+    KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+    ExpressionAttributeValues: { ":o": orgId, ":p": "ACCOUNT#" },
+  });
+  const accountNames = {};
+  for (const acc of accountsRes.Items || []) {
+    accountNames[acc.accountId] = acc.name || acc.accountName || acc.accountId;
+  }
+
+  const rows = [];
+  rows.push([
+    "postedAt",
+    "amount",
+    "direction",
+    "rawDescription",
+    "vendor",
+    "categoryId",
+    "paymentType",
+    "isRecurring",
+    "isInternalTransfer",
+    "accountName",
+    "dedupeHash",
+  ].join(","));
+
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND begins_with(sk, :p)",
+      ExpressionAttributeValues: { ":o": orgId, ":p": "TXN#" },
+      ScanIndexForward: true,
+      ExclusiveStartKey: lastKey,
+    });
+
+    for (const t of page.Items || []) {
+      const postedAt = t.postedAt || "";
+      if (from && postedAt < from) continue;
+      if (to && postedAt > to) continue;
+
+      const escapeCsv = (val) => {
+        const s = String(val ?? "");
+        if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+          return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+      };
+
+      rows.push([
+        t.postedAt || "",
+        t.amount ?? "",
+        t.direction || "",
+        escapeCsv(t.rawDescription || ""),
+        escapeCsv(t.vendor || ""),
+        t.categoryId || "OTHER",
+        t.paymentType || "",
+        t.isRecurring ? "true" : "false",
+        t.isInternalTransfer ? "true" : "false",
+        escapeCsv(accountNames[t.accountId] || t.accountId),
+        t.dedupeHash || "",
+      ].join(","));
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  return {
+    statusCode: 200,
+    headers: {
+      ...C,
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="memry-ledger-${orgId.slice(0, 8)}-${todayIsoInTimeZone()}.csv"`,
+    },
+    body: rows.join("\n"),
+  };
+};
+
 /* ------------ Routes ------------ */
 const routes = [
   { m: "GET", r: /^\/hq\/health$/i, h: health },
@@ -3446,6 +3976,11 @@ const routes = [
   { m: "GET", r: /^\/hq\/files\/view\/?$/i, h: viewOrgFile },
   { m: "POST", r: /^\/hq\/files\/put-url\/?$/i, h: createOrgFilePutUrl },
   { m: "POST", r: /^\/hq\/files\/delete\/?$/i, h: deleteOrgFiles },
+
+  // Export/Import Bundle (Memry Ledger Backup)
+  { m: "GET", r: /^\/hq\/export-bundle\/?$/i, h: exportBundle },
+  { m: "POST", r: /^\/hq\/import-bundle\/?$/i, h: importBundle },
+  { m: "GET", r: /^\/hq\/export-csv\/?$/i, h: exportCsv },
 
   { m: "DELETE", r: /^\/hq\/reset\/?$/i, h: resetHq },
 ];

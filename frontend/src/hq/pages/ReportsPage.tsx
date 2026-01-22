@@ -1,5 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
+import { toast } from "react-toastify";
+import { useParams } from "react-router-dom";
 import HQLayout from "../components/HQLayout";
+import ImportBundleModal from "../components/ImportBundleModal";
+import { downloadHqBundle, downloadHqCsv } from "../lib/hqApi";
 import styles from "./ReportsPage.module.css";
 
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
@@ -18,7 +22,10 @@ const cashFlowData = [
 ];
 
 const ReportsPage: React.FC = () => {
+  const { orgId } = useParams<{ orgId: string }>();
   const [activeTab, setActiveTab] = useState<"pl" | "cashflow">("pl");
+  const [isExporting, setIsExporting] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const totals = useMemo(() => {
     const plTotals = plData.map((row) => ({
@@ -33,13 +40,65 @@ const ReportsPage: React.FC = () => {
     return { plTotals, maxCashflow };
   }, []);
 
+  const handleExportCsv = useCallback(async () => {
+    if (!orgId || isExporting) return;
+    setIsExporting(true);
+    try {
+      await downloadHqCsv(orgId);
+      toast.success("CSV exported successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export CSV");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [orgId, isExporting]);
+
+  const handleExportBundle = useCallback(async () => {
+    if (!orgId || isExporting) return;
+    setIsExporting(true);
+    try {
+      await downloadHqBundle(orgId);
+      toast.success("Memry backup exported successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export backup");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [orgId, isExporting]);
+
+  const handleImportComplete = useCallback(() => {
+    toast.info("Refresh the page to see updated categories.");
+  }, []);
+
   const actions = (
     <div className={styles.actionsRow}>
-      <button type="button" className={styles.actionButton} aria-label="Export report as CSV">
+      <button
+        type="button"
+        className={styles.actionButton}
+        aria-label="Export transactions as CSV"
+        onClick={handleExportCsv}
+        disabled={isExporting}
+      >
         Export CSV
       </button>
-      <button type="button" className={styles.actionButton} aria-label="Export report as PDF">
-        Export PDF
+      <button
+        type="button"
+        className={styles.actionButton}
+        aria-label="Export full backup as Memry bundle"
+        onClick={handleExportBundle}
+        disabled={isExporting}
+      >
+        Export Backup
+      </button>
+      <button
+        type="button"
+        className={styles.actionButton}
+        aria-label="Import Memry backup"
+        onClick={() => setShowImportModal(true)}
+      >
+        Import Backup
       </button>
     </div>
   );
@@ -142,6 +201,15 @@ const ReportsPage: React.FC = () => {
           </section>
         )}
       </div>
+
+      {orgId && (
+        <ImportBundleModal
+          orgId={orgId}
+          isOpen={showImportModal}
+          onRequestClose={() => setShowImportModal(false)}
+          onImported={handleImportComplete}
+        />
+      )}
     </HQLayout>
   );
 };

@@ -4,11 +4,24 @@ import './preloader.css';
 
 const Preloader: React.FC = () => {
   const [open, setOpen] = useState(true);
-  const svgRef = useRef<SVGSVGElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const bottomLayerRef = useRef<SVGPathElement | null>(null);
+  const middleLayerRef = useRef<SVGPathElement | null>(null);
+  const mainLayerRef = useRef<SVGPathElement | null>(null);
+  const accentLayerRef = useRef<SVGPathElement | null>(null);
 
   useEffect(() => {
-    if (!open) return; // skip when already closed
+    if (!open) return;
+
+    const layers = [
+      bottomLayerRef.current,
+      middleLayerRef.current,
+      mainLayerRef.current,
+      accentLayerRef.current,
+    ].filter(Boolean);
+
+    // Set initial state - all layers hidden and offset
+    gsap.set(layers, { opacity: 0, y: 15 });
 
     const tl = gsap.timeline({
       onComplete: () => {
@@ -16,29 +29,32 @@ const Preloader: React.FC = () => {
       },
     });
 
-    const ellipse = svgRef.current?.querySelector('ellipse');
-    if (ellipse) {
-      tl.fromTo(
-        ellipse,
-        { strokeDasharray: '0 502' },
-        { strokeDasharray: '502 502', duration: 0.5 }
-      );
-    }
+    // Stagger animate layers from bottom to top
+    tl.to(layers, {
+      opacity: 1,
+      y: 0,
+      duration: 0.3,
+      stagger: 0.15,
+      ease: 'power2.out',
+    });
 
-    tl
-      .to(containerRef.current, {
-        scale: 1.1,
-        duration: 0.25,
-        ease: 'elastic.out(1.5, 0.1)',
-      })
-      .to(containerRef.current, {
-        scale: 1,
-        duration: 0.1,
-      });
+    // Pulse effect after stack completes
+    tl.to(containerRef.current, {
+      scale: 1.08,
+      duration: 0.2,
+      ease: 'power2.out',
+    })
+    .to(containerRef.current, {
+      scale: 1,
+      duration: 0.15,
+      ease: 'power2.inOut',
+    });
 
+    // Hold briefly then fade out
     tl.to(containerRef.current, {
       opacity: 0,
-      duration: 0.5,
+      duration: 0.4,
+      delay: 0.2,
     });
 
     return () => { tl.kill(); };
@@ -51,40 +67,35 @@ const Preloader: React.FC = () => {
       onClick={() => setOpen((state) => !state)}
     >
       <svg
-        ref={svgRef}
-        viewBox="0 0 256 256"
-        width="120"
-        height="120"
-        className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10"
+        viewBox="0 0 180 180"
+        width="68"
+        height="68"
+        style={{ fillRule: 'evenodd', clipRule: 'evenodd' }}
       >
-        <text
-          x="51%"
-          y="53%"
-          textAnchor="middle"
+        {/* Bottom shadow layer */}
+        <path
+          ref={bottomLayerRef}
+          d="M167.402,111.047c1.15,2.173 1.777,4.624 1.777,7.158c0,5.124 -2.563,9.908 -6.829,12.746l-61.241,40.736c-7.031,4.676 -16.182,4.676 -23.213,-0l-61.24,-40.736c-4.266,-2.838 -6.83,-7.622 -6.83,-12.746c0,-2.534 0.627,-4.985 1.777,-7.158c1.175,2.221 2.896,4.152 5.053,5.587l61.24,40.736c7.031,4.676 16.182,4.676 23.213,-0l61.241,-40.736c2.156,-1.435 3.877,-3.366 5.052,-5.587Z"
           fill="#fff"
-          dominantBaseline="middle"
-          fontSize="90"
-        >
-          M!
-        </text>
-        <ellipse
-          cx="128"
-          cy="128"
-          rx="80"
-          ry="80"
-          fill="none"
-          stroke="#fff"
-          strokeWidth="5"
-        >
-          <animate
-            attributeName="stroke-dasharray"
-            from="0, 502"
-            to="502, 502"
-            dur=".5s"
-            begin="0s"
-            fill="freeze"
-          />
-        </ellipse>
+        />
+        {/* Middle shadow layer */}
+        <path
+          ref={middleLayerRef}
+          d="M167.402,82.413c1.15,2.173 1.777,4.624 1.777,7.158c0,5.124 -2.563,9.908 -6.829,12.745l-61.241,40.736c-7.031,4.677 -16.182,4.677 -23.213,0l-61.24,-40.736c-4.266,-2.837 -6.83,-7.621 -6.83,-12.745c0,-2.534 0.627,-4.985 1.777,-7.158c1.175,2.221 2.896,4.152 5.053,5.586l61.108,40.648c7.111,4.73 16.367,4.73 23.478,-0l61.108,-40.648c2.156,-1.434 3.877,-3.365 5.052,-5.586Z"
+          fill="#fff"
+        />
+        {/* Main logo mark */}
+        <path
+          ref={mainLayerRef}
+          d="M75.953,8.749c8.208,-5.46 18.892,-5.46 27.1,-0l59.297,39.443c4.266,2.837 6.829,7.621 6.829,12.745c0,5.124 -2.563,9.908 -6.829,12.745l-59.297,39.443c-8.208,5.46 -18.892,5.46 -27.1,0l-59.297,-39.443c-4.266,-2.837 -6.83,-7.621 -6.83,-12.745c0,-5.124 2.564,-9.908 6.83,-12.745l59.297,-39.443Zm16.746,38.782l-0.713,0.555l-24.706,16.62c-4.076,2.742 -4.51,6.811 -1.203,8.999c3.382,2.18 9.531,1.788 13.58,-0.935l24.752,-16.651l0.827,-0.481c1.565,-0.783 3.091,-0.887 3.37,-0.906c0.319,-0.022 2.377,-0.162 3.918,0.833l0.001,0.001c1.976,1.276 1.719,3.751 -0.677,5.363l-24.78,16.67c-4.101,2.759 -4.524,6.86 -1.166,9.053c3.39,2.214 9.588,1.83 13.663,-0.911l24.827,-16.702c10.587,-7.121 11.85,-17.696 2.931,-23.429l-0,-0c-5.565,-3.577 -12.819,-3.686 -13.975,-3.704c-0.058,-0.866 -0.371,-5.517 -5.93,-9.09l-0,-0.001c-3.416,-2.195 -9.317,-4.134 -17.052,-3.599c-10.326,0.715 -16.958,5.176 -18.233,6.033l-24.631,16.57c-4.078,2.743 -4.502,6.817 -1.172,8.991c3.362,2.196 9.518,1.811 13.569,-0.914l24.678,-16.601c1.814,-1.22 3.831,-1.359 4.182,-1.383c0.319,-0.022 2.369,-0.162 3.904,0.829l0.001,0c1.773,1.145 1.722,3.263 0.035,4.79Z"
+          fill="#fff"
+        />
+        {/* Accent detail */}
+        <path
+          ref={accentLayerRef}
+          d="M92.206,29.206l-9.545,6.35l-0.017,-0.012l9.562,-6.338Z"
+          fill="#fff"
+        />
       </svg>
     </div>
   );

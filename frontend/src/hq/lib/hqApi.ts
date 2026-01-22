@@ -510,3 +510,245 @@ export function orgFilePutUrl(orgId: string): string {
   const base = getHqServiceBaseUrl();
   return `${base}/hq/files/put-url?orgId=${encodeURIComponent(orgId)}`;
 }
+
+/* ------------ Export/Import Bundle (Memry Ledger Backup) ------------ */
+
+export type MemryBundleTransaction = {
+  dedupeHash: string;
+  accountId: string;
+  postedAt: string;
+  authorizedAt?: string;
+  amount: number;
+  currency: string;
+  rawDescription: string;
+  normalizedDescription: string;
+  vendor?: string;
+  vendorKey?: string;
+  counterparty?: string;
+  paymentType?: string;
+  type?: string;
+  direction: "in" | "out";
+  categoryId?: string;
+  categoryConfidence?: number;
+  isInternalTransfer?: boolean;
+  isRecurring?: boolean;
+  recurringCandidate?: boolean;
+  recurringSeriesId?: string;
+  projectId?: string;
+  locationCity?: string;
+  locationState?: string;
+  cardLast4?: string;
+  referenceId?: string;
+  importRunId?: string;
+  createdAt?: string;
+};
+
+export type MemryBundleAccount = {
+  accountId: string;
+  name: string;
+  institution?: string;
+  currency?: string;
+  accountMask?: string;
+  notes?: string;
+  includeInCashOnHand?: boolean;
+  anchorDate?: string;
+  anchorBalance?: number;
+  archivedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type MemryBundleCategoryRule = {
+  ruleId: string;
+  priority: number;
+  matchType: "vendor" | "regex";
+  pattern: string;
+  categoryId: string;
+  projectId?: string;
+  scope?: string;
+  accountId?: string;
+  cardLast4?: string;
+  direction?: "in" | "out";
+  method?: string;
+  applyMode?: string;
+  amountMin?: number;
+  amountMax?: number;
+  frequencyHint?: string;
+  enabled: boolean;
+  createdAt?: string;
+};
+
+export type MemryBundle = {
+  _format: "memry-ledger-bundle";
+  _version: number;
+  exportedAt: string;
+  sourceOrgId: string;
+  dateRange: { from: string | null; to: string | null };
+  stats: {
+    transactionCount: number;
+    accountCount: number;
+    categoryRuleCount: number;
+    importRunCount: number;
+  };
+  accounts: MemryBundleAccount[];
+  categoryRules: MemryBundleCategoryRule[];
+  importRuns: Array<{
+    importRunId: string;
+    accountId: string;
+    filename: string;
+    rowCount: number;
+    importedCount: number;
+    duplicateCount: number;
+    status: string;
+    warnings?: string[];
+    createdAt: string;
+  }>;
+  transactions: MemryBundleTransaction[];
+};
+
+export type ExportBundleResponse = MemryBundle;
+
+/**
+ * GET /hq/export-bundle
+ * Exports all categorization data as a .memry.json backup for lossless round-trip import.
+ */
+export async function exportHqBundle(
+  orgId: string,
+  options?: { from?: string; to?: string }
+): Promise<ExportBundleResponse> {
+  const base = getHqServiceBaseUrl();
+  const params = new URLSearchParams({ orgId });
+  if (options?.from) params.set("from", options.from);
+  if (options?.to) params.set("to", options.to);
+  return apiFetch<ExportBundleResponse>(`${base}/hq/export-bundle?${params.toString()}`, {
+    method: "GET",
+  });
+}
+
+/**
+ * Downloads the bundle as a .memry.json file.
+ */
+export async function downloadHqBundle(
+  orgId: string,
+  options?: { from?: string; to?: string }
+): Promise<void> {
+  const bundle = await exportHqBundle(orgId, options);
+  const json = JSON.stringify(bundle, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `memry-ledger-${orgId.slice(0, 8)}-${date}.memry.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export type ImportBundleConflictResolution = "skip" | "overwrite" | "merge";
+export type ImportBundleMode = "categorization" | "full";
+
+export type ImportBundleOptions = {
+  mode?: ImportBundleMode;
+  conflictResolution?: ImportBundleConflictResolution;
+  createMissingAccounts?: boolean;
+  createCategoryRules?: boolean;
+  dryRun?: boolean;
+};
+
+export type ImportBundleConflict = {
+  dedupeHash: string;
+  existingCategory: string;
+  bundleCategory: string;
+  postedAt: string;
+  vendor?: string;
+};
+
+export type ImportBundleResponse = {
+  ok: boolean;
+  orgId: string;
+  sourceOrgId: string;
+  results: {
+    mode: string;
+    conflictResolution: string;
+    dryRun: boolean;
+    transactions: {
+      matched: number;
+      updated: number;
+      skipped: number;
+      notFound: number;
+      conflicts: ImportBundleConflict[];
+    };
+    accounts: {
+      created: number;
+      skipped: number;
+      mapped: Record<string, string | null>;
+    };
+    categoryRules: {
+      created: number;
+      skipped: number;
+    };
+  };
+};
+
+/**
+ * POST /hq/import-bundle
+ * Imports categorization data from a .memry.json backup.
+ */
+export async function importHqBundle(
+  orgId: string,
+  bundle: MemryBundle,
+  options?: ImportBundleOptions
+): Promise<ImportBundleResponse> {
+  const base = getHqServiceBaseUrl();
+  return apiFetch<ImportBundleResponse>(`${base}/hq/import-bundle?orgId=${encodeURIComponent(orgId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      bundle,
+      mode: options?.mode ?? "categorization",
+      conflictResolution: options?.conflictResolution ?? "merge",
+      createMissingAccounts: options?.createMissingAccounts,
+      createCategoryRules: options?.createCategoryRules,
+      dryRun: options?.dryRun,
+    }),
+  });
+}
+
+/**
+ * GET /hq/export-csv
+ * Downloads transactions as a simple CSV file for spreadsheet use.
+ */
+export async function downloadHqCsv(
+  orgId: string,
+  options?: { from?: string; to?: string }
+): Promise<void> {
+  const base = getHqServiceBaseUrl();
+  const params = new URLSearchParams({ orgId });
+  if (options?.from) params.set("from", options.from);
+  if (options?.to) params.set("to", options.to);
+
+  const response = await fetch(`${base}/hq/export-csv?${params.toString()}`, {
+    method: "GET",
+    credentials: "include",
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("accessToken") || ""}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Export failed: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `memry-ledger-${orgId.slice(0, 8)}-${date}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

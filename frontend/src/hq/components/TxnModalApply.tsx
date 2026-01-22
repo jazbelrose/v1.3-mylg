@@ -24,6 +24,8 @@ type Props = {
   onSaved?: () => void;
   from?: string;
   to?: string;
+  /** If provided, modal is in batch mode editing multiple transactions */
+  batchHashes?: string[];
 };
 
 const currency = new Intl.NumberFormat("en-US", {
@@ -95,15 +97,19 @@ const PAYMENT_TYPE_OPTIONS: Array<{ value: HqPaymentType; label: string }> = [
 
 const MIN_AUTO_SUGGESTIONS = 5;
 
-const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, onSaved, from, to }) => {
+const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, onSaved, from, to, batchHashes }) => {
   const { ws } = useSocket();
-  const [categoryId, setCategoryId] = React.useState<HqCategoryId | "OTHER">("OTHER");
-  const [paymentType, setPaymentType] = React.useState<HqPaymentType>("unknown");
+  const [categoryId, setCategoryId] = React.useState<HqCategoryId | "OTHER" | "MIXED">("OTHER");
+  const [paymentType, setPaymentType] = React.useState<HqPaymentType | "MIXED">("unknown");
   const [isRecurring, setIsRecurring] = React.useState(false);
+  const [isRecurringMixed, setIsRecurringMixed] = React.useState(false);
   const [isWorking, setIsWorking] = React.useState(false);
   const [similar, setSimilar] = React.useState<HqTransaction[]>([]);
   const [similarUnavailable, setSimilarUnavailable] = React.useState(false);
   const [selectedSimilar, setSelectedSimilar] = React.useState<Record<string, true>>({});
+
+  const isBatchMode = Boolean(batchHashes && batchHashes.length > 1);
+  const batchCount = batchHashes?.length ?? 0;
 
   const accounts = useHqStore(orgId, (s) => s.accounts);
 
@@ -251,25 +257,41 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
   }, [addMoreAccountId, addMoreFrom, addMoreSearch, addMoreTo, addMoreType, orgId, similar, txn]);
 
   const handleApply = React.useCallback(async () => {
-    if (!txn) return;
+    if (!txn && !isBatchMode) return;
 
-    const nextCategoryId = String(categoryId || "OTHER");
-    const nextPaymentType = String(paymentType || "unknown");
+    // Skip MIXED values - only apply explicitly changed values
+    const nextCategoryId = categoryId !== "MIXED" ? String(categoryId || "OTHER") : undefined;
+    const nextPaymentType = paymentType !== "MIXED" ? String(paymentType || "unknown") : undefined;
 
-    const selected = similar.map((t) => t.dedupeHash).filter((dh) => Boolean(dh) && Boolean(selectedSimilar[String(dh)]));
-    const dedupeHashes = [txn.dedupeHash, ...selected].filter(Boolean);
+    let dedupeHashes: string[];
+    if (isBatchMode && batchHashes) {
+      // In batch mode, use the batch hashes directly
+      dedupeHashes = batchHashes;
+    } else {
+      // Single mode with similar transactions
+      const selected = similar.map((t) => t.dedupeHash).filter((dh) => Boolean(dh) && Boolean(selectedSimilar[String(dh)]));
+      dedupeHashes = [txn?.dedupeHash, ...selected].filter(Boolean) as string[];
+    }
     const unique = Array.from(new Set(dedupeHashes)).slice(0, 60);
 
     setIsWorking(true);
     try {
-      const res = await applyHqTransactionsBulk(orgId, {
-        dedupeHashes: unique,
-        categoryId: nextCategoryId,
-        paymentType: nextPaymentType,
-        // Keep legacy field name sent as well for any older server path.
-        type: nextPaymentType,
-        isRecurring,
-      });
+      const payload: {
+        dedupeHashes: string[];
+        categoryId?: string;
+        paymentType?: string;
+        type?: string;
+        isRecurring?: boolean;
+      } = { dedupeHashes: unique };
+
+      if (nextCategoryId) payload.categoryId = nextCategoryId;
+      if (nextPaymentType) {
+        payload.paymentType = nextPaymentType;
+        payload.type = nextPaymentType; // Legacy field
+      }
+      if (!isRecurringMixed) payload.isRecurring = isRecurring;
+
+      const res = await applyHqTransactionsBulk(orgId, payload);
 
       // Refresh local cache from server so HQ pages stay consistent.
       const summary = await fetchHqSummary(orgId);
@@ -285,18 +307,18 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
         missingAnchorAccountIds: Array.isArray(summary.missingAnchorAccountIds) ? summary.missingAnchorAccountIds : [],
       });
 
-      toast.success(`Applied to ${res.updated} transaction${res.updated === 1 ? "" : "s"}.`);
+      toast.success(`Saved ${res.updated} transaction${res.updated === 1 ? "" : "s"}.`);
       // Broadcast update to other org members via WebSocket
       sendHqUpdated(ws, orgId, "transaction");
       onSaved?.();
       onRequestClose();
     } catch (err) {
       console.error(err);
-      toast.error("Could not apply changes.");
+      toast.error("Could not save changes.");
     } finally {
       setIsWorking(false);
     }
-  }, [categoryId, isRecurring, onRequestClose, onSaved, orgId, paymentType, selectedSimilar, similar, txn, ws]);
+  }, [batchHashes, categoryId, isBatchMode, isRecurring, isRecurringMixed, onRequestClose, onSaved, orgId, paymentType, selectedSimilar, similar, txn, ws]);
 
   const title = txn ? txnTitle(txn) : "Transaction";
   const accountLabel = txn?.accountId
@@ -305,17 +327,24 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
         txn.accountId)
     : "Account";
   const flowDirection = txn ? (txn.amount < 0 ? "Flow Out" : "Flow In") : "";
-  const selectedCount = Object.keys(selectedSimilar).length;
-  const applyButtonLabel =
-    selectedCount > 0
-      ? `Apply to 1 + ${selectedCount} selected`
-      : "Apply to 1 transaction";
+  const selectedSimilarCount = Object.keys(selectedSimilar).length;
+  
+  // Calculate save button label based on mode
+  const saveButtonLabel = React.useMemo(() => {
+    if (isBatchMode) {
+      return `Save to ${batchCount} transactions`;
+    }
+    if (selectedSimilarCount > 0) {
+      return `Save to ${1 + selectedSimilarCount} transactions`;
+    }
+    return "Save";
+  }, [batchCount, isBatchMode, selectedSimilarCount]);
 
   return (
     <Modal
       isOpen={isOpen}
       onRequestClose={onRequestClose}
-      contentLabel="Apply to transaction"
+      contentLabel="Edit transaction"
       closeTimeoutMS={200}
       className={styles.modalContent}
       overlayClassName={styles.modalOverlay}
@@ -323,42 +352,49 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
       <div className={styles.header}
       >
         <div>
-          <div className={styles.title}>Apply</div>
+          <div className={styles.title}>Edit transaction</div>
+          {isBatchMode ? (
+            <div className={styles.batchBadge}>Editing {batchCount} selected transactions</div>
+          ) : null}
         </div>
         <button type="button" className={styles.closeButton} onClick={onRequestClose} aria-label="Close">
           ×
         </button>
       </div>
 
-      {txn ? (
+      {txn || isBatchMode ? (
         <div className={styles.body}>
-          {/* Selected transaction summary card */}
-          <div className={styles.sectionHeader}>Selected transaction</div>
-          <div className={styles.selectedCard}>
-            <div className={styles.selectedCardMain}>
-              <div className={styles.selectedMerchant}>{title}</div>
-              <div className={styles.selectedMeta}>
-                <span>{formatDate(txn.postedAt)}</span>
-                <span>•</span>
-                <span>{accountLabel}</span>
-                <span>•</span>
-                <span>{flowDirection}</span>
+          {/* Selected transaction summary card - only show in single mode */}
+          {!isBatchMode && txn ? (
+            <>
+              <div className={styles.sectionHeader}>Selected transaction</div>
+              <div className={styles.selectedCard}>
+                <div className={styles.selectedCardMain}>
+                  <div className={styles.selectedMerchant}>{title}</div>
+                  <div className={styles.selectedMeta}>
+                    <span>{formatDate(txn.postedAt)}</span>
+                    <span>•</span>
+                    <span>{accountLabel}</span>
+                    <span>•</span>
+                    <span>{flowDirection}</span>
+                  </div>
+                </div>
+                <div className={styles.selectedAmount}>
+                  {txn.amount < 0 ? "-" : "+"}
+                  {currency.format(Math.abs(txn.amount))}
+                </div>
               </div>
-            </div>
-            <div className={styles.selectedAmount}>
-              {txn.amount < 0 ? "-" : "+"}
-              {currency.format(Math.abs(txn.amount))}
-            </div>
-          </div>
+            </>
+          ) : null}
 
           {/* Edits section */}
-          <div className={styles.sectionDivider}>
+          <div className={isBatchMode ? undefined : styles.sectionDivider}>
             <div className={styles.sectionHeader}>Edits</div>
           </div>
 
           <div className={styles.controls}>
             <div className={styles.control}>
-              <div className={styles.controlLabel}>Category</div>
+              <div className={styles.controlLabel}>Category {categoryId === "MIXED" ? <span className={styles.mixedHint}>(Mixed)</span> : null}</div>
               <HqCategoryPicker
                 orgId={orgId}
                 className={styles.select}
@@ -371,24 +407,28 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
             </div>
 
             <div className={styles.control}>
-              <div className={styles.controlLabel}>Payment type</div>
+              <div className={styles.controlLabel}>Payment type {paymentType === "MIXED" ? <span className={styles.mixedHint}>(Mixed)</span> : null}</div>
               <HqSelect
                 className={styles.select}
-                value={paymentType}
+                value={paymentType === "MIXED" ? "" : paymentType}
                 disabled={isWorking}
                 onValueChange={(v) => setPaymentType(v as HqPaymentType)}
                 ariaLabel="Select payment type"
+                placeholder={paymentType === "MIXED" ? "Mixed" : undefined}
                 options={PAYMENT_TYPE_OPTIONS}
               />
             </div>
 
             <div className={styles.control} style={{ gridColumn: "1 / -1" }}>
-              <div className={styles.controlLabel}>Recurring commitment</div>
+              <div className={styles.controlLabel}>Recurring commitment {isRecurringMixed ? <span className={styles.mixedHint}>(Mixed)</span> : null}</div>
               <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <input
                   type="checkbox"
                   checked={isRecurring}
-                  onChange={(e) => setIsRecurring(e.target.checked)}
+                  onChange={(e) => {
+                    setIsRecurring(e.target.checked);
+                    setIsRecurringMixed(false);
+                  }}
                   disabled={isWorking}
                   aria-label="Mark as recurring commitment"
                 />
@@ -400,25 +440,27 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
             </div>
           </div>
 
-          {/* Similar transactions section */}
-          <div className={styles.sectionDivider}>
-            <div className={styles.similarHeader}>
-              <div className={styles.sectionHeader} style={{ marginBottom: 0 }}>Similar transactions</div>
-              <div className={styles.similarHeaderRight}>
-                {similar.length > 0 ? (
-                  <div className={styles.selectActions}>
-                    <button type="button" className={styles.linkButton} onClick={handleSelectAll} disabled={isWorking}>
-                      Select all
-                    </button>
-                    <button type="button" className={styles.linkButton} onClick={handleSelectNone} disabled={isWorking}>
-                      Select none
-                    </button>
+          {/* Similar transactions section - only show in single mode */}
+          {!isBatchMode ? (
+            <>
+              <div className={styles.sectionDivider}>
+                <div className={styles.similarHeader}>
+                  <div className={styles.sectionHeader} style={{ marginBottom: 0 }}>Similar transactions</div>
+                  <div className={styles.similarHeaderRight}>
+                    {similar.length > 0 ? (
+                      <div className={styles.selectActions}>
+                        <button type="button" className={styles.linkButton} onClick={handleSelectAll} disabled={isWorking}>
+                          Select all
+                        </button>
+                        <button type="button" className={styles.linkButton} onClick={handleSelectNone} disabled={isWorking}>
+                          Select none
+                        </button>
+                      </div>
+                    ) : null}
+                    <div className={styles.similarMeta}>{similar.length} shown</div>
                   </div>
-                ) : null}
-                <div className={styles.similarMeta}>{similar.length} shown</div>
+                </div>
               </div>
-            </div>
-          </div>
 
           {showAddMore ? (
             <div className={styles.findSimilar}>
@@ -542,20 +584,22 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
               );})}
             </div>
           )}
+            </>
+          ) : null}
         </div>
       ) : null}
 
       <div className={styles.footer}>
-        {selectedCount > 0 ? (
-          <div className={styles.applyHint}>
-            These edits will update 1 + {selectedCount} transactions
+        {!isBatchMode && selectedSimilarCount > 0 ? (
+          <div className={styles.saveHint}>
+            These edits will update {1 + selectedSimilarCount} transactions
           </div>
         ) : null}
         <button type="button" className={styles.secondaryButton} onClick={onRequestClose} disabled={isWorking}>
           Cancel
         </button>
-        <button type="button" className={styles.primaryButton} onClick={() => void handleApply()} disabled={isWorking || !txn}>
-          {applyButtonLabel}
+        <button type="button" className={styles.primaryButton} onClick={() => void handleApply()} disabled={isWorking || (!txn && !isBatchMode)}>
+          {saveButtonLabel}
         </button>
       </div>
     </Modal>

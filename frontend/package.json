@@ -41,6 +41,7 @@
     "@lexical/yjs": "^0.34.0",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-tooltip": "^1.2.8",
     "@react-pdf/renderer": "^4.3.1",
     "@react-spring/web": "^10.0.1",
     "@types/react-window": "^1.8.8",

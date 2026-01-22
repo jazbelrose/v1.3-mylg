@@ -1,5 +1,6 @@
 import React from "react";
 import { useLocation } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
   ArrowDownToLine,
   ArrowLeftRight,
@@ -11,15 +12,21 @@ import {
   Minus,
   Repeat,
   Zap,
+  X,
+  Search,
+  Edit2,
 } from "lucide-react";
+import * as Tooltip from "@radix-ui/react-tooltip";
 import HQLayout from "../components/HQLayout";
 import AddAccountModal from "@/hq/components/AddAccountModal";
 import ImportCsvModal from "@/hq/components/ImportCsvModal";
-import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
-import { fetchHqTransactions } from "@/hq/lib/hqApi";
-import { useHqStore } from "@/hq/lib/hqStore";
+import { HQ_CATEGORY_LABEL, HQ_CATEGORY_OPTIONS } from "@/hq/lib/hqCategories";
+import { applyHqTransactionsBulk, fetchHqSummary, fetchHqTransactions } from "@/hq/lib/hqApi";
+import { hydrateHqState, readHqState, useHqStore } from "@/hq/lib/hqStore";
+import { sendHqUpdated } from "@/hq/lib/hqWebSocket";
 import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
+import { useSocket } from "@/app/contexts/useSocket";
 import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
 import { todayPacificIsoDate } from "@/hq/lib/hqDate";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -165,6 +172,23 @@ const TransactionsPage: React.FC = () => {
   const [isAddAccountOpen, setIsAddAccountOpen] = React.useState(false);
   const [selectedTxn, setSelectedTxn] = React.useState<HqTransaction | null>(null);
   const [isApplyOpen, setIsApplyOpen] = React.useState(false);
+
+  // Row selection state for bulk operations
+  const [selectedRows, setSelectedRows] = React.useState<Set<string>>(new Set());
+  const [lastClickedIndex, setLastClickedIndex] = React.useState<number | null>(null);
+  const [focusedRowIndex, setFocusedRowIndex] = React.useState<number | null>(null);
+  const tableRef = React.useRef<HTMLDivElement>(null);
+
+  // Context menu state
+  const [contextMenuPos, setContextMenuPos] = React.useState<{ x: number; y: number } | null>(null);
+  const [contextMenuTxn, setContextMenuTxn] = React.useState<HqTransaction | null>(null);
+
+  // Undo state for bulk actions
+  const [undoStack, setUndoStack] = React.useState<Array<{
+    hashes: string[];
+    prevStates: Array<{ hash: string; categoryId?: string; paymentType?: string; isRecurring?: boolean }>;
+    description: string;
+  }>>([]);
 
   const openImport = React.useCallback(() => {
     if (!canAdmin) return;
@@ -523,6 +547,308 @@ const TransactionsPage: React.FC = () => {
     });
   }, []);
 
+  // Clear selection when list changes
+  React.useEffect(() => {
+    setSelectedRows(new Set());
+    setLastClickedIndex(null);
+    setFocusedRowIndex(null);
+  }, [listQueryKey]);
+
+  // Selection handlers
+  const handleRowClick = React.useCallback(
+    (txn: HqTransaction, index: number, e: React.MouseEvent) => {
+      if (!canAdmin) return;
+      e.preventDefault();
+
+      const hash = txn.dedupeHash;
+      if (!hash) return;
+
+      if (e.shiftKey && lastClickedIndex !== null) {
+        // Range select
+        const start = Math.min(lastClickedIndex, index);
+        const end = Math.max(lastClickedIndex, index);
+        setSelectedRows((prev) => {
+          const next = new Set(prev);
+          for (let i = start; i <= end; i++) {
+            const h = items[i]?.dedupeHash;
+            if (h) next.add(h);
+          }
+          return next;
+        });
+      } else if (e.ctrlKey || e.metaKey) {
+        // Toggle select
+        setSelectedRows((prev) => {
+          const next = new Set(prev);
+          if (next.has(hash)) {
+            next.delete(hash);
+          } else {
+            next.add(hash);
+          }
+          return next;
+        });
+      } else {
+        // Single select (replace selection)
+        setSelectedRows(new Set([hash]));
+      }
+      setLastClickedIndex(index);
+      setFocusedRowIndex(index);
+    },
+    [canAdmin, items, lastClickedIndex]
+  );
+
+  const handleRowDoubleClick = React.useCallback(
+    (txn: HqTransaction) => {
+      if (!canAdmin) return;
+      setSelectedTxn(txn);
+      setIsApplyOpen(true);
+    },
+    [canAdmin]
+  );
+
+  const handleRowKeyDown = React.useCallback(
+    (txn: HqTransaction, index: number, e: React.KeyboardEvent) => {
+      if (!canAdmin) return;
+
+      if (e.key === "Enter") {
+        e.preventDefault();
+        // Open edit modal for focused row
+        setSelectedTxn(txn);
+        setIsApplyOpen(true);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setSelectedRows(new Set());
+        setFocusedRowIndex(null);
+      } else if (e.key === "ArrowDown" && index < items.length - 1) {
+        e.preventDefault();
+        setFocusedRowIndex(index + 1);
+        // Auto-scroll to focused row
+        const nextRow = tableRef.current?.querySelector(`[data-row-index="${index + 1}"]`);
+        nextRow?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "ArrowUp" && index > 0) {
+        e.preventDefault();
+        setFocusedRowIndex(index - 1);
+        const prevRow = tableRef.current?.querySelector(`[data-row-index="${index - 1}"]`);
+        prevRow?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === " ") {
+        e.preventDefault();
+        // Toggle selection on focused row
+        const hash = txn.dedupeHash;
+        if (hash) {
+          setSelectedRows((prev) => {
+            const next = new Set(prev);
+            if (next.has(hash)) {
+              next.delete(hash);
+            } else {
+              next.add(hash);
+            }
+            return next;
+          });
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "a") {
+        e.preventDefault();
+        // Select all
+        setSelectedRows(new Set(items.map((t) => t.dedupeHash).filter(Boolean)));
+      }
+    },
+    [canAdmin, items]
+  );
+
+  // Context menu handlers
+  const handleContextMenu = React.useCallback(
+    (txn: HqTransaction, index: number, e: React.MouseEvent) => {
+      if (!canAdmin) return;
+      e.preventDefault();
+
+      const hash = txn.dedupeHash;
+      if (!hash) return;
+
+      // If right-clicking a non-selected row, select only that row
+      if (!selectedRows.has(hash)) {
+        setSelectedRows(new Set([hash]));
+        setLastClickedIndex(index);
+      }
+
+      setContextMenuTxn(txn);
+      
+      // Calculate position, adjusting to stay on screen
+      const menuWidth = 240;
+      const menuHeight = 400;
+      let x = e.clientX;
+      let y = e.clientY;
+      
+      if (x + menuWidth > window.innerWidth) {
+        x = window.innerWidth - menuWidth - 8;
+      }
+      if (y + menuHeight > window.innerHeight) {
+        y = Math.max(8, window.innerHeight - menuHeight - 8);
+      }
+      
+      setContextMenuPos({ x, y });
+    },
+    [canAdmin, selectedRows]
+  );
+
+  const closeContextMenu = React.useCallback(() => {
+    setContextMenuPos(null);
+    setContextMenuTxn(null);
+  }, []);
+
+  // Close context menu on outside click or escape
+  React.useEffect(() => {
+    if (!contextMenuPos) return;
+
+    const handleClick = () => closeContextMenu();
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeContextMenu();
+    };
+
+    window.addEventListener("click", handleClick);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("click", handleClick);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeContextMenu, contextMenuPos]);
+
+  // Bulk action handlers
+  const { ws } = useSocket();
+
+  const applyBulkAction = React.useCallback(
+    async (opts: {
+      categoryId?: HqCategoryId;
+      paymentType?: HqPaymentType;
+      isRecurring?: boolean;
+    }) => {
+      if (!activeOrgId || selectedRows.size === 0) return;
+
+      const hashes = Array.from(selectedRows);
+      const affectedTxns = items.filter((t) => hashes.includes(t.dedupeHash));
+
+      // Save previous states for undo
+      const prevStates = affectedTxns.map((t) => ({
+        hash: t.dedupeHash,
+        categoryId: t.categoryId,
+        paymentType: t.paymentType,
+        isRecurring: t.isRecurring,
+      }));
+
+      try {
+        const payload: {
+          dedupeHashes: string[];
+          categoryId?: string;
+          paymentType?: string;
+          isRecurring?: boolean;
+        } = { dedupeHashes: hashes };
+
+        if (opts.categoryId !== undefined) payload.categoryId = opts.categoryId;
+        if (opts.paymentType !== undefined) payload.paymentType = opts.paymentType;
+        if (opts.isRecurring !== undefined) payload.isRecurring = opts.isRecurring;
+
+        await applyHqTransactionsBulk(activeOrgId, payload);
+
+        // Build description for toast
+        let desc = "";
+        if (opts.categoryId !== undefined) {
+          desc = `Category set to ${HQ_CATEGORY_LABEL[opts.categoryId] || opts.categoryId}`;
+        } else if (opts.paymentType !== undefined) {
+          desc = `Payment type set to ${opts.paymentType}`;
+        } else if (opts.isRecurring !== undefined) {
+          desc = opts.isRecurring ? "Marked as recurring" : "Unmarked recurring";
+        }
+
+        // Push to undo stack
+        setUndoStack((prev) => [...prev.slice(-9), { hashes, prevStates, description: desc }]);
+
+        // Show toast with undo
+        toast.success(
+          <span>
+            {desc} for {hashes.length} transaction{hashes.length === 1 ? "" : "s"}.{" "}
+            <button
+              type="button"
+              style={{
+                background: "none",
+                border: "none",
+                color: "#fa3356",
+                cursor: "pointer",
+                textDecoration: "underline",
+                padding: 0,
+                font: "inherit",
+              }}
+              onClick={() => handleUndo()}
+            >
+              Undo
+            </button>
+          </span>,
+          { autoClose: 5000 }
+        );
+
+        sendHqUpdated(ws, activeOrgId, "transaction");
+        loadPage({ cursor: null, append: false, includeTotals: true });
+        setSelectedRows(new Set());
+      } catch (err) {
+        console.error(err);
+        toast.error("Could not apply bulk action.");
+      }
+      closeContextMenu();
+    },
+    [activeOrgId, closeContextMenu, items, loadPage, selectedRows, ws]
+  );
+
+  const handleUndo = React.useCallback(async () => {
+    if (!activeOrgId || undoStack.length === 0) return;
+
+    const last = undoStack[undoStack.length - 1];
+    setUndoStack((prev) => prev.slice(0, -1));
+
+    try {
+      // Restore each transaction to its previous state
+      for (const prev of last.prevStates) {
+        await applyHqTransactionsBulk(activeOrgId, {
+          dedupeHashes: [prev.hash],
+          categoryId: prev.categoryId || undefined,
+          paymentType: prev.paymentType || undefined,
+          isRecurring: prev.isRecurring,
+        });
+      }
+      toast.success("Undo successful.");
+      sendHqUpdated(ws, activeOrgId, "transaction");
+      loadPage({ cursor: null, append: false, includeTotals: true });
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not undo changes.");
+    }
+  }, [activeOrgId, loadPage, undoStack, ws]);
+
+  // Open edit modal in bulk mode
+  const openBulkEdit = React.useCallback(() => {
+    if (selectedRows.size === 0) return;
+    const firstHash = Array.from(selectedRows)[0];
+    const firstTxn = items.find((t) => t.dedupeHash === firstHash);
+    if (firstTxn) {
+      setSelectedTxn(firstTxn);
+      setIsApplyOpen(true);
+    }
+    closeContextMenu();
+  }, [closeContextMenu, items, selectedRows]);
+
+  // Open edit for single transaction
+  const openSingleEdit = React.useCallback(() => {
+    if (contextMenuTxn) {
+      setSelectedTxn(contextMenuTxn);
+      setIsApplyOpen(true);
+    }
+    closeContextMenu();
+  }, [closeContextMenu, contextMenuTxn]);
+
+  // Clear selection
+  const clearSelection = React.useCallback(() => {
+    setSelectedRows(new Set());
+    setFocusedRowIndex(null);
+    setLastClickedIndex(null);
+  }, []);
+
+  const selectedCount = selectedRows.size;
+
   const actions = (
     <div className={styles.actions}>
       {canAdmin ? (
@@ -561,7 +887,7 @@ const TransactionsPage: React.FC = () => {
               onValueChange={setAccountId}
               ariaLabel="Filter by account"
               options={[
-                { value: "all", label: "All accounts" },
+                { value: "all", label: "All accounts", shortLabel: "All", tooltip: "All accounts" },
                 ...accounts.map((a) => ({
                   value: a.accountId,
                   label: String(a.name ?? a.accountName ?? a.accountId),
@@ -587,7 +913,7 @@ const TransactionsPage: React.FC = () => {
               onValueChange={(v) => setPaymentType(v as "all" | HqPaymentType)}
               ariaLabel="Filter by payment type"
               options={[
-                { value: "all", label: "All payment types" },
+                { value: "all", label: "All payment types", shortLabel: "All", tooltip: "All payment types" },
                 { value: "card_purchase", label: "Card purchase" },
                 { value: "transfer", label: "Transfer" },
                 { value: "zelle", label: "Zelle" },
@@ -816,6 +1142,26 @@ const TransactionsPage: React.FC = () => {
 
           {items.length ? (
             <div className={styles.tableHeader} role="row">
+              {canAdmin ? (
+                <div className={styles.headerCheckbox}>
+                  <input
+                    type="checkbox"
+                    className={styles.rowCheckbox}
+                    checked={selectedRows.size > 0 && selectedRows.size === items.length}
+                    ref={(el) => {
+                      if (el) el.indeterminate = selectedRows.size > 0 && selectedRows.size < items.length;
+                    }}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedRows(new Set(items.map((t) => t.dedupeHash).filter(Boolean)));
+                      } else {
+                        setSelectedRows(new Set());
+                      }
+                    }}
+                    aria-label="Select all transactions"
+                  />
+                </div>
+              ) : null}
               <button
                 type="button"
                 className={styles.headerButton}
@@ -856,8 +1202,80 @@ const TransactionsPage: React.FC = () => {
           ) : null}
           </div>
 
+          {/* Bulk action bar */}
+          {selectedCount > 0 && canAdmin ? (
+            <div className={styles.bulkBar}>
+              <span className={styles.bulkCount}>{selectedCount} selected</span>
+              <div className={styles.bulkActions}>
+                <HqCategoryPicker
+                  orgId={orgId}
+                  className={styles.bulkSelect}
+                  value=""
+                  onValueChange={(v) => {
+                    if (v) applyBulkAction({ categoryId: v as HqCategoryId });
+                  }}
+                  ariaLabel="Set category for selected"
+                  placeholder="Category"
+                />
+                <HqSelect
+                  className={styles.bulkSelect}
+                  value=""
+                  onValueChange={(v) => {
+                    if (v) applyBulkAction({ paymentType: v as HqPaymentType });
+                  }}
+                  ariaLabel="Set payment type for selected"
+                  placeholder="Payment type"
+                  options={[
+                    { value: "card_purchase", label: "Card purchase" },
+                    { value: "transfer", label: "Transfer" },
+                    { value: "zelle", label: "Zelle" },
+                    { value: "wire", label: "Wire" },
+                    { value: "deposit", label: "Deposit" },
+                    { value: "fee", label: "Fee" },
+                    { value: "unknown", label: "Unknown" },
+                  ]}
+                />
+                <Tooltip.Provider delayDuration={200}>
+                  <Tooltip.Root>
+                    <Tooltip.Trigger asChild>
+                      <button
+                        type="button"
+                        className={styles.bulkToggle}
+                        onClick={() => applyBulkAction({ isRecurring: true })}
+                        aria-label="Mark as recurring"
+                      >
+                        <Repeat size={16} />
+                      </button>
+                    </Tooltip.Trigger>
+                    <Tooltip.Portal>
+                      <Tooltip.Content className={styles.bulkTooltip} sideOffset={6}>
+                        Mark as recurring
+                      </Tooltip.Content>
+                    </Tooltip.Portal>
+                  </Tooltip.Root>
+                </Tooltip.Provider>
+                <button
+                  type="button"
+                  className={styles.bulkEditBtn}
+                  onClick={openBulkEdit}
+                >
+                  <Edit2 size={14} />
+                  Bulk edit…
+                </button>
+              </div>
+              <button
+                type="button"
+                className={styles.bulkClear}
+                onClick={clearSelection}
+                aria-label="Clear selection"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ) : null}
+
           <div className={styles.tableClip}>
-            <div className={styles.tableScroll}>
+            <div className={styles.tableScroll} ref={tableRef}>
               {loadError ? (
                 <div className={styles.emptyState} role="status">
                   Failed to load transactions. {loadError}
@@ -872,31 +1290,57 @@ const TransactionsPage: React.FC = () => {
                 </div>
               ) : (
                 <div className={styles.table} role="region" aria-label="Transactions table">
-                  {items.map((txn) => {
+                  {items.map((txn, index) => {
                     const accountLabel = accountsById.get(txn.accountId) || "Account";
                     const currentCategoryId: HqCategoryId = (txn.categoryId || "OTHER") as HqCategoryId;
                     const directionClass = txn.amount < 0 ? styles.out : styles.in;
                     const iconType = effectivePaymentType(txn);
+                    const isSelected = selectedRows.has(txn.dedupeHash);
+                    const isFocused = focusedRowIndex === index;
                     return (
                       <div
                         key={txn.dedupeHash}
-                        className={[styles.row, canAdmin ? styles.rowClickable : ""].filter(Boolean).join(" ")}
-                        role={canAdmin ? "button" : undefined}
+                        data-row-index={index}
+                        className={[
+                          styles.row,
+                          canAdmin ? styles.rowClickable : "",
+                          isSelected ? styles.rowSelected : "",
+                          isFocused ? styles.rowFocused : "",
+                        ].filter(Boolean).join(" ")}
+                        role={canAdmin ? "row" : undefined}
                         tabIndex={canAdmin ? 0 : undefined}
-                        onClick={() => {
-                          if (!canAdmin) return;
-                          setSelectedTxn(txn);
-                          setIsApplyOpen(true);
-                        }}
-                        onKeyDown={(e) => {
-                          if (!canAdmin) return;
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setSelectedTxn(txn);
-                            setIsApplyOpen(true);
-                          }
-                        }}
+                        aria-selected={isSelected}
+                        onClick={(e) => handleRowClick(txn, index, e)}
+                        onDoubleClick={() => handleRowDoubleClick(txn)}
+                        onKeyDown={(e) => handleRowKeyDown(txn, index, e)}
+                        onContextMenu={(e) => handleContextMenu(txn, index, e)}
                       >
+                        {canAdmin ? (
+                          <div className={styles.checkboxCell}>
+                            <input
+                              type="checkbox"
+                              className={styles.rowCheckbox}
+                              checked={isSelected}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                const hash = txn.dedupeHash;
+                                if (hash) {
+                                  setSelectedRows((prev) => {
+                                    const next = new Set(prev);
+                                    if (e.target.checked) {
+                                      next.add(hash);
+                                    } else {
+                                      next.delete(hash);
+                                    }
+                                    return next;
+                                  });
+                                }
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label={`Select ${txnTitle(txn)}`}
+                            />
+                          </div>
+                        ) : null}
                         <div className={styles.txnCell}>
                           <div className={styles.icon} aria-hidden>
                             {typeIcon(iconType)}
@@ -950,6 +1394,127 @@ const TransactionsPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Context menu */}
+      {contextMenuPos && canAdmin ? (
+        <div
+          className={styles.contextMenu}
+          style={{ left: contextMenuPos.x, top: contextMenuPos.y }}
+          role="menu"
+          aria-label="Transaction actions"
+        >
+          {selectedCount === 1 ? (
+            <>
+              <button type="button" className={styles.contextMenuItem} onClick={openSingleEdit} role="menuitem">
+                <Edit2 size={14} />
+                Edit…
+              </button>
+              <div className={styles.contextMenuSeparator} />
+              <div className={styles.contextMenuLabel}>Set category</div>
+              {HQ_CATEGORY_OPTIONS.slice(0, 8).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={styles.contextMenuItem}
+                  onClick={() => applyBulkAction({ categoryId: opt.value as HqCategoryId })}
+                  role="menuitem"
+                >
+                  {opt.label}
+                </button>
+              ))}
+              <div className={styles.contextMenuSeparator} />
+              <div className={styles.contextMenuLabel}>Set payment type</div>
+              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "card_purchase" })} role="menuitem">
+                Card purchase
+              </button>
+              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "transfer" })} role="menuitem">
+                Transfer
+              </button>
+              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "zelle" })} role="menuitem">
+                Zelle
+              </button>
+              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "wire" })} role="menuitem">
+                Wire
+              </button>
+              <div className={styles.contextMenuSeparator} />
+              <button
+                type="button"
+                className={styles.contextMenuItem}
+                onClick={() => {
+                  const txn = contextMenuTxn;
+                  if (txn) applyBulkAction({ isRecurring: !txn.isRecurring });
+                }}
+                role="menuitem"
+              >
+                <Repeat size={14} />
+                Toggle burn/runway
+              </button>
+              <div className={styles.contextMenuSeparator} />
+              <button
+                type="button"
+                className={styles.contextMenuItem}
+                onClick={() => {
+                  if (contextMenuTxn) {
+                    setSelectedTxn(contextMenuTxn);
+                    setIsApplyOpen(true);
+                  }
+                  closeContextMenu();
+                }}
+                role="menuitem"
+              >
+                <Search size={14} />
+                Find similar…
+              </button>
+            </>
+          ) : (
+            <>
+              <div className={styles.contextMenuLabel}>{selectedCount} selected</div>
+              <div className={styles.contextMenuSeparator} />
+              <div className={styles.contextMenuLabel}>Set category</div>
+              {HQ_CATEGORY_OPTIONS.slice(0, 8).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={styles.contextMenuItem}
+                  onClick={() => applyBulkAction({ categoryId: opt.value as HqCategoryId })}
+                  role="menuitem"
+                >
+                  {opt.label}
+                </button>
+              ))}
+              <div className={styles.contextMenuSeparator} />
+              <div className={styles.contextMenuLabel}>Set payment type</div>
+              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "card_purchase" })} role="menuitem">
+                Card purchase
+              </button>
+              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "transfer" })} role="menuitem">
+                Transfer
+              </button>
+              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "zelle" })} role="menuitem">
+                Zelle
+              </button>
+              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "wire" })} role="menuitem">
+                Wire
+              </button>
+              <div className={styles.contextMenuSeparator} />
+              <button
+                type="button"
+                className={styles.contextMenuItem}
+                onClick={() => applyBulkAction({ isRecurring: true })}
+                role="menuitem"
+              >
+                <Repeat size={14} />
+                Toggle burn/runway
+              </button>
+              <div className={styles.contextMenuSeparator} />
+              <button type="button" className={styles.contextMenuItem} onClick={openBulkEdit} role="menuitem">
+                <Edit2 size={14} />
+                Bulk edit…
+              </button>
+            </>
+          )}
+        </div>
+      ) : null}
+
       {activeOrgId ? (
         <>
           <ImportCsvModal orgId={activeOrgId} isOpen={isImportOpen} onRequestClose={() => setIsImportOpen(false)} />
@@ -962,6 +1527,7 @@ const TransactionsPage: React.FC = () => {
             orgId={activeOrgId}
             isOpen={isApplyOpen}
             txn={selectedTxn}
+            batchHashes={selectedCount > 1 ? Array.from(selectedRows) : undefined}
             from={startDate || undefined}
             to={endDate || undefined}
             onSaved={() => {
@@ -970,6 +1536,7 @@ const TransactionsPage: React.FC = () => {
               setTimeout(() => {
                 loadPage({ cursor: null, append: false, includeTotals: true });
               }, 150);
+              setSelectedRows(new Set());
             }}
             onRequestClose={() => {
               setIsApplyOpen(false);

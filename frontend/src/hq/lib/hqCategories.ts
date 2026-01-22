@@ -158,3 +158,9 @@ export const HQ_CATEGORY_LABEL: Record<HqCategoryId, string> = HQ_CATEGORIES.red
   } as Record<HqCategoryId, string>
 );
 
+/**
+ * Options array for dropdowns/selects: { value, label } pairs.
+ */
+export const HQ_CATEGORY_OPTIONS: readonly { value: HqCategoryId; label: string }[] = HQ_CATEGORIES.map(
+  (cat) => ({ value: cat.id, label: cat.label })
+);
