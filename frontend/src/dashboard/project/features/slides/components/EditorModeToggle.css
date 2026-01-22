@@ -1,0 +1,78 @@
+/* EditorModeToggle.css - Styles for View/Edit/Comment mode toggle */
+
+.editor-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.editor-mode-toggle__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.editor-mode-toggle__button:hover:not(:disabled) {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.editor-mode-toggle__button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.editor-mode-toggle__button.is-active {
+  color: #fff;
+  background: rgba(250, 51, 86, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(250, 51, 86, 0.3);
+}
+
+.editor-mode-toggle__button.is-active svg {
+  color: var(--brand, #fa3356);
+}
+
+.editor-mode-toggle__label {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.editor-mode-toggle__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--brand, #fa3356);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Compact mode for smaller screens */
+@media (max-width: 1200px) {
+  .editor-mode-toggle__label {
+    display: none;
+  }
+  
+  .editor-mode-toggle__button {
+    padding: 8px 10px;
+  }
+}

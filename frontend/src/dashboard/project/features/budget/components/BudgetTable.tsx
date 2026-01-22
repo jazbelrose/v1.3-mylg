@@ -11,7 +11,11 @@ import {
   faPaperclip,
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
+import { Link2 } from "lucide-react";
 import AttachmentPreviewModal, { type AttachmentPreviewItem } from "@/shared/ui/AttachmentPreviewModal";
+import BudgetLineTransactionsDrawer from "./BudgetLineTransactionsDrawer";
+import { useOrg } from "@/app/contexts/useOrg";
+import { fetchHqAllocationSummary, type HqAllocationSummaryResponse } from "@/hq/lib/hqApi";
 import styles from "@/dashboard/project/features/budget/pages/budget-page.module.css";
 import { formatUSD } from "@/shared/utils/budgetUtils";
 import type { Task } from "@/shared/utils/api";
@@ -92,6 +96,7 @@ interface BudgetItemsTableProps {
   currentPage: number;
   setCurrentPage: (page: number) => void;
   isSelectMode: boolean;
+  projectId?: string;
 }
 
 const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
@@ -115,9 +120,16 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
     currentPage,
     setCurrentPage,
     isSelectMode,
+    projectId,
   }) => {
+  const { activeOrgId } = useOrg();
   const [isMobile, setIsMobile] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  // Allocation data for budget lines
+  const [allocationsByBudgetItem, setAllocationsByBudgetItem] = useState<Record<string, number>>({});
+  const [allocationDrawerOpen, setAllocationDrawerOpen] = useState(false);
+  const [allocationDrawerItem, setAllocationDrawerItem] = useState<{ id: string; name?: string } | null>(null);
   const menuContainersRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const [coverageMenuOpenForId, setCoverageMenuOpenForId] = useState<string | null>(null);
   const coverageDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -131,6 +143,32 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
   const [attachmentPreviewItems, setAttachmentPreviewItems] = useState<AttachmentPreviewItem[]>([]);
   const [attachmentPreviewIndex, setAttachmentPreviewIndex] = useState(0);
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
+
+  // Fetch allocation data for budget line items
+  useEffect(() => {
+    if (!activeOrgId || !projectId) {
+      setAllocationsByBudgetItem({});
+      return;
+    }
+
+    let cancelled = false;
+
+    fetchHqAllocationSummary(activeOrgId)
+      .then(() => {
+        if (cancelled) return;
+        // For now, we don't have per-budget-item allocation data in the summary.
+        // This would need a dedicated endpoint or batch call.
+        // The drawer fetches per-item data on demand.
+        setAllocationsByBudgetItem({});
+      })
+      .catch(() => {
+        if (!cancelled) setAllocationsByBudgetItem({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeOrgId, projectId]);
 
     useEffect(() => {
       if (typeof window === "undefined") return;
@@ -661,6 +699,33 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                             </button>
                           )}
 
+                          {/* Allocation indicator */}
+                          {projectId && (
+                            <button
+                              type="button"
+                              className={styles.allocationChipButton}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (isSelectMode) return;
+                                setAllocationDrawerItem({
+                                  id: record.budgetItemId,
+                                  name: record.description ? String(record.description) : undefined,
+                                });
+                                setAllocationDrawerOpen(true);
+                              }}
+                              disabled={isSelectMode}
+                              title="View linked transactions"
+                            >
+                              <Link2 size={12} />
+                              <span>Spend</span>
+                              {allocationsByBudgetItem[record.budgetItemId] ? (
+                                <span className={styles.allocationChipAmount}>
+                                  {formatUSD(allocationsByBudgetItem[record.budgetItemId])}
+                                </span>
+                              ) : null}
+                            </button>
+                          )}
+
                           {coverage ? (
                             <div className={styles.coverageAddWrapper}>
                               <button
@@ -964,6 +1029,20 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
           isOpen={attachmentPreviewOpen && Boolean(previewAttachment)}
           onRequestClose={closeAttachmentPreview}
         />
+
+        {/* Budget line transactions drawer */}
+        {projectId && allocationDrawerItem ? (
+          <BudgetLineTransactionsDrawer
+            isOpen={allocationDrawerOpen}
+            onClose={() => {
+              setAllocationDrawerOpen(false);
+              setAllocationDrawerItem(null);
+            }}
+            projectId={projectId}
+            budgetItemId={allocationDrawerItem.id}
+            budgetItemName={allocationDrawerItem.name}
+          />
+        ) : null}
       </>
     );
   }

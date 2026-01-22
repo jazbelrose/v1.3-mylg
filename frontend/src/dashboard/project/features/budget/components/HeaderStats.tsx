@@ -20,6 +20,7 @@ import BudgetDonut, {
 import RevisionPillTooltip from "@/dashboard/project/features/budget/components/RevisionPillTooltip";
 import RevisionQuickSwitcher from "@/dashboard/project/features/budget/components/RevisionQuickSwitcher";
 import { useSocket } from "@/app/contexts/useSocket";
+import { useOrg } from "@/app/contexts/useOrg";
 
 import { updateBudgetItem, type BudgetInvoiceDetails } from "@/shared/utils/api";
 import { formatUSD, parseBudget } from "@/shared/utils/budgetUtils";
@@ -28,6 +29,7 @@ import {
   generateSequentialPalette,
   getColor,
 } from "@/shared/utils/colorUtils";
+import { fetchHqAllocationSummary } from "@/hq/lib/hqApi";
 
 import summaryStyles from "./budget-header-summary.module.css";
 import mobileStyles from "./budget-header-mobile.module.css";
@@ -308,10 +310,36 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
   const [invoiceRevision, setInvoiceRevision] = useState<BudgetHeaderData | null>(null);
 
-  // Allocated cost from HQ transactions (placeholder - will be fetched from API)
+  // Allocated cost from HQ transactions
   const [allocatedTotal, setAllocatedTotal] = useState<number | null>(null);
 
+  const { activeOrgId } = useOrg();
   const { ws } = useSocket();
+
+  // Fetch allocation data for the current project from HQ
+  useEffect(() => {
+    if (!activeOrgId || !activeProject?.projectId) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const summary = await fetchHqAllocationSummary(activeOrgId);
+        if (cancelled) return;
+        const projectData = summary.byProject?.find(
+          (p) => p.projectId === activeProject.projectId
+        );
+        setAllocatedTotal(projectData?.allocated ?? 0);
+      } catch (err) {
+        // Silently ignore - allocation data is optional
+        if (!cancelled) setAllocatedTotal(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeOrgId, activeProject?.projectId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

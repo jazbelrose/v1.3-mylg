@@ -81,8 +81,10 @@ export class ThumbnailJobQueue {
 
     const { slideId, projectId, content, backgroundColor, backgroundImage, priority = 'normal' } = params;
 
-    // Skip if no content
-    if (!content || content.length === 0) {
+    // Skip if no content AND no background image (nothing to render)
+    const hasContent = content && content.length > 0;
+    const hasBackgroundImage = backgroundImage && backgroundImage.length > 0;
+    if (!hasContent && !hasBackgroundImage) {
       return;
     }
 
@@ -141,14 +143,17 @@ export class ThumbnailJobQueue {
     console.log(`[ThumbnailQueue] Enqueuing ${slides.length} slides with priority ${priority}`);
 
     for (const slide of slides) {
-      if (!slide.content || slide.content.length === 0) {
+      // Skip if no content AND no background image (nothing to render)
+      const hasContent = slide.content && slide.content.length > 0;
+      const hasBackgroundImage = slide.backgroundImage && slide.backgroundImage.length > 0;
+      if (!hasContent && !hasBackgroundImage) {
         continue;
       }
 
       this.enqueue({
         slideId: slide.id,
         projectId,
-        content: slide.content,
+        content: slide.content || '',
         backgroundColor: slide.backgroundColor,
         backgroundImage: slide.backgroundImage,
         priority,

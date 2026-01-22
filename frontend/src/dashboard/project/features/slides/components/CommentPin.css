@@ -1,0 +1,179 @@
+/* CommentPin.css - Styles for comment pins/anchors on slides */
+
+.comment-pin {
+  position: absolute;
+  z-index: 100;
+  cursor: pointer;
+  user-select: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  transition: filter 0.15s ease, z-index 0s;
+}
+
+.comment-pin:hover,
+.comment-pin.is-selected {
+  z-index: 101;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+}
+
+.comment-pin:focus-visible {
+  outline: 2px solid rgba(250, 51, 86, 0.6);
+  outline-offset: 2px;
+}
+
+/* Pin stem (the pointy bottom part) */
+.comment-pin__stem {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid #facc15;
+  transition: border-top-color 0.15s ease;
+}
+
+.comment-pin.is-resolved .comment-pin__stem {
+  border-top-color: #86efac;
+}
+
+.comment-pin.is-selected .comment-pin__stem {
+  border-top-color: var(--brand, #fa3356);
+}
+
+/* Pin head (circular part) */
+.comment-pin__head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #facc15;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.comment-pin.is-resolved .comment-pin__head {
+  background: #86efac;
+}
+
+.comment-pin.is-selected .comment-pin__head {
+  background: var(--brand, #fa3356);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.comment-pin__avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.comment-pin__initial {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.7);
+  text-transform: uppercase;
+}
+
+.comment-pin.is-selected .comment-pin__initial {
+  color: #fff;
+}
+
+.comment-pin__icon {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.comment-pin__icon--resolved {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+/* Reply count badge */
+.comment-pin__count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--brand, #fa3356);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #1a1a1a;
+}
+
+/* Hover preview tooltip */
+.comment-pin__preview {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.95);
+  min-width: 180px;
+  max-width: 280px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(20, 20, 22, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.15s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.comment-pin:hover .comment-pin__preview,
+.comment-pin.is-selected .comment-pin__preview {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) scale(1);
+}
+
+.comment-pin__preview-author {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 4px;
+}
+
+.comment-pin__preview-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.comment-pin__preview-replies {
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Animation for new pins */
+@keyframes pin-pop-in {
+  0% {
+    transform: translate(-50%, -100%) scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: translate(-50%, -100%) scale(1.2);
+  }
+  100% {
+    transform: translate(-50%, -100%) scale(1);
+    opacity: 1;
+  }
+}
+
+.comment-pin--new {
+  animation: pin-pop-in 0.3s ease-out forwards;
+}

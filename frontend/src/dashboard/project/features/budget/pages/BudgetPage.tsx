@@ -1594,6 +1594,7 @@ const BudgetPageContent = () => {
                                             currentPage={stateManager.currentPage}
                                             setCurrentPage={stateManager.setCurrentPage}
                                             isSelectMode={stateManager.isSelectMode}
+                                            projectId={projectId}
                                           />
                                         </>
                                       );

@@ -12,3 +12,11 @@ export { useThumbnailQueue } from "./hooks/useThumbnailQueue";
 export * from "./lib/yjs";
 export * from "./lib/slideExport";
 export * from "./lib/thumbnailJobQueue";
+
+// Comments Mode exports
+export { default as CommentPin } from "./components/CommentPin";
+export { default as CommentThread } from "./components/CommentThread";
+export { default as CommentsOverlay } from "./components/CommentsOverlay";
+export { default as EditorModeToggle } from "./components/EditorModeToggle";
+export { CommentsProvider, useComments } from "./contexts/CommentsContext";
+export * from "./lib/commentsTypes";

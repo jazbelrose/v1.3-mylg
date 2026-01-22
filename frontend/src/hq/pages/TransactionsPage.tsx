@@ -15,6 +15,7 @@ import {
   X,
   Search,
   Edit2,
+  Link2,
 } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import HQLayout from "../components/HQLayout";
@@ -36,6 +37,8 @@ import styles from "./TransactionsPage.module.css";
 import HqSelect from "@/hq/components/HqSelect";
 import TxnModalApply from "@/hq/components/TxnModalApply";
 import HqCategoryPicker from "@/hq/components/HqCategoryPicker";
+import AllocationModal from "@/hq/components/AllocationModal";
+import { getTransactionAllocatedTotal } from "@/hq/lib/hqStore";
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -172,6 +175,8 @@ const TransactionsPage: React.FC = () => {
   const [isAddAccountOpen, setIsAddAccountOpen] = React.useState(false);
   const [selectedTxn, setSelectedTxn] = React.useState<HqTransaction | null>(null);
   const [isApplyOpen, setIsApplyOpen] = React.useState(false);
+  const [isAllocationOpen, setIsAllocationOpen] = React.useState(false);
+  const [allocationTxn, setAllocationTxn] = React.useState<HqTransaction | null>(null);
 
   // Row selection state for bulk operations
   const [selectedRows, setSelectedRows] = React.useState<Set<string>>(new Set());
@@ -1341,6 +1346,57 @@ const TransactionsPage: React.FC = () => {
                           {HQ_CATEGORY_LABEL[currentCategoryId]}
                         </div>
 
+                        {/* Allocation chip - only show for outgoing transactions */}
+                        {txn.direction === "out" || txn.amount < 0 ? (
+                          <div className={styles.allocationCell}>
+                            {(() => {
+                              const allocatedTotal = getTransactionAllocatedTotal(txn);
+                              const hasAllocations = allocatedTotal > 0;
+                              const txnAmount = Math.abs(txn.amount);
+                              const isFullyAllocated = allocatedTotal >= txnAmount - 0.01;
+
+                              return (
+                                <button
+                                  type="button"
+                                  className={[
+                                    styles.allocationChip,
+                                    hasAllocations
+                                      ? isFullyAllocated
+                                        ? styles.allocationFull
+                                        : styles.allocationPartial
+                                      : styles.allocationEmpty,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" ")}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!canAdmin) return;
+                                    setAllocationTxn(txn);
+                                    setIsAllocationOpen(true);
+                                  }}
+                                  disabled={!canAdmin}
+                                  title={
+                                    hasAllocations
+                                      ? `Allocated: ${currency.format(allocatedTotal)}`
+                                      : "Link to budget"
+                                  }
+                                >
+                                  <Link2 size={12} />
+                                  {hasAllocations ? (
+                                    <span className={styles.allocationAmount}>
+                                      {currency.format(allocatedTotal)}
+                                    </span>
+                                  ) : (
+                                    <span className={styles.allocationLabel}>Link</span>
+                                  )}
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        ) : (
+                          <div className={styles.allocationCell} />
+                        )}
+
                         <div className={[styles.amountCol, directionClass].join(" ")}>
                           {txn.amount < 0 ? "-" : "+"}
                           {currency.format(Math.abs(txn.amount))}
@@ -1440,6 +1496,27 @@ const TransactionsPage: React.FC = () => {
                 <Search size={14} />
                 Find similar…
               </button>
+              {/* Allocate to budget - only for outgoing transactions */}
+              {contextMenuTxn && (contextMenuTxn.direction === "out" || contextMenuTxn.amount < 0) ? (
+                <>
+                  <div className={styles.contextMenuSeparator} />
+                  <button
+                    type="button"
+                    className={styles.contextMenuItem}
+                    onClick={() => {
+                      if (contextMenuTxn) {
+                        setAllocationTxn(contextMenuTxn);
+                        setIsAllocationOpen(true);
+                      }
+                      closeContextMenu();
+                    }}
+                    role="menuitem"
+                  >
+                    <Link2 size={14} />
+                    Link to budget…
+                  </button>
+                </>
+              ) : null}
             </>
           ) : (
             <>
@@ -1517,6 +1594,21 @@ const TransactionsPage: React.FC = () => {
             onRequestClose={() => {
               setIsApplyOpen(false);
               setSelectedTxn(null);
+            }}
+          />
+          <AllocationModal
+            orgId={activeOrgId}
+            isOpen={isAllocationOpen}
+            txn={allocationTxn}
+            onSaved={() => {
+              // Refresh list after allocation update
+              setTimeout(() => {
+                loadPage({ cursor: null, append: false, includeTotals: true });
+              }, 150);
+            }}
+            onRequestClose={() => {
+              setIsAllocationOpen(false);
+              setAllocationTxn(null);
             }}
           />
         </>

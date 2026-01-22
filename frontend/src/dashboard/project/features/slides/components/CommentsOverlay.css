@@ -1,0 +1,211 @@
+/* CommentsOverlay.css - Styles for the comments overlay on slides */
+
+.comments-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.comments-overlay--interactive {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+/* Pin wrapper - handles positioning */
+.comments-overlay__pin-wrapper {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  pointer-events: auto;
+}
+
+/* Pending new comment pin */
+.comments-overlay__pending-pin {
+  transform-origin: bottom center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  animation: pending-pop 0.2s ease-out;
+}
+
+@keyframes pending-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.comments-overlay__pending-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--brand, #fa3356);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.comments-overlay__pending-stem {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid var(--brand, #fa3356);
+}
+
+/* New comment input box */
+.comments-overlay__new-comment {
+  position: absolute;
+  top: -8px;
+  left: calc(100% + 12px);
+  width: 260px;
+  padding: 12px;
+  background: rgba(26, 26, 30, 0.98);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: input-slide-in 0.15s ease-out;
+}
+
+@keyframes input-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.comments-overlay__new-comment textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.4;
+  resize: none;
+  transition: border-color 0.15s ease;
+}
+
+.comments-overlay__new-comment textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.comments-overlay__new-comment textarea:focus {
+  outline: none;
+  border-color: rgba(250, 51, 86, 0.5);
+}
+
+.comments-overlay__new-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.comments-overlay__new-actions button {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.comments-overlay__new-actions button:first-child {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.comments-overlay__new-actions button:first-child:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.comments-overlay__submit-btn {
+  background: var(--brand, #fa3356) !important;
+  border: none !important;
+  color: #fff !important;
+}
+
+.comments-overlay__submit-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.comments-overlay__submit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Empty state hint */
+.comments-overlay__hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 12px 20px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  font-weight: 500;
+  pointer-events: none;
+  opacity: 0.8;
+  animation: hint-fade-in 0.3s ease-out;
+}
+
+@keyframes hint-fade-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  to {
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Responsive positioning */
+@media (max-width: 600px) {
+  .comments-overlay__new-comment {
+    left: 50%;
+    top: auto;
+    bottom: calc(100% + 12px);
+    transform: translateX(-50%);
+    width: 240px;
+  }
+
+  @keyframes input-slide-in {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+}

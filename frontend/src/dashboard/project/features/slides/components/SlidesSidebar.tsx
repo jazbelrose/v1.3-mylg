@@ -18,9 +18,11 @@ import "./SlidesSidebar.css";
 interface SlideThumbnailProps {
   slide: Slide;
   projectId: string;
+  /** Generation status from thumbnail queue */
+  queueStatus?: ThumbnailJobStatus | null;
 }
 
-const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => {
+const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId, queueStatus }) => {
   const hasBackgroundImage = Boolean(slide.backgroundImage);
   const isContentEmpty = isLexicalContentEffectivelyEmpty(slide.content);
   const shouldPreferBackgroundImageThumb = hasBackgroundImage && isContentEmpty;
@@ -168,8 +170,22 @@ const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => 
     invalidate();
   }, [invalidate, resolvedSrc, uiThumbsEnabled]);
 
+  // Show skeleton when actively generating from queue and no existing thumbnail
+  const isGenerating = queueStatus === 'pending' || queueStatus === 'generating';
+  const showSkeleton = isGenerating && !activeSrc && !previousSrc;
+
   return (
-    <div className="slides-sidebar__thumbnail" aria-busy={isLoading} style={{ backgroundColor: bgColor }}>
+    <div className="slides-sidebar__thumbnail" aria-busy={isLoading || isGenerating} style={{ backgroundColor: bgColor }}>
+      {/* Skeleton loading state */}
+      {showSkeleton && (
+        <div className="slides-sidebar__thumbnail-skeleton">
+          <div className="slides-sidebar__thumbnail-skeleton-shimmer" />
+          <div className="slides-sidebar__thumbnail-skeleton-content">
+            <div className="slides-sidebar__thumbnail-skeleton-text" />
+            <div className="slides-sidebar__thumbnail-skeleton-text slides-sidebar__thumbnail-skeleton-text--short" />
+          </div>
+        </div>
+      )}
       {previousSrc && (
         <img
           src={previousSrc}
@@ -184,7 +200,7 @@ const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => 
           className={`slides-sidebar__thumbnail-image slides-sidebar__thumbnail-image--current ${activeVisible ? "is-visible" : "is-hidden"}`}
         />
       )}
-      {showFallback && (
+      {showFallback && !showSkeleton && (
         <div className="slides-sidebar__thumbnail-fallback" style={{ color: textColor }}>
           <div className="slides-sidebar__thumbnail-title" style={{ opacity: 0.85 }}>
             {slide.title || `Slide ${slide.order || 0}`}
@@ -194,7 +210,7 @@ const SlideThumbnail: React.FC<SlideThumbnailProps> = ({ slide, projectId }) => 
           </div>
         </div>
       )}
-      {isLoading && (
+      {isLoading && !showSkeleton && (
         <div className="slides-sidebar__thumbnail-status">
           <span className="slides-sidebar__thumbnail-loader">
             <span className="slides-sidebar__thumbnail-loader-dot" />
@@ -425,7 +441,11 @@ const SlidesSidebar: React.FC<SlidesSidebarProps> = ({
                 </span>
               </div>
 
-              <SlideThumbnail slide={slide} projectId={projectId} />
+              <SlideThumbnail 
+                slide={slide} 
+                projectId={projectId} 
+                queueStatus={thumbnailStatusMap?.get(slide.id) ?? null}
+              />
 
               {/* Per-slide thumbnail generation status indicator */}
               {thumbnailStatusMap?.get(slide.id) && (
