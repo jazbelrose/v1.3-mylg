@@ -333,6 +333,10 @@ const BudgetLineTransactionsDrawer: React.FC<BudgetLineTransactionsDrawerProps> 
     }
   };
 
+  // Determine allocation status for styling
+  const allocatedAmount = data?.totalAllocated ?? 0;
+  const isFullyAllocated = lineRemainingTarget !== null && lineRemainingTarget <= 0.01;
+
   return (
     <Modal
       isOpen={isOpen}
@@ -343,14 +347,9 @@ const BudgetLineTransactionsDrawer: React.FC<BudgetLineTransactionsDrawerProps> 
     >
       <div className={styles.container}>
         <header className={styles.header}>
-          <div className={styles.headerContent}>
-            <h2 id="drawer-title" className={styles.title}>
-              Spend · Link transactions
-            </h2>
-            {budgetItemName ? (
-              <span className={styles.subtitle}>{budgetItemName}</span>
-            ) : null}
-          </div>
+          <h2 id="drawer-title" className={styles.title}>
+            Spend · Link transactions
+          </h2>
           <button
             type="button"
             className={styles.closeButton}
@@ -360,6 +359,56 @@ const BudgetLineTransactionsDrawer: React.FC<BudgetLineTransactionsDrawerProps> 
             <X size={18} />
           </button>
         </header>
+
+        {/* Sticky Context Card - Budget Line Item being edited */}
+        <div className={styles.stickyContext}>
+          <div className={styles.contextCard}>
+            <div className={styles.contextCardHeader}>
+              <div className={styles.contextCardMeta}>
+                <span className={styles.contextCardId}>{budgetItemId.replace("LINE-", "").slice(0, 12)}</span>
+                {budgetItemName ? (
+                  <span className={styles.contextCardTitle}>{budgetItemName}</span>
+                ) : (
+                  <span className={styles.contextCardTitle}>Budget Line Item</span>
+                )}
+              </div>
+              {Number.isFinite(costTargetTotal ?? NaN) && (costTargetTotal ?? 0) > 0 ? (
+                <div className={styles.contextCardMetrics}>
+                  <div className={styles.contextCardMetric}>
+                    <span className={styles.contextCardMetricLabel}>Target</span>
+                    <span className={styles.contextCardMetricValue}>{currency.format(costTargetTotal ?? 0)}</span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Allocation Status Bar */}
+            <div className={styles.allocationBar}>
+              <div className={styles.allocationStat}>
+                <span className={styles.allocationStatLabel}>Allocated:</span>
+                <span className={`${styles.allocationStatValue} ${isFullyAllocated ? styles.full : styles.allocated}`}>
+                  {currency.format(allocatedAmount)}
+                </span>
+              </div>
+              {Number.isFinite(costTargetTotal ?? NaN) && (costTargetTotal ?? 0) > 0 ? (
+                <>
+                  <span className={styles.allocationDivider}>·</span>
+                  <div className={styles.allocationStat}>
+                    <span className={styles.allocationStatLabel}>Target:</span>
+                    <span className={styles.allocationStatValue}>{currency.format(costTargetTotal ?? 0)}</span>
+                  </div>
+                  <span className={styles.allocationDivider}>·</span>
+                  <div className={styles.allocationStat}>
+                    <span className={styles.allocationStatLabel}>Remaining:</span>
+                    <span className={`${styles.allocationStatValue} ${isFullyAllocated ? styles.full : styles.remaining}`}>
+                      {currency.format(lineRemainingTarget ?? 0)}
+                    </span>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
 
         <div className={styles.body}>
           {loading ? (
@@ -377,24 +426,6 @@ const BudgetLineTransactionsDrawer: React.FC<BudgetLineTransactionsDrawerProps> 
                   <span>{actionError}</span>
                 </div>
               ) : null}
-              <div className={styles.summary}>
-                <span className={styles.summaryLabel}>Allocated:</span>
-                <span className={styles.summaryValue}>
-                  {currency.format(data?.totalAllocated ?? 0)}
-                </span>
-                {Number.isFinite(costTargetTotal ?? NaN) && (costTargetTotal ?? 0) > 0 ? (
-                  <>
-                    <span className={styles.summaryDivider}>·</span>
-                    <span className={styles.summaryLabel}>Target:</span>
-                    <span className={styles.summaryValue}>{currency.format(costTargetTotal ?? 0)}</span>
-                    <span className={styles.summaryDivider}>·</span>
-                    <span className={styles.summaryLabel}>Remaining:</span>
-                    <span className={styles.summaryValue}>
-                      {currency.format(lineRemainingTarget ?? 0)}
-                    </span>
-                  </>
-                ) : null}
-              </div>
 
               <div className={styles.section}>
                 <div className={styles.sectionHeader}>

@@ -351,6 +351,14 @@
   margin: 0;
 }
 
+.chartSidebar {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 0;
+}
+
 .legend {
   list-style: none;
   padding: 0;
@@ -358,7 +366,6 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  flex: 1;
   max-height: none;
   overflow-y: visible;
 }
@@ -376,6 +383,43 @@
   height: 8px;
   border-radius: 9999px;
   flex-shrink: 0;
+}
+
+/* Target Delta Indicator */
+.targetDelta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.targetDeltaIcon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.targetDeltaText {
+  color: var(--budget-accent-text-muted);
+}
+
+.targetDeltaValue {
+  font-weight: 500;
+}
+
+.targetDeltaOver {
+  color: #f87171; /* red-400 for over target */
+}
+
+.targetDeltaUnder {
+  color: #4ade80; /* green-400 for under target */
+}
+
+.targetDeltaOnTarget {
+  color: var(--budget-accent-text-muted);
 }
 
 @media (max-width: 1400px) {

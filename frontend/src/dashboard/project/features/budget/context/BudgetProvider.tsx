@@ -364,13 +364,30 @@ export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children })
       const stats = buildStats(header, items);
 
       if (groupBy === "none") {
-        return [
-          { name: "Ballpark", value: stats.ballpark },
-          { name: "Planned Cost", value: stats.budgetedCost },
-          { name: "Actual Cost", value: stats.actualCost },
-          { name: "Effective Markup", value: stats.effectiveMarkup * 100 },
-          { name: "Client Price", value: stats.finalCost },
-        ].filter((item) => item.value > 0);
+        // Per spec: when Group By = NONE, the chart shows Price Composition
+        // Total (center) = Client Price
+        // Slices = [Cost, Margin] where Margin = Client Price - Cost
+        // Target is NOT part of the pie (shown as delta indicator separately)
+        const clientPrice = stats.finalCost;
+        const cost = stats.budgetedCost || stats.actualCost;
+        const margin = Math.max(0, clientPrice - cost);
+        
+        const slices: PieDataItem[] = [];
+        
+        if (cost > 0) {
+          slices.push({ name: "Cost", value: cost });
+        }
+        
+        if (margin > 0) {
+          slices.push({ name: "Margin", value: margin });
+        }
+        
+        // If no slices but we have client price, show it as single slice
+        if (slices.length === 0 && clientPrice > 0) {
+          slices.push({ name: "Client Price", value: clientPrice });
+        }
+        
+        return slices;
       }
 
       const hasFinalCost = items.some(

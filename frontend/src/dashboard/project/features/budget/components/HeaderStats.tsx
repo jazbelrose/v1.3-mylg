@@ -590,14 +590,44 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
     const baseColorSource = accentHex;
 
     if (groupBy === "none") {
-      const slices = metrics
-        .filter((metric) => metric.title !== "Target")
-        .map((metric) => ({
-          id: `metric-${metric.title}`,
-          label: metric.title,
-          value: toNumber(metric.chartValue as number | string | undefined | null),
-        }))
-        .filter((slice) => slice.value > 0);
+      // Per spec: when Group By = NONE, the chart shows Price Composition
+      // Total (center) = Client Price
+      // Slices = [Cost, Margin] where Margin = Client Price - Cost
+      // Target is NOT part of the pie (shown as delta indicator separately)
+      
+      const clientPriceMetric = metrics.find((m) => m.title === "Client Price");
+      const costMetric = metrics.find((m) => m.title === "Cost");
+      
+      const clientPrice = toNumber(clientPriceMetric?.chartValue as number | string | undefined | null);
+      const cost = toNumber(costMetric?.chartValue as number | string | undefined | null);
+      const margin = Math.max(0, clientPrice - cost);
+      
+      const slices: BudgetDonutSlice[] = [];
+      
+      if (cost > 0) {
+        slices.push({
+          id: "metric-Cost",
+          label: "Cost",
+          value: cost,
+        });
+      }
+      
+      if (margin > 0) {
+        slices.push({
+          id: "metric-Margin",
+          label: "Margin",
+          value: margin,
+        });
+      }
+      
+      // If no slices (both zero), show placeholder with Client Price
+      if (slices.length === 0 && clientPrice > 0) {
+        slices.push({
+          id: "metric-ClientPrice",
+          label: "Client Price",
+          value: clientPrice,
+        });
+      }
 
       const palette = slices.length
         ? generateSequentialPalette(baseColorSource, slices.length).reverse()
@@ -605,7 +635,7 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
 
       return {
         slices,
-        total: slices.reduce((sum, slice) => sum + slice.value, 0),
+        total: clientPrice, // Center always shows Client Price
         palette,
         signature: computeSignature(slices),
       };
@@ -711,6 +741,42 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
   }, [computeChartState]);
 
   useEffect(() => scheduleUpdate(), [scheduleUpdate]);
+
+  // Target Delta Indicator: shows "over" or "under" Target
+  // Only displayed when groupBy === "none"
+  const targetDelta = useMemo(() => {
+    if (groupBy !== "none") return null;
+
+    const targetMetric = metrics.find((m) => m.title === "Target");
+    const clientPriceMetric = metrics.find((m) => m.title === "Client Price");
+
+    const target = toNumber(targetMetric?.chartValue as number | string | undefined | null);
+    const clientPrice = toNumber(clientPriceMetric?.chartValue as number | string | undefined | null);
+
+    // Don't show if no target is set
+    if (target <= 0) return null;
+
+    const delta = clientPrice - target;
+    const absDelta = Math.abs(delta);
+    const formattedDelta = formatUSD(absDelta);
+
+    if (delta > 0) {
+      return {
+        label: `${formattedDelta} over Target`,
+        status: "over" as const,
+      };
+    } else if (delta < 0) {
+      return {
+        label: `${formattedDelta} under Target`,
+        status: "under" as const,
+      };
+    } else {
+      return {
+        label: "On Target",
+        status: "on" as const,
+      };
+    }
+  }, [groupBy, metrics]);
 
   useEffect(
     () => () => {
@@ -930,25 +996,42 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
                 totalFormatter={totalFormatter}
               />
             </div>
-            <ul className={summaryStyles.legend}>
-              {chartState.slices.map((slice, index) => {
-                const palette = chartState.palette;
-                const paletteLength = palette.length;
-                const background =
-                  paletteLength > 0
-                    ? palette[index % paletteLength]
-                    : getColor(`${slice.id}-${index}`);
-                return (
-                  <li className={summaryStyles.legendItem} key={slice.id}>
-                    <span
-                      className={summaryStyles.legendDot}
-                      style={{ background }}
-                    />
-                    {slice.label}
-                  </li>
-                );
-              })}
-            </ul>
+            <div className={summaryStyles.chartSidebar}>
+              <ul className={summaryStyles.legend}>
+                {chartState.slices.map((slice, index) => {
+                  const palette = chartState.palette;
+                  const paletteLength = palette.length;
+                  const background =
+                    paletteLength > 0
+                      ? palette[index % paletteLength]
+                      : getColor(`${slice.id}-${index}`);
+                  return (
+                    <li className={summaryStyles.legendItem} key={slice.id}>
+                      <span
+                        className={summaryStyles.legendDot}
+                        style={{ background }}
+                      />
+                      {slice.label}
+                    </li>
+                  );
+                })}
+              </ul>
+              {targetDelta && (
+                <div
+                  className={`${summaryStyles.targetDelta} ${
+                    targetDelta.status === "over"
+                      ? summaryStyles.targetDeltaOver
+                      : targetDelta.status === "under"
+                      ? summaryStyles.targetDeltaUnder
+                      : summaryStyles.targetDeltaOnTarget
+                  }`}
+                >
+                  <span className={summaryStyles.targetDeltaValue}>
+                    {targetDelta.label}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
