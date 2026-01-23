@@ -7,8 +7,8 @@ import {
   faFileInvoiceDollar,
   faGear,
   faBullseye,
-  faChartLine,
 } from "@fortawesome/free-solid-svg-icons";
+import { RefreshCw } from "lucide-react";
 
 import EditBallparkModal from "@/dashboard/project/features/budget/components/EditBallparkModal";
 import InvoicePreviewModal from "@/dashboard/project/features/budget/components/InvoicePreviewModal";
@@ -84,7 +84,7 @@ export interface ProjectLike {
 }
 
 interface SummaryCardProps {
-  icon: IconDefinition;
+  icon: IconDefinition | React.ReactNode;
   color: string;
   title: MetricTitle;
   tag: string;
@@ -105,7 +105,7 @@ type MetricField = keyof BudgetItem | "markupAmount" | "costBasis" | null;
 interface MetricConfig {
   title: MetricTitle;
   tag: string;
-  icon: IconDefinition;
+  icon: IconDefinition | React.ReactNode;
   color: string;
   value: string;
   chartValue: number;
@@ -253,7 +253,11 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
     >
       <div className={summaryStyles.cardHeader}>
         <div className={summaryStyles.cardIcon} style={{ background: color }}>
-          <FontAwesomeIcon icon={icon} />
+          {typeof icon === "object" && "iconName" in (icon as IconDefinition) ? (
+            <FontAwesomeIcon icon={icon as IconDefinition} />
+          ) : (
+            icon
+          )}
         </div>
         <span className={summaryStyles.cardTag}>{tag}</span>
         {children ? (
@@ -453,7 +457,7 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
       {
         title: "Spend" as MetricTitle,
         tag: spendTag,
-        icon: faChartLine,
+        icon: <RefreshCw size={18} />,
         color: CHART_COLORS[1],
         value: spendValue,
         chartValue: spend,
