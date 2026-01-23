@@ -76,7 +76,7 @@ describe("BudgetHeader computeChartState", () => {
     return last;
   };
 
-  it("multiplies grouped totals by quantity for budgeted and actual modes", async () => {
+  it("groups COST by quantity using actual-over-planned basis", async () => {
     render(
       <BudgetHeader
         activeProject={{ projectId: "p1", color: "#123456" }}
@@ -118,20 +118,8 @@ describe("BudgetHeader computeChartState", () => {
     ]);
     expect(finalChart.total).toBe(640);
 
-    const plannedButton = screen.getByRole("button", { name: /view planned totals/i });
-    fireEvent.click(plannedButton);
-
-    await waitFor(() => {
-      const { data, total } = getLatestChart();
-      expect(data).toEqual([
-        { id: "category-Design", label: "Design", value: 300 },
-        { id: "category-Labor", label: "Labor", value: 150 },
-      ]);
-      expect(total).toBe(450);
-    });
-
-    const actualButton = screen.getByRole("button", { name: /view actual totals/i });
-    fireEvent.click(actualButton);
+    const costButton = screen.getByRole("button", { name: /view cost totals/i });
+    fireEvent.click(costButton);
 
     await waitFor(() => {
       const { data, total } = getLatestChart();

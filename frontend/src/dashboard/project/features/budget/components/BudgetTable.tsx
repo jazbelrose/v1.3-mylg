@@ -300,7 +300,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
       () => [
         { key: "quantity", label: "Qty" },
         { key: "unit", label: "U" },
-        { key: "planCost", label: "Plan" },
+        { key: "planCost", label: "Cost" },
       ],
       []
     );

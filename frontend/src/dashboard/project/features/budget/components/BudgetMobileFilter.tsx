@@ -13,8 +13,8 @@ type SortOptionValue =
   | "elementKey-desc"
   | "description-asc"
   | "description-desc"
-  | "budgeted-desc"
-  | "budgeted-asc"
+  | "cost-desc"
+  | "cost-asc"
   | "final-desc"
   | "final-asc";
 
@@ -45,8 +45,8 @@ const SORT_OPTIONS: SortOption[] = [
   { value: "elementKey-desc", label: "Element Key (Z→A)", field: "elementKey", order: "descend" },
   { value: "description-asc", label: "Description (A→Z)", field: "description", order: "ascend" },
   { value: "description-desc", label: "Description (Z→A)", field: "description", order: "descend" },
-  { value: "budgeted-desc", label: "Planned Cost (High→Low)", field: "itemBudgetedCost", order: "descend" },
-  { value: "budgeted-asc", label: "Planned Cost (Low→High)", field: "itemBudgetedCost", order: "ascend" },
+  { value: "cost-desc", label: "Cost (High→Low)", field: "currentCost", order: "descend" },
+  { value: "cost-asc", label: "Cost (Low→High)", field: "currentCost", order: "ascend" },
   { value: "final-desc", label: "Client Price (High→Low)", field: "itemFinalCost", order: "descend" },
   { value: "final-asc", label: "Client Price (Low→High)", field: "itemFinalCost", order: "ascend" },
 ];

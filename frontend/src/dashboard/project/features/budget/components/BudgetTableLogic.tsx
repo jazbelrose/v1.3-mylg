@@ -2,7 +2,7 @@ import React, { useMemo, useCallback } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrash, faClone } from "@fortawesome/free-solid-svg-icons";
 import { useBudget } from "@/dashboard/project/features/budget/context/BudgetContext";
-import { formatUSD } from "@/shared/utils/budgetUtils";
+import { formatUSD, parseBudget } from "@/shared/utils/budgetUtils";
 import styles from "@/dashboard/project/features/budget/pages/budget-page.module.css";
 
 type TableColumn = Record<string, unknown>;
@@ -95,14 +95,21 @@ const BudgetTableLogic: React.FC<BudgetTableLogicProps> = ({
     return str !== "0";
   }, []);
 
+  const resolveCurrentCostUnit = useCallback((record: Record<string, unknown>): number => {
+    const actual = parseBudget(record.itemActualCost as unknown as any);
+    if (actual) return actual;
+    const planned = parseBudget(record.itemBudgetedCost as unknown as any);
+    if (planned) return planned;
+    return parseBudget(record.itemReconciledCost as unknown as any);
+  }, []);
+
   const baseColumnsOrder = useMemo(() => [
     "elementKey",
     "elementId",
     "description",
     "quantity",
     "unit",
-    "itemBudgetedCost",
-    "itemActualCost",
+    "currentCost",
     "itemMarkUp",
     "itemFinalCost",
   ], []);
@@ -123,8 +130,7 @@ const BudgetTableLogic: React.FC<BudgetTableLogicProps> = ({
     quantity: "Quantity",
     unit: "Unit",
     dates: "Dates",
-    itemBudgetedCost: "Planned Cost",
-    itemActualCost: "Actual Cost",
+    currentCost: "Cost",
     itemMarkUp: "Markup",
     itemFinalCost: "Client Price",
   }), []);
@@ -149,11 +155,7 @@ const BudgetTableLogic: React.FC<BudgetTableLogicProps> = ({
           ])
         ).filter((key) => !hidden.includes(key))
       : mainColumnsOrder;
-    const costKeys = [
-      "itemBudgetedCost",
-      "itemActualCost",
-      "itemFinalCost",
-    ];
+    const costKeys = ["currentCost", "itemFinalCost"];
     const allIds = safeBudgetItems.map((it) => String(it.budgetItemId));
     const cols = mainColumnsOrder
       .map((key) => {
@@ -314,9 +316,10 @@ const BudgetTableLogic: React.FC<BudgetTableLogicProps> = ({
     () =>
       filteredItems.map((item) => ({
         ...item,
+        currentCost: resolveCurrentCostUnit(item),
         key: item.budgetItemId,
       })),
-    [filteredItems]
+    [filteredItems, resolveCurrentCostUnit]
   );
 
   const sortedTableData = useMemo(() => {

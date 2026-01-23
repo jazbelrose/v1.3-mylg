@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from "react"
 import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faCoins,
   faMoneyBillWave,
   faPercent,
   faFileInvoiceDollar,
@@ -38,12 +37,10 @@ import mobileStyles from "./budget-header-mobile.module.css";
    ========================= */
 
 type MetricTitle =
-  | "Planned Cost"
-  | "Actual Cost"
+  | "Cost"
   | "Effective Markup"
   | "Client Price"
-  | "Spend"
-  | "Variance";
+  | "Spend";
 
 type GroupBy = "none" | "areaGroup" | "invoiceGroup" | "category";
 
@@ -90,7 +87,7 @@ interface SummaryCardProps {
   title: MetricTitle;
   tag: string;
   value: string;
-  description: string;
+  description: React.ReactNode;
   onClick?: () => void;
   active?: boolean;
   className?: string;
@@ -101,7 +98,7 @@ interface SummaryCardProps {
   disablePointer?: boolean;
 }
 
-type MetricField = keyof BudgetItem | "markupAmount" | null;
+type MetricField = keyof BudgetItem | "markupAmount" | "costBasis" | null;
 
 interface MetricConfig {
   title: MetricTitle;
@@ -110,7 +107,7 @@ interface MetricConfig {
   color: string;
   value: string;
   chartValue: number;
-  description: string;
+  description: React.ReactNode;
   field: MetricField;
   sticky?: boolean;
   extra?: React.ReactNode;
@@ -294,6 +291,7 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
   const [isBallparkModalOpen, setBallparkModalOpen] = useState(false);
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
   const [invoiceRevision, setInvoiceRevision] = useState<BudgetHeaderData | null>(null);
+  const [spendDetailMode, setSpendDetailMode] = useState<"remaining" | "delta">("remaining");
 
   // Allocated cost from HQ transactions
   const [allocatedTotal, setAllocatedTotal] = useState<number | null>(null);
@@ -368,15 +366,9 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
     setBallparkModalOpen(true);
   }, []);
 
-  const handleSelectPlanned = useCallback(() => {
-    if (selectedMetric !== "Planned Cost") {
-      setSelectedMetric("Planned Cost");
-    }
-  }, [selectedMetric]);
-
-  const handleSelectActual = useCallback(() => {
-    if (selectedMetric !== "Actual Cost") {
-      setSelectedMetric("Actual Cost");
+  const handleSelectCost = useCallback(() => {
+    if (selectedMetric !== "Cost") {
+      setSelectedMetric("Cost");
     }
   }, [selectedMetric]);
 
@@ -384,25 +376,36 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
     setSelectedMetric("Client Price");
   }, []);
 
+  const toggleSpendDetailMode = useCallback(() => {
+    setSpendDetailMode((prev) => (prev === "remaining" ? "delta" : "remaining"));
+  }, []);
+
   const metrics = useMemo<MetricConfig[]>(() => {
-    const plannedTotal = toNumber(budgetHeader?.headerBudgetedTotalCost);
-    const actualTotal = toNumber(budgetHeader?.headerActualTotalCost);
     const clientPriceTotal = toNumber(budgetHeader?.headerFinalTotalCost);
 
     // Effective pricing basis: Actual (quote-updated plan) overrides Planned per-line.
-    const pricingBasisTotal = budgetItems.reduce((sum, it) => {
+    const costTotal = budgetItems.reduce((sum, it) => {
       const qty = toQuantity(it.quantity);
       const basisUnit =
         toNumber(it.itemActualCost) || toNumber(it.itemBudgetedCost) || toNumber(it.itemReconciledCost);
       return sum + qty * basisUnit;
     }, 0);
 
-    const markupDiff = clientPriceTotal - pricingBasisTotal;
+    const markupDiff = clientPriceTotal - costTotal;
 
-    const markupValue = pricingBasisTotal
+    const formatSignedUSD = (value: number, options?: { plus?: boolean }) => {
+      if (!Number.isFinite(value)) return "—";
+      const plus = options?.plus ?? false;
+      const abs = formatUSD(Math.abs(value));
+      if (value < 0) return `-${abs}`;
+      if (value > 0 && plus) return `+${abs}`;
+      return abs;
+    };
+
+    const markupValue = costTotal
       ? (() => {
-          const percent = Math.round((markupDiff / pricingBasisTotal) * 100);
-          return `${percent}% (${formatUSD(markupDiff)})`;
+          const percent = Math.round((markupDiff / costTotal) * 100);
+          return `${percent}% (${formatSignedUSD(markupDiff, { plus: true })})`;
         })()
       : "N/A";
 
@@ -410,67 +413,51 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
     const spend = allocatedTotal ?? 0;
     const spendValue = hasAllocationData ? formatUSD(spend) : "—";
 
-    const varianceBase = pricingBasisTotal || plannedTotal || actualTotal || 0;
-    const variance = varianceBase - spend;
-    const variancePercent = varianceBase > 0 ? (variance / varianceBase) * 100 : 0;
-    const isUnderPlan = variance >= 0;
+    const pctUsed =
+      hasAllocationData && costTotal > 0 ? Math.round((spend / costTotal) * 100) : null;
+    const spendTag = pctUsed == null ? "— used" : `${pctUsed}% used`;
 
-    const varianceColor = !hasAllocationData
-      ? "rgba(148, 163, 184, 0.6)"
-      : isUnderPlan
-      ? "rgba(45, 212, 191, 0.95)"
-      : "rgba(250, 51, 86, 0.95)";
+    const remaining = costTotal - spend;
+    const delta = spend - costTotal;
+    const deltaTone = delta > 0 ? "over" : delta < 0 ? "under" : "even";
 
-    const varianceValue = hasAllocationData
-      ? `${isUnderPlan ? "+" : ""}${formatUSD(variance)}`
-      : "—";
-
-    const varianceDescription = hasAllocationData
-      ? `${Math.abs(variancePercent).toFixed(1)}% ${isUnderPlan ? "under" : "over"} plan`
-      : "No allocations yet";
+    const spendSecondary =
+      spendDetailMode === "remaining"
+        ? `Remaining: ${formatSignedUSD(remaining)}`
+        : `Δ vs Cost: ${formatSignedUSD(delta, { plus: true })} (${deltaTone})`;
 
     return [
       {
-        title: "Planned Cost" as MetricTitle,
-        tag: "Planned",
-        icon: faCoins,
-        color: CHART_COLORS[0],
-        value: formatUSD(plannedTotal),
-        chartValue: plannedTotal,
-        description: "Forecast (planned)",
-        field: "itemBudgetedCost",
-        sticky: true,
-        onSelect: handleSelectPlanned,
-        ariaLabel: "View planned totals",
-        isSelectable: true,
-      },
-      {
-        title: "Actual Cost" as MetricTitle,
-        tag: "Actual",
+        title: "Cost" as MetricTitle,
+        tag: "Auto",
         icon: faMoneyBillWave,
-        color: CHART_COLORS[1],
-        value: formatUSD(actualTotal),
-        chartValue: actualTotal,
-        description: "Quote-updated plan",
-        field: "itemActualCost",
+        color: CHART_COLORS[0],
+        value: formatUSD(costTotal),
+        chartValue: costTotal,
+        description: "Current working cost (Actual if present, else Planned)",
+        field: "costBasis",
         sticky: true,
-        onSelect: handleSelectActual,
-        ariaLabel: "View actual totals",
+        onSelect: handleSelectCost,
+        ariaLabel: "View cost totals",
         isSelectable: true,
       },
       {
         title: "Spend" as MetricTitle,
-        tag: "Spend",
+        tag: spendTag,
         icon: faChartLine,
-        color: CHART_COLORS[4],
+        color: CHART_COLORS[1],
         value: spendValue,
         chartValue: spend,
-        description: "Bank-linked spend (allocations)",
+        description: (
+          <>
+            <span style={{ display: "block" }}>Bank-linked truth</span>
+            <span style={{ display: "block" }}>{spendSecondary}</span>
+          </>
+        ),
         field: null,
         isSelectable: false,
-        onSelect: undefined,
-        disableHover: true,
-        disablePointer: true,
+        onSelect: toggleSpendDetailMode,
+        ariaLabel: "Toggle spend details",
       },
       {
         title: "Client Price" as MetricTitle,
@@ -493,30 +480,15 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
         color: CHART_COLORS[2],
         value: markupValue,
         chartValue: markupDiff,
-        description: "Markup vs pricing basis",
+        description: "Markup vs Cost",
         field: "markupAmount",
         isPercentage: true,
-        ariaLabel: "Effective markup compared to pricing basis totals",
+        ariaLabel: "Effective markup compared to cost totals",
         isSelectable: false,
         onSelect: undefined,
-      },
-      {
-        title: "Variance" as MetricTitle,
-        tag: "Spend",
-        icon: faChartLine,
-        color: varianceColor,
-        value: varianceValue,
-        chartValue: variance,
-        description: varianceDescription,
-        field: null,
-        isSelectable: false,
-        onSelect: undefined,
-        ariaLabel: "Plan variance from allocated transactions",
-        disableHover: true,
-        disablePointer: true,
       },
     ];
-  }, [allocatedTotal, budgetHeader, budgetItems, handleSelectActual, handleSelectClientPrice, handleSelectPlanned]);
+  }, [allocatedTotal, budgetHeader, budgetItems, handleSelectClientPrice, handleSelectCost, spendDetailMode, toggleSpendDetailMode]);
 
   const createdDateLabel = useMemo(() => {
     if (!budgetHeader?.createdAt) return "No date";
@@ -647,6 +619,10 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
           toNumber(item.itemActualCost) || toNumber(item.itemBudgetedCost) || toNumber(item.itemReconciledCost);
         const base = basisUnit * quantity;
         val = finalCost - base;
+      } else if (field === "costBasis") {
+        const basisUnit =
+          toNumber(item.itemActualCost) || toNumber(item.itemBudgetedCost) || toNumber(item.itemReconciledCost);
+        val = basisUnit * quantity;
       } else if (field === "itemMarkUp") {
         val =
           toNumber(item[field as keyof BudgetItem] as number | string | undefined | null) * 100;
