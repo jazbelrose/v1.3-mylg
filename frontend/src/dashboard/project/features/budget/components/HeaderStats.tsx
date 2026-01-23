@@ -37,6 +37,7 @@ import mobileStyles from "./budget-header-mobile.module.css";
    ========================= */
 
 type MetricTitle =
+  | "Target"
   | "Cost"
   | "Effective Markup"
   | "Client Price"
@@ -291,7 +292,6 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
   const [isBallparkModalOpen, setBallparkModalOpen] = useState(false);
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
   const [invoiceRevision, setInvoiceRevision] = useState<BudgetHeaderData | null>(null);
-  const [spendDetailMode, setSpendDetailMode] = useState<"remaining" | "delta">("remaining");
 
   // Allocated cost from HQ transactions
   const [allocatedTotal, setAllocatedTotal] = useState<number | null>(null);
@@ -376,12 +376,10 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
     setSelectedMetric("Client Price");
   }, []);
 
-  const toggleSpendDetailMode = useCallback(() => {
-    setSpendDetailMode((prev) => (prev === "remaining" ? "delta" : "remaining"));
-  }, []);
-
   const metrics = useMemo<MetricConfig[]>(() => {
     const clientPriceTotal = toNumber(budgetHeader?.headerFinalTotalCost);
+    const targetValue = toNumber(budgetHeader?.headerBallPark);
+    const targetDisplay = targetValue > 0 ? formatUSD(targetValue) : "Set target";
 
     // Effective pricing basis: Actual (quote-updated plan) overrides Planned per-line.
     const costTotal = budgetItems.reduce((sum, it) => {
@@ -418,15 +416,25 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
     const spendTag = pctUsed == null ? "— used" : `${pctUsed}% used`;
 
     const remaining = costTotal - spend;
-    const delta = spend - costTotal;
-    const deltaTone = delta > 0 ? "over" : delta < 0 ? "under" : "even";
-
-    const spendSecondary =
-      spendDetailMode === "remaining"
-        ? `Remaining: ${formatSignedUSD(remaining)}`
-        : `Δ vs Cost: ${formatSignedUSD(delta, { plus: true })} (${deltaTone})`;
+    const remainingText = hasAllocationData
+      ? `Remaining ${formatSignedUSD(remaining)}`
+      : "No allocations yet";
 
     return [
+      {
+        title: "Target" as MetricTitle,
+        tag: "Cap",
+        icon: faGear,
+        color: CHART_COLORS[4] ?? CHART_COLORS[0],
+        value: targetDisplay,
+        chartValue: targetValue,
+        description: "Cap / client budget",
+        field: null,
+        sticky: true,
+        onSelect: handleOpenBallpark,
+        ariaLabel: "Edit target (cap / client budget)",
+        isSelectable: false,
+      },
       {
         title: "Cost" as MetricTitle,
         tag: "Auto",
@@ -451,13 +459,15 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
         description: (
           <>
             <span style={{ display: "block" }}>Bank-linked truth</span>
-            <span style={{ display: "block" }}>{spendSecondary}</span>
+            <span style={{ display: "block" }}>{remainingText}</span>
           </>
         ),
         field: null,
         isSelectable: false,
-        onSelect: toggleSpendDetailMode,
-        ariaLabel: "Toggle spend details",
+        onSelect: undefined,
+        ariaLabel: "Spend from linked bank allocations",
+        disableHover: true,
+        disablePointer: true,
       },
       {
         title: "Client Price" as MetricTitle,
@@ -466,7 +476,7 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
         color: CHART_COLORS[3],
         value: formatUSD(clientPriceTotal),
         chartValue: clientPriceTotal,
-        description: "Computed sell",
+        description: "Computed only (Cost × (1 + markup))",
         field: "itemFinalCost",
         sticky: true,
         onSelect: handleSelectClientPrice,
@@ -488,7 +498,14 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
         onSelect: undefined,
       },
     ];
-  }, [allocatedTotal, budgetHeader, budgetItems, handleSelectClientPrice, handleSelectCost, spendDetailMode, toggleSpendDetailMode]);
+  }, [
+    allocatedTotal,
+    budgetHeader,
+    budgetItems,
+    handleOpenBallpark,
+    handleSelectClientPrice,
+    handleSelectCost,
+  ]);
 
   const createdDateLabel = useMemo(() => {
     if (!budgetHeader?.createdAt) return "No date";
@@ -573,11 +590,14 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
     const baseColorSource = accentHex;
 
     if (groupBy === "none") {
-      const slices = metrics.map((metric) => ({
-        id: `metric-${metric.title}`,
-        label: metric.title,
-        value: toNumber(metric.chartValue as number | string | undefined | null),
-      }));
+      const slices = metrics
+        .filter((metric) => metric.title !== "Target")
+        .map((metric) => ({
+          id: `metric-${metric.title}`,
+          label: metric.title,
+          value: toNumber(metric.chartValue as number | string | undefined | null),
+        }))
+        .filter((slice) => slice.value > 0);
 
       const palette = slices.length
         ? generateSequentialPalette(baseColorSource, slices.length).reverse()
@@ -774,38 +794,14 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
 
   const desktopAccentStyle = accentStyle;
 
-  // Target (formerly Ballpark) value for inline header display
-  const targetValue = toNumber(budgetHeader?.headerBallPark);
-  const targetDisplay = targetValue > 0 ? formatUSD(targetValue) : null;
-
   const desktopContent = (
     <div className={summaryStyles.surface} style={desktopAccentStyle}>
       <div className={summaryStyles.headerRow}>
         <div className={summaryStyles.titleGroup}>
           <span className={summaryStyles.title}>Budget</span>
           <span className={summaryStyles.headerSeparator}>·</span>
-          <button
-            type="button"
-            className={summaryStyles.targetPill}
-            onClick={handleOpenBallpark}
-            title="Edit target"
-          >
-            <span className={summaryStyles.targetLabel}>Target</span>
-            <span className={targetDisplay ? summaryStyles.targetValue : summaryStyles.targetPlaceholder}>
-              {targetDisplay ?? "Set target"}
-            </span>
-          </button>
-          <span className={summaryStyles.headerSeparator}>·</span>
           <div className={summaryStyles.dateControls}>
-            <span className={summaryStyles.dateLabel}>As of {headerDateText}</span>
-            <button
-              type="button"
-              className={summaryStyles.iconButton}
-              onClick={handleOpenBallpark}
-              aria-label="Edit target"
-            >
-              <FontAwesomeIcon icon={faGear} />
-            </button>
+            <span className={summaryStyles.dateLabel}>{headerDateText}</span>
           </div>
         </div>
         <div className={summaryStyles.headerActions}>
@@ -906,7 +902,12 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
                 tag={m.tag}
                 value={m.value}
                 description={m.description}
-                className={m.sticky ? summaryStyles.stickyCard : ""}
+                className={[
+                  m.sticky ? summaryStyles.stickyCard : "",
+                  m.title === "Client Price" ? summaryStyles.finalCard : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
                 onClick={m.onSelect}
                 active={Boolean(m.isSelectable && selectedMetric === m.title)}
                 ariaLabel={m.ariaLabel}
@@ -1065,21 +1066,6 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
             Create Budget
           </button>
         )}
-      </div>
-
-      {/* Target row for mobile */}
-      <div className={mobileStyles.targetRow}>
-        <button
-          type="button"
-          className={mobileStyles.targetPill}
-          onClick={handleOpenBallpark}
-        >
-          <span className={mobileStyles.targetLabel}>Target</span>
-          <span className={targetDisplay ? mobileStyles.targetValue : mobileStyles.targetPlaceholder}>
-            {targetDisplay ?? "Set target"}
-          </span>
-        </button>
-        <span className={mobileStyles.targetDate}>As of {headerDateText}</span>
       </div>
 
       <div className={mobileStyles.summaryLayout}>

@@ -4267,6 +4267,8 @@ const getAllocationsByBudgetItem = async (e, C) => {
           vendor: txn.vendor,
           rawDescription: txn.rawDescription,
           categoryId: txn.categoryId,
+          projectId: txn.projectId,
+          allocations,
         });
       }
     }
@@ -4347,6 +4349,194 @@ const getAllocationsByProject = async (e, C) => {
   });
 };
 
+// POST /hq/budget-line-drawer?orgId=...&projectId=...&budgetItemId=...
+// Batched endpoint for BudgetLineTransactionsDrawer - returns both allocations and candidate transactions
+// Body: { suggestionScope?: 'project' | 'unlinked' | 'all', suggestionQuery?: string, suggestionsDays?: number, suggestionsLimit?: number }
+const getBudgetLineDrawerData = async (e, C) => {
+  const userId = requireCallerUserId(e);
+  const q = Q(e);
+  const body = B(e);
+  const orgId = pkForOrg(q.orgId);
+  if (!orgId) return json(400, C, { error: "orgId required" });
+  await requireOrgMember({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
+
+  const projectId = q.projectId ? String(q.projectId).trim() : "";
+  const budgetItemId = q.budgetItemId ? String(q.budgetItemId).trim() : "";
+  if (!projectId) return json(400, C, { error: "projectId required" });
+  if (!budgetItemId) return json(400, C, { error: "budgetItemId required" });
+
+  const suggestionScope = String(body.suggestionScope || "project").trim().toLowerCase();
+  const suggestionQuery = String(body.suggestionQuery || "").trim().toLowerCase();
+  const suggestionsDays = parseLimitParam(body.suggestionsDays, 180, 7, 365);
+  const suggestionsLimit = parseLimitParam(body.suggestionsLimit, 200, 10, 500);
+
+  // Compute date range for suggestions
+  const today = todayIsoInTimeZone();
+  const fromDate = addDaysIso(today, -suggestionsDays);
+
+  // Fetch all transactions once - we'll use them for both allocations and suggestions
+  const start = `TXN#${fromDate}`;
+  const end = `TXN#${today}~`;
+  const allTxns = await queryAllBetween({ orgId, fromSk: start, toSk: end, scanIndexForward: false });
+
+  // 1. Build allocations data (transactions linked to this budget item)
+  const linkedTransactions = [];
+  let totalAllocated = 0;
+
+  for (const txn of allTxns) {
+    const allocations = Array.isArray(txn.allocations) ? txn.allocations : [];
+    const matchingAlloc = allocations.find(
+      (a) => a.budgetItemId === budgetItemId && a.projectId === projectId
+    );
+
+    if (matchingAlloc) {
+      const allocAmount = Number(matchingAlloc.amount) || 0;
+      totalAllocated += allocAmount;
+
+      linkedTransactions.push({
+        dedupeHash: txn.dedupeHash,
+        accountId: txn.accountId,
+        postedAt: txn.postedAt,
+        amount: txn.amount,
+        allocatedAmount: allocAmount,
+        vendor: txn.vendor,
+        rawDescription: txn.rawDescription,
+        categoryId: txn.categoryId,
+        projectId: txn.projectId,
+        allocations,
+      });
+    }
+  }
+
+  // Also check older transactions for allocations (beyond suggestion date range)
+  const olderStart = "TXN#0000-00-00";
+  const olderEnd = `TXN#${fromDate}`;
+  let lastKey;
+  do {
+    const page = await ddb.query({
+      TableName: HQ_TABLE,
+      KeyConditionExpression: "orgId = :o AND sk BETWEEN :a AND :b",
+      ExpressionAttributeValues: { ":o": orgId, ":a": olderStart, ":b": olderEnd },
+      ExclusiveStartKey: lastKey,
+    });
+
+    for (const txn of page.Items || []) {
+      const allocations = Array.isArray(txn.allocations) ? txn.allocations : [];
+      const matchingAlloc = allocations.find(
+        (a) => a.budgetItemId === budgetItemId && a.projectId === projectId
+      );
+
+      if (matchingAlloc) {
+        const allocAmount = Number(matchingAlloc.amount) || 0;
+        totalAllocated += allocAmount;
+
+        linkedTransactions.push({
+          dedupeHash: txn.dedupeHash,
+          accountId: txn.accountId,
+          postedAt: txn.postedAt,
+          amount: txn.amount,
+          allocatedAmount: allocAmount,
+          vendor: txn.vendor,
+          rawDescription: txn.rawDescription,
+          categoryId: txn.categoryId,
+          projectId: txn.projectId,
+          allocations,
+        });
+      }
+    }
+
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+
+  // Sort linked transactions by date descending
+  linkedTransactions.sort((a, b) => (b.postedAt || "").localeCompare(a.postedAt || ""));
+
+  // 2. Build candidate transactions for suggestions (outflows only)
+  const candidates = [];
+
+  for (const txn of allTxns) {
+    // Only outflows (negative amounts)
+    const signedCents = Math.round((Number(txn.amount) || 0) * 100);
+    if (signedCents >= 0) continue;
+
+    const directProjectId = String(txn.projectId || "").trim();
+    const allocations = Array.isArray(txn.allocations) ? txn.allocations : [];
+    const hasAnyLink = Boolean(directProjectId) || allocations.length > 0;
+
+    // Apply suggestion scope filter
+    if (suggestionScope === "project") {
+      // Must be linked to this specific project
+      const matchesDirect = directProjectId === projectId;
+      const matchesAllocation = allocations.some((a) => a.projectId === projectId);
+      if (!matchesDirect && !matchesAllocation) continue;
+    } else if (suggestionScope === "unlinked") {
+      // Must have no links
+      if (hasAnyLink) continue;
+    }
+    // 'all' scope includes everything
+
+    // Apply text query filter
+    if (suggestionQuery) {
+      const haystack = [txn.vendor, txn.rawDescription, txn.normalizedDescription]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(suggestionQuery)) continue;
+    }
+
+    // Include all fields needed by the frontend for scoring and display
+    candidates.push({
+      dedupeHash: txn.dedupeHash,
+      accountId: txn.accountId,
+      postedAt: txn.postedAt,
+      authorizedAt: txn.authorizedAt,
+      amount: txn.amount,
+      currency: txn.currency || "USD",
+      vendor: txn.vendor,
+      counterparty: txn.counterparty,
+      rawDescription: txn.rawDescription,
+      normalizedDescription: txn.normalizedDescription,
+      paymentType: txn.paymentType,
+      type: txn.type,
+      direction: txn.direction || (signedCents < 0 ? "out" : "in"),
+      categoryId: txn.categoryId,
+      categoryConfidence: txn.categoryConfidence,
+      isRecurring: txn.isRecurring,
+      recurringCandidate: txn.recurringCandidate,
+      recurringSeriesId: txn.recurringSeriesId,
+      isInternalTransfer: txn.isInternalTransfer,
+      locationCity: txn.locationCity,
+      locationState: txn.locationState,
+      cardLast4: txn.cardLast4,
+      referenceId: txn.referenceId,
+      projectId: directProjectId,
+      importRunId: txn.importRunId,
+      createdAt: txn.createdAt,
+      allocations,
+    });
+
+    if (candidates.length >= suggestionsLimit) break;
+  }
+
+  return json(200, C, {
+    // Allocation data for linked transactions
+    allocations: {
+      projectId,
+      budgetItemId,
+      totalAllocated: round2(totalAllocated),
+      transactions: linkedTransactions,
+    },
+    // Candidate transactions for suggestions
+    suggestions: {
+      transactions: candidates,
+      scope: suggestionScope,
+      query: suggestionQuery || null,
+      fromDate,
+      toDate: today,
+    },
+  });
+};
+
 /* ------------ Routes ------------ */
 const routes = [
   { m: "GET", r: /^\/hq\/health$/i, h: health },
@@ -4383,6 +4573,7 @@ const routes = [
   { m: "GET", r: /^\/hq\/allocations\/summary\/?$/i, h: getAllocationSummary },
   { m: "GET", r: /^\/hq\/allocations\/by-budget-item\/?$/i, h: getAllocationsByBudgetItem },
   { m: "POST", r: /^\/hq\/allocations\/by-project\/?$/i, h: getAllocationsByProject },
+  { m: "POST", r: /^\/hq\/budget-line-drawer\/?$/i, h: getBudgetLineDrawerData },
 
   { m: "POST", r: /^\/hq\/accounts\/?$/i, h: createAccount },
   { m: "PATCH", r: /^\/hq\/accounts\/(?<accountId>[^/]+)\/?$/i, h: patchAccount },

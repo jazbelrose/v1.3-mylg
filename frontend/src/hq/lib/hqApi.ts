@@ -1,5 +1,5 @@
 import { apiFetch, API_BASE_URL } from "@/shared/utils/api";
-import type { HqAccount, HqCategoryRule, HqImportRun, HqTransaction } from "@/hq/types";
+import type { HqAccount, HqCategoryRule, HqImportRun, HqTransaction, HqTransactionAllocation } from "@/hq/types";
 
 export type HqSummaryResponse = {
   orgId: string;
@@ -85,6 +85,7 @@ export async function fetchHqSummary(orgId: string): Promise<HqSummaryResponse> 
   return apiFetch<HqSummaryResponse>(`${base}/hq/summary?orgId=${encodeURIComponent(orgId)}`, {
     method: "GET",
     suppressErrorLog: true,
+    skipRateLimit: true,
   });
 }
 
@@ -135,6 +136,7 @@ export async function fetchHqTransactions(input: {
   return apiFetch<HqTransactionsResponse>(`${base}/hq/transactions?${params.toString()}`, {
     method: "GET",
     suppressErrorLog: true,
+    skipRateLimit: true,
     signal: input.signal,
   });
 }
@@ -156,6 +158,7 @@ export async function fetchHqChartSeries(input: {
   return apiFetch<HqChartSeriesResponse>(`${base}/hq/chart-series?${params.toString()}`, {
     method: "GET",
     suppressErrorLog: true,
+    skipRateLimit: true,
   });
 }
 
@@ -176,6 +179,7 @@ export async function fetchHqTopCategories(input: {
   return apiFetch<HqTopCategoriesResponse>(`${base}/hq/top-categories?${params.toString()}`, {
     method: "GET",
     suppressErrorLog: true,
+    skipRateLimit: true,
   });
 }
 
@@ -193,6 +197,7 @@ export async function fetchHqRecurringCommitments(input: {
   return apiFetch<HqRecurringCommitmentsResponse>(`${base}/hq/recurring-commitments?${params.toString()}`, {
     method: "GET",
     suppressErrorLog: true,
+    skipRateLimit: true,
   });
 }
 
@@ -211,6 +216,7 @@ export async function fetchHqBalanceSeries(input: {
   return apiFetch<HqBalanceSeriesResponse>(`${base}/hq/balance-series?${params.toString()}`, {
     method: "GET",
     suppressErrorLog: true,
+    skipRateLimit: true,
   });
 }
 
@@ -570,6 +576,8 @@ export type HqBudgetLineAllocationsResponse = {
     vendor?: string;
     rawDescription: string;
     categoryId?: string;
+    projectId?: string;
+    allocations?: HqTransactionAllocation[];
   }>;
 };
 
@@ -589,6 +597,7 @@ export async function fetchHqBudgetLineAllocations(
     {
       method: "GET",
       suppressErrorLog: true,
+      skipRateLimit: true,
     }
   );
 }
@@ -617,6 +626,72 @@ export async function fetchHqAllocationsByProject(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ budgetItemIds: budgetItemIds ?? [] }),
       suppressErrorLog: true,
+      skipRateLimit: true,
+    }
+  );
+}
+
+export type HqBudgetLineDrawerResponse = {
+  allocations: {
+    projectId: string;
+    budgetItemId: string;
+    totalAllocated: number;
+    transactions: Array<{
+      dedupeHash: string;
+      accountId: string;
+      postedAt: string;
+      amount: number;
+      allocatedAmount: number;
+      vendor?: string;
+      rawDescription: string;
+      categoryId?: string;
+      projectId?: string;
+      allocations?: HqTransactionAllocation[];
+    }>;
+  };
+  suggestions: {
+    transactions: HqTransaction[];
+    scope: string;
+    query: string | null;
+    fromDate: string;
+    toDate: string;
+  };
+};
+
+/**
+ * POST /hq/budget-line-drawer
+ * Batched endpoint for BudgetLineTransactionsDrawer - returns both allocations and candidate transactions.
+ */
+export async function fetchHqBudgetLineDrawerData(input: {
+  orgId: string;
+  projectId: string;
+  budgetItemId: string;
+  suggestionScope?: "project" | "unlinked" | "all";
+  suggestionQuery?: string;
+  suggestionsDays?: number;
+  suggestionsLimit?: number;
+  signal?: AbortSignal;
+}): Promise<HqBudgetLineDrawerResponse> {
+  const base = getHqServiceBaseUrl();
+  const params = new URLSearchParams({
+    orgId: input.orgId,
+    projectId: input.projectId,
+    budgetItemId: input.budgetItemId,
+  });
+  return apiFetch<HqBudgetLineDrawerResponse>(
+    `${base}/hq/budget-line-drawer?${params.toString()}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        suggestionScope: input.suggestionScope ?? "project",
+        suggestionQuery: input.suggestionQuery ?? "",
+        suggestionsDays: input.suggestionsDays ?? 180,
+        suggestionsLimit: input.suggestionsLimit ?? 200,
+      }),
+      suppressErrorLog: true,
+      skipRateLimit: true,
+      signal: input.signal,
     }
   );
 }

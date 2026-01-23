@@ -156,7 +156,11 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
   // Allocation data for budget lines
   const [allocationsByBudgetItem, setAllocationsByBudgetItem] = useState<Record<string, number>>({});
   const [allocationDrawerOpen, setAllocationDrawerOpen] = useState(false);
-  const [allocationDrawerItem, setAllocationDrawerItem] = useState<{ id: string; name?: string } | null>(null);
+  const [allocationDrawerItem, setAllocationDrawerItem] = useState<{
+    id: string;
+    name?: string;
+    costTargetTotal?: number | null;
+  } | null>(null);
   const menuContainersRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const [coverageMenuOpenForId, setCoverageMenuOpenForId] = useState<string | null>(null);
   const coverageDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -708,17 +712,23 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                             <button
                               type="button"
                               className={styles.allocationChipButton}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                if (isSelectMode) return;
-                                setAllocationDrawerItem({
-                                  id: record.budgetItemId,
-                                  name: record.description ? String(record.description) : undefined,
-                                });
-                                setAllocationDrawerOpen(true);
-                              }}
-                              disabled={isSelectMode}
-                              title="View linked transactions"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  if (isSelectMode) return;
+                                  const qtyRaw = parseFloat(String(record.quantity ?? ""));
+                                  const quantity = Number.isFinite(qtyRaw) ? qtyRaw : 0;
+                                  const basisUnit = resolvePricingBasisUnitCost(record);
+                                  const costTargetTotal =
+                                    quantity > 0 && basisUnit > 0 ? Math.round(basisUnit * quantity * 100) / 100 : null;
+                                  setAllocationDrawerItem({
+                                    id: record.budgetItemId,
+                                    name: record.description ? String(record.description) : undefined,
+                                    costTargetTotal,
+                                  });
+                                  setAllocationDrawerOpen(true);
+                                }}
+                                disabled={isSelectMode}
+                                title="View linked transactions"
                             >
                               <Link2 size={12} />
                               <span>Spend</span>
@@ -1045,6 +1055,10 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
             projectId={projectId}
             budgetItemId={allocationDrawerItem.id}
             budgetItemName={allocationDrawerItem.name}
+            costTargetTotal={allocationDrawerItem.costTargetTotal ?? null}
+            onBudgetItemAllocatedTotalChange={(id, total) =>
+              setAllocationsByBudgetItem((prev) => ({ ...prev, [id]: total }))
+            }
           />
         ) : null}
       </>

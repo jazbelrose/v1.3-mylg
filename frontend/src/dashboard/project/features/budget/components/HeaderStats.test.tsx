@@ -131,7 +131,7 @@ describe("BudgetHeader computeChartState", () => {
     });
   });
 
-  it("computes grouped markup totals without reapplying quantity to final cost", async () => {
+  it("computes grouped markup totals against COST basis", async () => {
     render(
       <BudgetHeader
         activeProject={{ projectId: "p1", color: "#123456" }}
