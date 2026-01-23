@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { createPortal } from "react-dom";
+import Modal from "@/shared/ui/ModalWithStack";
 import { X, ExternalLink, AlertCircle, Sparkles, Link2, Unlink2 } from "lucide-react";
 import { useOrg } from "@/app/contexts/useOrg";
 import {
@@ -12,6 +12,11 @@ import {
 import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import type { HqTransaction, HqTransactionAllocation } from "@/hq/types";
 import styles from "./budget-line-transactions-drawer.module.css";
+
+// Initialize Modal for accessibility
+if (typeof document !== "undefined") {
+  Modal.setAppElement("#root");
+}
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -287,17 +292,6 @@ const BudgetLineTransactionsDrawer: React.FC<BudgetLineTransactionsDrawerProps> 
     });
   }, [isOpen, suggestions]);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    },
-    [onClose]
-  );
-
-  if (!isOpen) return null;
-
   const lineRemainingTarget = getLineRemainingTarget();
 
   const handleSaveAllocation = async (txn: { dedupeHash: string; amount: number }) => {
@@ -339,20 +333,15 @@ const BudgetLineTransactionsDrawer: React.FC<BudgetLineTransactionsDrawerProps> 
     }
   };
 
-  const drawerContent = (
-    <div
-      className={styles.overlay}
-      onClick={onClose}
-      onKeyDown={handleKeyDown}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="drawer-title"
+  return (
+    <Modal
+      isOpen={isOpen}
+      onRequestClose={onClose}
+      contentLabel="Spend - Link transactions"
+      className={styles.modal}
+      overlayClassName={styles.overlay}
     >
-      <div
-        className={styles.drawer}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={() => {}}
-      >
+      <div className={styles.container}>
         <header className={styles.header}>
           <div className={styles.headerContent}>
             <h2 id="drawer-title" className={styles.title}>
@@ -366,7 +355,7 @@ const BudgetLineTransactionsDrawer: React.FC<BudgetLineTransactionsDrawerProps> 
             type="button"
             className={styles.closeButton}
             onClick={onClose}
-            aria-label="Close drawer"
+            aria-label="Close"
           >
             <X size={18} />
           </button>
@@ -617,11 +606,8 @@ const BudgetLineTransactionsDrawer: React.FC<BudgetLineTransactionsDrawerProps> 
           </a>
         </footer>
       </div>
-    </div>
+    </Modal>
   );
-
-  // Render in portal to escape stacking contexts and appear above all content
-  return createPortal(drawerContent, document.body);
 };
 
 export default BudgetLineTransactionsDrawer;
