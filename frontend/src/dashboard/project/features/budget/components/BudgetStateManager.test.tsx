@@ -107,8 +107,8 @@ describe("BudgetStateManager header totals", () => {
     const totals = (capturedState as TestBudgetState).calculateHeaderTotals(items);
     expect(totals.budgeted).toBeCloseTo(280);
     expect(totals.actual).toBeCloseTo(242.5);
-    expect(totals.final).toBeCloseTo(479.5);
-    expect(totals.effectiveMarkup).toBeCloseTo(0.7125, 5);
+    expect(totals.final).toBeCloseTo(386.75);
+    expect(totals.effectiveMarkup).toBeCloseTo(0.278512, 5);
 
     await act(async () => {
       await (capturedState as TestBudgetState).syncHeaderTotals(items);
@@ -120,13 +120,13 @@ describe("BudgetStateManager header totals", () => {
     expect(headerId).toBe("header-1");
     expect(payload.headerBudgetedTotalCost).toBeCloseTo(280);
     expect(payload.headerActualTotalCost).toBeCloseTo(242.5);
-    expect(payload.headerFinalTotalCost).toBeCloseTo(479.5);
-    expect(payload.headerEffectiveMarkup).toBeCloseTo(0.7125, 5);
+    expect(payload.headerFinalTotalCost).toBeCloseTo(386.75);
+    expect(payload.headerEffectiveMarkup).toBeCloseTo(0.278512, 5);
 
     expect(header.headerBudgetedTotalCost).toBeCloseTo(280);
     expect(header.headerActualTotalCost).toBeCloseTo(242.5);
-    expect(header.headerFinalTotalCost).toBeCloseTo(479.5);
-    expect(header.headerEffectiveMarkup).toBeCloseTo(0.7125, 5);
+    expect(header.headerFinalTotalCost).toBeCloseTo(386.75);
+    expect(header.headerEffectiveMarkup).toBeCloseTo(0.278512, 5);
     expect(setBudgetHeader).toHaveBeenCalled();
   });
 });

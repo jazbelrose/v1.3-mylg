@@ -576,13 +576,13 @@ const BudgetPageContent = () => {
     return Math.round(total * 100) / 100;
   };
 
+  // Pricing basis: Actual (quote-updated plan) overrides Planned (forecast).
+  // Spend (bank truth) is tracked via allocations and should not drive pricing calculations.
   const resolveBaseCostForExistingLine = (existing: Record<string, unknown>, fallbackUnitCost: unknown) => {
-    const reconciled = parseBudget(existing.itemReconciledCost as unknown as any);
-    if (reconciled) return reconciled;
     const actual = parseBudget(existing.itemActualCost as unknown as any);
     if (actual) return actual;
-    const budgeted = Number(fallbackUnitCost) || 0;
-    return budgeted;
+    const planned = Number(fallbackUnitCost) || 0;
+    return planned;
   };
 
   const tokenSet = (value: string) =>

@@ -6,11 +6,14 @@ import ConfirmModal from "@/shared/ui/ConfirmModal";
 import AttachmentPreviewModal from "@/shared/ui/AttachmentPreviewModal";
 import { FileManagerV2 } from "@/dashboard/project/components/FileManager";
 import type { FileItem, FileManagerRef } from "@/dashboard/project/components/FileManager";
+import BudgetLineTransactionsDrawer from "@/dashboard/project/features/budget/components/BudgetLineTransactionsDrawer";
 import styles from "./create-line-item-modal.module.css";
 import { parseBudget, formatUSD } from "@/shared/utils/budgetUtils";
 import { uploadFile } from "@/shared/utils/api";
 import { useData } from "@/app/contexts/useData";
+import { useOrg } from "@/app/contexts/useOrg";
 import { generateSequentialPalette } from "@/shared/utils/colorUtils";
+import { fetchHqBudgetLineAllocations } from "@/hq/lib/hqApi";
 
 if (typeof document !== "undefined") {
   Modal.setAppElement("#root");
@@ -134,13 +137,13 @@ const UNIT_OPTIONS = ["Each", "Hrs", "Days", "EA", "PCS", "Box", "LF", "SQFT", "
 
 const TOOLTIP_TEXT: Partial<Record<keyof ItemForm, string>> = {
   itemBudgetedCost:
-    "Budgeted Cost will be disabled if Actual or Reconciled Cost is entered.",
+    "Planned Cost (forecast). Used for pricing until Actual Cost is entered.",
   itemActualCost:
-    "Overrides Budgeted Cost. This will be disabled if Reconciled Cost is entered.",
-  itemReconciledCost:
-    "Overrides both Budgeted and Actual Costs when entered.",
+    "Actual Cost (quote-updated plan). This is not bank-linked spend.",
   itemMarkUp:
-    "Markup will auto-adjust to keep Final Cost unchanged when you override costs. You can then modify Markup as needed.",
+    "Markup is required (0% allowed). Client Price is computed from cost basis × (1 + markup).",
+  itemFinalCost:
+    "Client Price (sell) is computed and read-only.",
 };
 
 const IMMUTABLE_FORM_FIELD_NAMES = new Set(["projectid", "budgetid"]);
@@ -218,11 +221,12 @@ const fields: FieldDef[] = [
   { name: "description", label: "Description", type: "textarea" },
   { name: "quantity", label: "Quantity", type: "number" },
   { name: "unit", label: "Unit", type: "select", options: UNIT_OPTIONS },
-  { name: "itemBudgetedCost", label: "Budgeted Cost", type: "currency" },
+  { name: "itemBudgetedCost", label: "Planned Cost", type: "currency" },
   { name: "itemActualCost", label: "Actual Cost", type: "currency" },
-  { name: "itemReconciledCost", label: "Reconciled Cost", type: "currency" },
-  { name: "itemMarkUp", label: "Markup", type: "percent" },
-  { name: "itemFinalCost", label: "Final Cost", type: "currency" },
+  // Legacy only (historical). Spend is tracked via bank allocations.
+  { name: "itemReconciledCost", label: "Legacy Reconciled Cost", type: "currency" },
+  { name: "itemMarkUp", label: "Markup %", type: "percent" },
+  { name: "itemFinalCost", label: "Client Price", type: "currency" },
   { name: "paymentType", label: "Payment Type", type: "select", options: PAYMENT_TYPE_OPTIONS },
   { name: "paymentTerms", label: "Payment Terms", type: "select", options: PAYMENT_TERMS_OPTIONS },
   { name: "paymentStatus", label: "Payment Status", type: "select", options: PAYMENT_STATUS_OPTIONS },
@@ -243,6 +247,8 @@ const initialState: ItemForm = fields.reduce<ItemForm>(
       acc[f.name] = 1;
     } else if (f.name === "unit") {
       acc[f.name] = "Each";
+    } else if (f.name === "itemMarkUp") {
+      acc[f.name] = "0%";
     } else {
       acc[f.name] = "";
     }
@@ -275,11 +281,10 @@ const SECTION_DEFINITIONS: Array<{
   {
     id: "financials",
     title: "Financials",
-    description: "Track estimated and actual costs with markup adjustments.",
+    description: "Edit planned + actual costs, track bank spend, and compute client price.",
     fields: [
       "itemBudgetedCost",
       "itemActualCost",
-      "itemReconciledCost",
       "itemMarkUp",
       "itemFinalCost",
     ],
@@ -330,6 +335,7 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
   revision = 1,
 }) => {
   const { activeProject } = useData();
+  const { activeOrgId } = useOrg();
   const [item, setItem] = useState<ItemForm>({
     ...initialState,
     elementKey: defaultElementKey,
@@ -350,6 +356,10 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
   const [dragActive, setDragActive] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedAttachmentIndex, setSelectedAttachmentIndex] = useState<number | null>(null);
+  const [spendDrawerOpen, setSpendDrawerOpen] = useState(false);
+  const [spendTotal, setSpendTotal] = useState<number | null>(null);
+  const [spendLoading, setSpendLoading] = useState(false);
+  const [spendError, setSpendError] = useState<string | null>(null);
   const attachmentsFieldId = useId();
   const attachmentsHintId = `${attachmentsFieldId}-hint`;
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
@@ -421,13 +431,18 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     if (initialData) {
       const formatted: ItemForm = { ...initialState, ...initialData } as ItemForm;
 
-      // normalize markup -> always show as percent string
+      // normalize markup -> always show as percent string (0% default)
       const markRaw = (formatted.itemMarkUp ?? "") as MoneyLike;
-      if (String(markRaw) !== "" || Number(markRaw) === 0) {
-        const num = parseFloat(String(markRaw));
+      const markStr = String(markRaw).trim();
+      if (markStr === "") {
+        formatted.itemMarkUp = "0%";
+      } else {
+        const num = parseFloat(markStr.replace(/%/g, ""));
         if (!Number.isNaN(num)) {
-          const percent = num < 1 ? num * 100 : num;
+          const percent = markStr.includes("%") ? num : num < 1 ? num * 100 : num;
           formatted.itemMarkUp = `${parseFloat(String(percent))}%`;
+        } else {
+          formatted.itemMarkUp = "0%";
         }
       }
 
@@ -444,6 +459,40 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
       setInitialItemString(JSON.stringify(defaultItem));
     }
   }, [isOpen, initialData, defaultElementKey, defaultStartDate, defaultEndDate]);
+
+  // Load Spend (bank allocations) for existing lines
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!activeOrgId || !activeProject?.projectId) return;
+    const budgetItemId = typeof item.budgetItemId === "string" ? item.budgetItemId : "";
+    if (!budgetItemId) {
+      setSpendTotal(null);
+      setSpendError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setSpendLoading(true);
+    setSpendError(null);
+
+    fetchHqBudgetLineAllocations(activeOrgId, activeProject.projectId, budgetItemId)
+      .then((res) => {
+        if (cancelled) return;
+        setSpendTotal(res.totalAllocated ?? 0);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setSpendTotal(null);
+        setSpendError(err instanceof Error ? err.message : "Failed to load spend");
+      })
+      .finally(() => {
+        if (!cancelled) setSpendLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, activeOrgId, activeProject?.projectId, item.budgetItemId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -531,16 +580,19 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     return `${category}-${String(max + 1).padStart(4, "0")}`;
   };
 
-  const computeFinalCost = (data: ItemForm): string => {
-    const budgeted = parseBudget(data.itemBudgetedCost);
+  const computeClientPrice = (data: ItemForm): string => {
+    const planned = parseBudget(data.itemBudgetedCost);
     const actual = parseBudget(data.itemActualCost);
-    const reconciled = parseBudget(data.itemReconciledCost);
+    const legacyReconciled = parseBudget(data.itemReconciledCost);
     const mark = parseFloat(String(data.itemMarkUp).replace(/%/g, ""));
     const markupNum = Number.isNaN(mark) ? 0 : mark / 100;
-    const baseCost = reconciled || actual || budgeted;
-    const qty = parseFloat(String(data.quantity)) || 0;
-    const final = baseCost * (1 + markupNum) * (qty || 1);
-    return baseCost ? formatUSD(final) : "";
+    const basisCost = actual || planned || legacyReconciled;
+
+    const qtyRaw = parseFloat(String(data.quantity));
+    const qty = Number.isFinite(qtyRaw) ? qtyRaw : 1;
+
+    const total = basisCost * (1 + markupNum) * (qty === 0 ? 0 : qty);
+    return basisCost ? formatUSD(total) : "";
   };
 
   /* ------------------------------- Handlers -------------------------------- */
@@ -567,37 +619,9 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
         }
       }
 
-      // Recompute final cost and keep markup consistent when overriding costs
-      if (
-        [
-          "itemBudgetedCost",
-          "itemActualCost",
-          "itemReconciledCost",
-          "itemMarkUp",
-        ].includes(field as string)
-      ) {
-        const prevFinal = parseBudget(prev.itemFinalCost);
-        let budgeted = parseBudget(updated.itemBudgetedCost);
-        let actual = parseBudget(updated.itemActualCost);
-        let reconciled = parseBudget(updated.itemReconciledCost);
-
-        if (field === "itemBudgetedCost") budgeted = parseBudget(value);
-        if (field === "itemActualCost") actual = parseBudget(value);
-        if (field === "itemReconciledCost") reconciled = parseBudget(value);
-
-        if ((field === "itemActualCost" || field === "itemReconciledCost") && prevFinal) {
-          const base = reconciled || actual || budgeted;
-          if (base) {
-            const qty = parseFloat(String(prev.quantity)) || 1;
-            const newMarkup = ((prevFinal / (base * qty) - 1) * 100).toFixed(2);
-            updated.itemMarkUp = `${parseFloat(newMarkup)}%`;
-          }
-        }
-        updated.itemFinalCost = computeFinalCost(updated);
-      }
-
-      if (field === "quantity") {
-        updated.itemFinalCost = computeFinalCost(updated);
+      // Recompute Client Price (computed, read-only)
+      if (["itemBudgetedCost", "itemActualCost", "itemMarkUp", "quantity"].includes(field as string)) {
+        updated.itemFinalCost = computeClientPrice(updated);
       }
 
       return updated;
@@ -611,9 +635,7 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     if (
       [
         "itemBudgetedCost",
-        "itemFinalCost",
         "itemActualCost",
-        "itemReconciledCost",
         "amountPaid",
         "balanceDue",
       ].includes(field as string)
@@ -624,52 +646,20 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
           [field]: value ? formatUSD(parseBudget(value)) : "",
         };
 
-        if (
-          [
-            "itemBudgetedCost",
-            "itemActualCost",
-            "itemReconciledCost",
-            "itemFinalCost",
-          ].includes(field as string)
-        ) {
-          const prevFinal = parseBudget(prev.itemFinalCost);
-          const budgeted = parseBudget(updated.itemBudgetedCost);
-          const actual = parseBudget(updated.itemActualCost);
-          const reconciled = parseBudget(updated.itemReconciledCost);
-
-          if ((field === "itemActualCost" || field === "itemReconciledCost") && prevFinal) {
-            const base = reconciled || actual || budgeted;
-            if (base) {
-              const qty = parseFloat(String(prev.quantity)) || 1;
-              const newMarkup = ((prevFinal / (base * qty) - 1) * 100).toFixed(2);
-              updated.itemMarkUp = `${parseFloat(newMarkup)}%`;
-            }
-          }
-          updated.itemFinalCost = computeFinalCost(updated);
+        if (["itemBudgetedCost", "itemActualCost"].includes(field as string)) {
+          updated.itemFinalCost = computeClientPrice(updated);
         }
 
         return updated;
       });
     } else if (field === "itemMarkUp") {
-      if (value === "") {
-        setItem((prev) => ({ ...prev, [field]: "" }));
-      } else {
-        const num = parseFloat(String(value).replace(/%/g, ""));
-        if (!Number.isNaN(num)) {
-          setItem((prev) => {
-            const updated: ItemForm = { ...prev, [field]: `${num}%` } as ItemForm;
-            const budgeted = parseBudget(updated.itemBudgetedCost);
-            const actual = parseBudget(updated.itemActualCost);
-            const reconciled = parseBudget(updated.itemReconciledCost);
-            const markupNum = num / 100;
-            const baseCost = reconciled || actual || budgeted;
-            const qty = parseFloat(String(updated.quantity)) || 0;
-            const final = baseCost * (1 + markupNum) * (qty || 1);
-            updated.itemFinalCost = baseCost ? formatUSD(final) : "";
-            return updated;
-          });
-        }
-      }
+      const num = value === "" ? 0 : parseFloat(String(value).replace(/%/g, ""));
+      setItem((prev) => {
+        const safePct = Number.isNaN(num) ? 0 : num;
+        const updated: ItemForm = { ...prev, [field]: `${safePct}%` } as ItemForm;
+        updated.itemFinalCost = computeClientPrice(updated);
+        return updated;
+      });
     }
   };
 
@@ -1090,8 +1080,7 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     const disabled =
       fieldName === "elementKey" ||
       fieldName === "elementId" ||
-      (fieldName === "itemBudgetedCost" && (item.itemActualCost || item.itemReconciledCost)) ||
-      (fieldName === "itemActualCost" && !!item.itemReconciledCost);
+      fieldName === "itemFinalCost";
 
     const baseProps = {
       name: fieldName as string,
@@ -1284,6 +1273,41 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
                 </div>
                 <div className={styles.fieldGrid}>
                   {section.fields.map((fieldName) => renderField(fieldName))}
+                  {section.id === "financials" ? (
+                    <div className={`${styles.field} ${styles.fieldFullWidth}`}>
+                      <span className={styles.fieldLabel}>Spend (linked)</span>
+                      <div className={styles.spendRow}>
+                        <input
+                          type="text"
+                          value={
+                            spendLoading
+                              ? "Loading…"
+                              : spendError
+                              ? "—"
+                              : spendTotal != null
+                              ? formatUSD(spendTotal)
+                              : "—"
+                          }
+                          disabled
+                        />
+                        <button
+                          type="button"
+                          className={styles.spendButton}
+                          onClick={() => setSpendDrawerOpen(true)}
+                          disabled={
+                            !activeProject?.projectId ||
+                            typeof item.budgetItemId !== "string" ||
+                            item.budgetItemId.trim() === ""
+                          }
+                        >
+                          View
+                        </button>
+                      </div>
+                      <div className={styles.spendHint}>
+                        Bank-linked truth (read-only). Link/unlink via HQ allocations.
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </section>
             ))}
@@ -1418,6 +1442,16 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
           </form>
         </div>
       </Modal>
+
+      {activeProject?.projectId && typeof item.budgetItemId === "string" && item.budgetItemId.trim() !== "" ? (
+        <BudgetLineTransactionsDrawer
+          isOpen={spendDrawerOpen}
+          onClose={() => setSpendDrawerOpen(false)}
+          projectId={activeProject.projectId}
+          budgetItemId={item.budgetItemId}
+          budgetItemName={item.description ? String(item.description) : undefined}
+        />
+      ) : null}
       {budgetFilesPicker}
 
       <AttachmentPreviewModal

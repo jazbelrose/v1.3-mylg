@@ -155,11 +155,14 @@ const BudgetStateManager: React.FC<BudgetStateManagerProps> = ({
     let budgeted = 0;
     let final = 0;
     let actual = 0;
+    let pricingBasis = 0;
     items.forEach((it) => {
       const qty = parseFloat(String(it.quantity)) || 0;
       const budget = toMoney(it.itemBudgetedCost);
       const markup = parseFloat(String(it.itemMarkUp)) || 0;
       const actualCost = toMoney(it.itemActualCost);
+      const reconciledLegacy = toMoney(it.itemReconciledCost);
+      const basisForPricing = actualCost || budget || reconciledLegacy;
 
       const hasFinal =
         it.itemFinalCost !== undefined &&
@@ -168,17 +171,15 @@ const BudgetStateManager: React.FC<BudgetStateManagerProps> = ({
 
       budgeted += qty * budget;
       actual += qty * actualCost;
+      pricingBasis += qty * basisForPricing;
 
       if (hasFinal) {
         final += toMoney(it.itemFinalCost);
       } else {
-        const baseForFinal = toMoney(
-          it.itemReconciledCost ?? it.itemActualCost ?? it.itemBudgetedCost
-        );
-        final += qty * baseForFinal * (1 + markup);
+        final += qty * basisForPricing * (1 + markup);
       }
     });
-    const effectiveMarkup = budgeted ? (final - budgeted) / budgeted : 0;
+    const effectiveMarkup = pricingBasis ? (final - pricingBasis) / pricingBasis : 0;
     return { budgeted, final, actual, effectiveMarkup };
   }, [toMoney]);
 

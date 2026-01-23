@@ -366,10 +366,10 @@ export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children })
       if (groupBy === "none") {
         return [
           { name: "Ballpark", value: stats.ballpark },
-          { name: "Budgeted Cost", value: stats.budgetedCost },
+          { name: "Planned Cost", value: stats.budgetedCost },
           { name: "Actual Cost", value: stats.actualCost },
           { name: "Effective Markup", value: stats.effectiveMarkup * 100 },
-          { name: "Final Cost", value: stats.finalCost },
+          { name: "Client Price", value: stats.finalCost },
         ].filter((item) => item.value > 0);
       }
 
@@ -394,7 +394,7 @@ export const BudgetProvider: React.FC<ProviderProps> = ({ projectId, children })
 
       const entries = Object.entries(totals);
       if (entries.length === 1 && entries[0][0] === "Unspecified") {
-        return [{ name: "Final Cost", value: entries[0][1] }];
+        return [{ name: "Client Price", value: entries[0][1] }];
       }
 
       return entries

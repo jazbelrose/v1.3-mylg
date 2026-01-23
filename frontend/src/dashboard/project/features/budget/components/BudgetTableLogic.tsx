@@ -95,15 +95,6 @@ const BudgetTableLogic: React.FC<BudgetTableLogicProps> = ({
     return str !== "0";
   }, []);
 
-  const getActiveCostKey = useCallback(
-    (item: Record<string, unknown>) => {
-      if (isDefined(item.itemReconciledCost)) return "itemReconciledCost";
-      if (isDefined(item.itemActualCost)) return "itemActualCost";
-      return "itemBudgetedCost";
-    },
-    [isDefined]
-  );
-
   const baseColumnsOrder = useMemo(() => [
     "elementKey",
     "elementId",
@@ -112,7 +103,6 @@ const BudgetTableLogic: React.FC<BudgetTableLogicProps> = ({
     "unit",
     "itemBudgetedCost",
     "itemActualCost",
-    "itemReconciledCost",
     "itemMarkUp",
     "itemFinalCost",
   ], []);
@@ -133,11 +123,10 @@ const BudgetTableLogic: React.FC<BudgetTableLogicProps> = ({
     quantity: "Quantity",
     unit: "Unit",
     dates: "Dates",
-    itemBudgetedCost: "Budgeted Cost",
+    itemBudgetedCost: "Planned Cost",
     itemActualCost: "Actual Cost",
-    itemReconciledCost: "Reconciled Cost",
     itemMarkUp: "Markup",
-    itemFinalCost: "Final Cost",
+    itemFinalCost: "Client Price",
   }), []);
 
     const tableColumns = useMemo(() => {
@@ -163,7 +152,6 @@ const BudgetTableLogic: React.FC<BudgetTableLogicProps> = ({
     const costKeys = [
       "itemBudgetedCost",
       "itemActualCost",
-      "itemReconciledCost",
       "itemFinalCost",
     ];
     const allIds = safeBudgetItems.map((it) => String(it.budgetItemId));
@@ -257,9 +245,7 @@ const BudgetTableLogic: React.FC<BudgetTableLogicProps> = ({
               }
 
               if (!isDefined(value)) return "";
-              const activeKey = getActiveCostKey(record);
-              const className = activeKey === key ? undefined : styles.dimmed;
-              return <span className={className}>{formatUSD(Number(value))}</span>;
+              return <span>{formatUSD(Number(value))}</span>;
             };
           }
           if (groupBy !== "none" && key === groupBy) {
@@ -319,7 +305,6 @@ const BudgetTableLogic: React.FC<BudgetTableLogicProps> = ({
     selectedRowKeys,
     setSelectedRowKeys,
     isDefined,
-    getActiveCostKey,
     openDuplicateModal,
     openDeleteModal,
     columnHeaderMap,

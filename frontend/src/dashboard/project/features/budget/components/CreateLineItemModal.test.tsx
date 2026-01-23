@@ -15,6 +15,18 @@ vi.mock("@/app/contexts/useData", () => ({
   }),
 }));
 
+vi.mock("@/app/contexts/useOrg", () => ({
+  useOrg: () => ({ activeOrgId: null }),
+}));
+
+vi.mock("@/dashboard/project/components/FileManager", () => ({
+  FileManagerV2: React.forwardRef((_props: unknown, ref: unknown) => {
+    if (typeof ref === "function") ref({ open: () => {} });
+    else if (ref && typeof ref === "object") (ref as { current?: unknown }).current = { open: () => {} };
+    return null;
+  }),
+}));
+
 // Import the component under test
 let CreateLineItemModal: React.ComponentType<{
   isOpen: boolean;

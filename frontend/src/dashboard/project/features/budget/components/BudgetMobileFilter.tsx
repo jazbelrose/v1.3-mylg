@@ -45,10 +45,10 @@ const SORT_OPTIONS: SortOption[] = [
   { value: "elementKey-desc", label: "Element Key (Z→A)", field: "elementKey", order: "descend" },
   { value: "description-asc", label: "Description (A→Z)", field: "description", order: "ascend" },
   { value: "description-desc", label: "Description (Z→A)", field: "description", order: "descend" },
-  { value: "budgeted-desc", label: "Budgeted Cost (High→Low)", field: "itemBudgetedCost", order: "descend" },
-  { value: "budgeted-asc", label: "Budgeted Cost (Low→High)", field: "itemBudgetedCost", order: "ascend" },
-  { value: "final-desc", label: "Final Cost (High→Low)", field: "itemFinalCost", order: "descend" },
-  { value: "final-asc", label: "Final Cost (Low→High)", field: "itemFinalCost", order: "ascend" },
+  { value: "budgeted-desc", label: "Planned Cost (High→Low)", field: "itemBudgetedCost", order: "descend" },
+  { value: "budgeted-asc", label: "Planned Cost (Low→High)", field: "itemBudgetedCost", order: "ascend" },
+  { value: "final-desc", label: "Client Price (High→Low)", field: "itemFinalCost", order: "descend" },
+  { value: "final-asc", label: "Client Price (Low→High)", field: "itemFinalCost", order: "ascend" },
 ];
 
 interface BudgetMobileFilterProps {

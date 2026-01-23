@@ -17,7 +17,7 @@ import BudgetLineTransactionsDrawer from "./BudgetLineTransactionsDrawer";
 import { useOrg } from "@/app/contexts/useOrg";
 import { fetchHqAllocationsByProject } from "@/hq/lib/hqApi";
 import styles from "@/dashboard/project/features/budget/pages/budget-page.module.css";
-import { formatUSD } from "@/shared/utils/budgetUtils";
+import { formatUSD, parseBudget } from "@/shared/utils/budgetUtils";
 import type { Task } from "@/shared/utils/api";
 import {
   BUDGET_TASK_LINK_TYPES,
@@ -70,6 +70,33 @@ const normalizePaymentStatus = (status: unknown): NormalizedPaymentStatus => {
   if (cleaned.includes("PART")) return "PARTIAL";
   if (cleaned.includes("PAID")) return "PAID";
   return "UNPAID";
+};
+
+const toMarkupDecimal = (value: unknown): number => {
+  if (typeof value === "number") return value > 1 ? value / 100 : value;
+  const raw = String(value ?? "").trim();
+  if (!raw) return 0;
+  const num = parseFloat(raw.replace(/%/g, ""));
+  if (!Number.isFinite(num)) return 0;
+  if (raw.includes("%")) return num / 100;
+  return num > 1 ? num / 100 : num;
+};
+
+const resolvePricingBasisUnitCost = (record: Record<string, unknown>): number => {
+  const actual = parseBudget(record.itemActualCost as unknown as any);
+  if (actual) return actual;
+  const planned = parseBudget(record.itemBudgetedCost as unknown as any);
+  if (planned) return planned;
+  return parseBudget(record.itemReconciledCost as unknown as any);
+};
+
+const computeClientPriceTotal = (record: Record<string, unknown>): number => {
+  const qtyRaw = parseFloat(String(record.quantity ?? ""));
+  const quantity = Number.isFinite(qtyRaw) ? qtyRaw : 0;
+  const basis = resolvePricingBasisUnitCost(record);
+  const markup = toMarkupDecimal(record.itemMarkUp);
+  const total = basis * (1 + markup) * quantity;
+  return Math.round(total * 100) / 100;
 };
 type BudgetItem = Record<string, unknown> & {
   budgetItemId: string;
@@ -258,16 +285,6 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
     setAttachmentPreviewIndex(0);
   }, []);
 
-    const costKeys = useMemo(
-      () => [
-        "itemBudgetedCost",
-        "itemActualCost",
-        "itemReconciledCost",
-        "itemFinalCost",
-      ],
-      []
-    );
-
     const isDefined = useCallback((val: unknown) => {
       if (val === undefined || val === null) return false;
       const str = String(val).trim();
@@ -279,22 +296,11 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
       return str !== "0";
     }, []);
 
-    const getActiveCostKey = useCallback(
-      (item: BudgetItem) => {
-        if (isDefined(item.itemReconciledCost)) return "itemReconciledCost";
-        if (isDefined(item.itemActualCost)) return "itemActualCost";
-        return "itemBudgetedCost";
-      },
-      [isDefined]
-    );
-
     const primaryMetrics = useMemo(
       () => [
         { key: "quantity", label: "Qty" },
         { key: "unit", label: "U" },
-        { key: "itemBudgetedCost", label: "BC" },
-        { key: "itemActualCost", label: "AC" },
-        { key: "itemReconciledCost", label: "RC" },
+        { key: "planCost", label: "Plan" },
       ],
       []
     );
@@ -302,7 +308,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
     const summaryMetrics = useMemo(
       () => [
         { key: "itemMarkUp", label: "MK" },
-        { key: "itemFinalCost", label: "FC" },
+        { key: "clientPrice", label: "Price" },
       ],
       []
     );
@@ -404,56 +410,51 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
 
     const formatMetricValue = useCallback(
       (record: BudgetItem, metricKey: string) => {
-        const value = record[metricKey];
+        if (metricKey === "planCost") {
+          const basis = resolvePricingBasisUnitCost(record);
+          return isDefined(basis) ? formatUSD(basis) : EMPTY_PLACEHOLDER;
+        }
+
         if (metricKey === "itemMarkUp") {
-          if (typeof value === "number") {
-            return `${Math.round(value * 100)}%`;
-          }
-          return value ? String(value) : EMPTY_PLACEHOLDER;
+          const pct = Math.round(toMarkupDecimal(record.itemMarkUp) * 100);
+          return `${pct}%`;
         }
 
-        if (costKeys.includes(metricKey)) {
-          if (metricKey === "itemFinalCost") {
-            const amount = isDefined(value) ? formatUSD(Number(value)) : EMPTY_PLACEHOLDER;
-            const status = normalizePaymentStatus(record.paymentStatus);
-            const statusLabel =
-              status === "PAID" ? "Paid" : status === "PARTIAL" ? "Partially paid" : "Unpaid";
-            const statusClass =
-              status === "PAID"
-                ? styles.paid
-                : status === "PARTIAL"
-                ? styles.partial
-                : styles.unpaid;
+        if (metricKey === "clientPrice") {
+          const stored = parseBudget((record as Record<string, unknown>).itemFinalCost as any);
+          const computed = computeClientPriceTotal(record);
+          const value = isDefined((record as Record<string, unknown>).itemFinalCost) ? stored : computed;
+          const amount = value ? formatUSD(value) : EMPTY_PLACEHOLDER;
 
-            return (
-              <span className={styles.costWithStatus}>
-                {amount}
-                <span
-                  className={`${styles.statusDot} ${statusClass}`}
-                  role="img"
-                  aria-label={`${statusLabel} status`}
-                />
-              </span>
-            );
-          }
+          const status = normalizePaymentStatus(record.paymentStatus);
+          const statusLabel =
+            status === "PAID" ? "Paid" : status === "PARTIAL" ? "Partially paid" : "Unpaid";
+          const statusClass =
+            status === "PAID"
+              ? styles.paid
+              : status === "PARTIAL"
+              ? styles.partial
+              : styles.unpaid;
 
-          if (!isDefined(value)) return EMPTY_PLACEHOLDER;
-          const activeKey = getActiveCostKey(record);
-          const formatted = formatUSD(Number(value));
-          return activeKey === metricKey
-            ? formatted
-            : (
-                <span className={styles.dimmed}>{formatted}</span>
-              );
+          return (
+            <span className={styles.costWithStatus}>
+              {amount}
+              <span
+                className={`${styles.statusDot} ${statusClass}`}
+                role="img"
+                aria-label={`${statusLabel} status`}
+              />
+            </span>
+          );
         }
 
+        const value = record[metricKey];
         if (value === undefined || value === null || value === "") {
           return EMPTY_PLACEHOLDER;
         }
-
         return String(value);
       },
-      [costKeys, getActiveCostKey, isDefined]
+      [isDefined]
     );
 
         const listStyle = useMemo(() => {

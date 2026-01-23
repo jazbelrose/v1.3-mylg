@@ -29,6 +29,11 @@ vi.mock("@/dashboard/project/features/budget/components/EditBallparkModal", () =
   default: () => null,
 }));
 
+vi.mock("@/dashboard/project/features/budget/components/InvoicePreviewModal", () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 vi.mock("@/dashboard/project/features/budget/ClientInvoicePreviewModal", () => ({
   __esModule: true,
   default: () => null,
@@ -113,8 +118,8 @@ describe("BudgetHeader computeChartState", () => {
     ]);
     expect(finalChart.total).toBe(640);
 
-    const budgetedButton = screen.getByRole("button", { name: /view budgeted totals/i });
-    fireEvent.click(budgetedButton);
+    const plannedButton = screen.getByRole("button", { name: /view planned totals/i });
+    fireEvent.click(plannedButton);
 
     await waitFor(() => {
       const { data, total } = getLatestChart();
@@ -176,9 +181,9 @@ describe("BudgetHeader computeChartState", () => {
 
     const { data, total } = getLatestChart();
     expect(data).toEqual([
-      { id: "category-Design", label: "Design", value: 100 },
-      { id: "category-Labor", label: "Labor", value: 90 },
+      { id: "category-Design", label: "Design", value: 200 },
+      { id: "category-Labor", label: "Labor", value: 15 },
     ]);
-    expect(total).toBe(190);
+    expect(total).toBe(215);
   });
 });

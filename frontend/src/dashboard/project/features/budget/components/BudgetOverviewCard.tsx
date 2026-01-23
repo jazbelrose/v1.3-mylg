@@ -45,7 +45,7 @@ const BudgetOverviewCard: React.FC<BudgetOverviewCardProps> = ({ projectId }) =>
   const hasData = Boolean(overviewHeader);
   const hasValue = typeof finalCostValue === "number" && finalCostValue > 0;
   const displayValue = hasData ? (hasValue ? formatCompactUSD(finalCostValue) : "Not set") : "Not available";
-  const displaySubLabel = hasData ? (hasValue ? "Final cost" : "Not set") : "Not available";
+  const displaySubLabel = hasData ? (hasValue ? "Client price" : "Not set") : "Not available";
 
   // No derived project key needed
 
