@@ -1501,7 +1501,7 @@ const TransactionsPage: React.FC = () => {
                                     allocations={txn.allocations || []}
                                     projectsMap={projectsMap}
                                     showUnlinked={false}
-                                    onOpenProject={(pid) => navigate(`/project/${pid}`)}
+                                    onOpenProject={(pid) => navigate(`/dashboard/projects/${pid}`)}
                                     onViewAllocations={() => {
                                       setAllocationTxn(txn);
                                       setIsAllocationOpen(true);
