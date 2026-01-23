@@ -64,7 +64,7 @@ type Props = {
   isOpen: boolean;
   txn: HqTransaction | null;
   onRequestClose: () => void;
-  onSaved?: () => void;
+  onSaved?: (dedupeHash: string, allocations: HqTransactionAllocation[]) => void;
 };
 
 const currency = new Intl.NumberFormat("en-US", {
@@ -439,7 +439,23 @@ const AllocationModal: React.FC<Props> = ({
       if (pendingAllocations.length > 0) changes.push(`added ${pendingAllocations.length}`);
       if (pendingRemovals.length > 0) changes.push(`removed ${pendingRemovals.length}`);
       toast.success(`Allocations updated (${changes.join(", ")})`);
-      onSaved?.();
+      
+      // Compute the final allocations after all changes
+      const now = new Date().toISOString();
+      const finalAllocations: HqTransactionAllocation[] = [
+        // Keep existing allocations that weren't removed
+        ...existingAllocations.filter((a) => !pendingRemovals.includes(a.budgetItemId)),
+        // Add new pending allocations (convert to HqTransactionAllocation format)
+        ...pendingAllocations.map((a) => ({
+          budgetItemId: a.budgetItemId,
+          projectId: a.projectId,
+          amount: a.amount,
+          allocatedAt: now,
+          allocatedBy: userId,
+        })),
+      ];
+      
+      onSaved?.(txn.dedupeHash, finalAllocations);
       onRequestClose();
     } catch (err) {
       console.error("Failed to save allocations", err);
@@ -448,7 +464,7 @@ const AllocationModal: React.FC<Props> = ({
     } finally {
       setIsSaving(false);
     }
-  }, [txn, hasChanges, pendingRemovals, pendingAllocations, existingAllocations, orgId, ws, onSaved, onRequestClose]);
+  }, [txn, hasChanges, pendingRemovals, pendingAllocations, existingAllocations, orgId, ws, onSaved, onRequestClose, userId]);
 
   // Queue an existing allocation for removal (don't delete immediately)
   const handleQueueRemoval = useCallback((allocation: HqTransactionAllocation) => {

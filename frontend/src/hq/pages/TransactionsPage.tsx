@@ -1,5 +1,5 @@
 import React from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   ArrowDownToLine,
@@ -28,17 +28,21 @@ import { sendHqUpdated } from "@/hq/lib/hqWebSocket";
 import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { useSocket } from "@/app/contexts/useSocket";
+import { useProjects } from "@/app/contexts/useProjects";
 import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
 import { todayPacificIsoDate } from "@/hq/lib/hqDate";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { HqCategoryId, HqPaymentType, HqTransaction } from "@/hq/types";
 import type { HqUpdateType } from "@/hq/lib/hqWebSocket";
+import type { Project } from "@/shared/utils/api";
 import styles from "./TransactionsPage.module.css";
 import HqSelect from "@/hq/components/HqSelect";
 import DateRangePopover, { type DateRangePreset } from "@/hq/components/DateRangePopover";
 import TxnModalApply from "@/hq/components/TxnModalApply";
 import HqCategoryPicker from "@/hq/components/HqCategoryPicker";
 import AllocationModal from "@/hq/components/AllocationModal";
+import TxnProjectChip from "@/hq/components/TxnProjectChip";
+import ProjectFilter, { type ProjectFilterValue } from "@/hq/components/ProjectFilter";
 import { getTransactionAllocatedTotal } from "@/hq/lib/hqStore";
 
 // Allocation state for display consistency
@@ -181,6 +185,15 @@ const TransactionsPage: React.FC = () => {
   const canAdmin = hasOrg && isOrgAdmin(activeOrgRole);
   useHqBootstrap(activeOrgId);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Get projects for filter and chips
+  const { projects } = useProjects();
+  const projectsMap = React.useMemo(() => {
+    const map = new Map<string, Project>();
+    projects.forEach((p) => map.set(p.projectId, p));
+    return map;
+  }, [projects]);
 
   const accounts = useHqStore(orgId, (s) => s.accounts);
 
@@ -189,6 +202,7 @@ const TransactionsPage: React.FC = () => {
   const [direction, setDirection] = React.useState<"all" | "in" | "out">("all");
   const [paymentType, setPaymentType] = React.useState<"all" | HqPaymentType>("all");
   const [recurringOnly, setRecurringOnly] = React.useState(false);
+  const [projectFilter, setProjectFilter] = React.useState<ProjectFilterValue>({ type: "all" });
   const [seriesKey, setSeriesKey] = React.useState<string>("");
   const [categoryId, setCategoryId] = React.useState<"all" | HqCategoryId | "UNCATEGORIZED">("all");
   const [dateRange, setDateRange] = React.useState<DateRangePreset>("all");
@@ -391,6 +405,7 @@ const TransactionsPage: React.FC = () => {
         amountMaxCents,
         sortKey: sort.key,
         sortDir: sort.dir,
+        projectFilter: projectFilter.type === "project" ? projectFilter.projectId : projectFilter.type,
       }),
     [
       accountId,
@@ -401,6 +416,7 @@ const TransactionsPage: React.FC = () => {
       direction,
       endDate,
       paymentType,
+      projectFilter,
       recurringOnly,
       searchTerm,
       seriesKey,
@@ -572,6 +588,60 @@ const TransactionsPage: React.FC = () => {
     };
   }, [activeOrgId, loadPage]);
 
+  // Client-side project filtering (backend doesn't support project filter yet)
+  const filteredItems = React.useMemo(() => {
+    if (projectFilter.type === "all") return items;
+
+    // Debug: log items with allocations
+    const itemsWithAllocations = items.filter((txn) => {
+      const allocs = Array.isArray(txn.allocations) ? txn.allocations : [];
+      return allocs.length > 0;
+    });
+    console.log("[filteredItems] Project filter:", projectFilter);
+    console.log("[filteredItems] Items with allocations:", itemsWithAllocations.length, itemsWithAllocations.map(t => ({
+      vendor: t.vendor,
+      allocations: t.allocations,
+    })));
+
+    return items.filter((txn) => {
+      // Ensure allocations is an array
+      const allocations = Array.isArray(txn.allocations) ? txn.allocations : [];
+      const hasAllocations = allocations.length > 0;
+
+      if (projectFilter.type === "linked") {
+        return hasAllocations;
+      }
+
+      if (projectFilter.type === "unlinked") {
+        return !hasAllocations;
+      }
+
+      if (projectFilter.type === "project") {
+        const targetId = String(projectFilter.projectId || "").toLowerCase().trim();
+        const targetProject = projectsMap.get(projectFilter.projectId);
+        const targetName = targetProject?.title?.toLowerCase().trim();
+
+        return allocations.some((a) => {
+          const allocProjectId = String(a.projectId || "").toLowerCase().trim();
+          
+          // Primary match: by project ID
+          if (allocProjectId === targetId) return true;
+          
+          // Fallback match: by project name (in case IDs are different but same project)
+          if (targetName) {
+            const allocProject = projectsMap.get(a.projectId);
+            const allocName = allocProject?.title?.toLowerCase().trim();
+            if (allocName === targetName) return true;
+          }
+          
+          return false;
+        });
+      }
+
+      return true;
+    });
+  }, [items, projectFilter, projectsMap]);
+
   const amountValue = React.useMemo(() => {
     if (typeof amountMinCents !== "number" && typeof amountMaxCents !== "number") return "Any";
     if (typeof amountMinCents === "number" && typeof amountMaxCents === "number") {
@@ -710,10 +780,10 @@ const TransactionsPage: React.FC = () => {
       } else if ((e.ctrlKey || e.metaKey) && e.key === "a") {
         e.preventDefault();
         // Select all
-        setSelectedRows(new Set(items.map((t) => t.dedupeHash).filter(Boolean)));
+        setSelectedRows(new Set(filteredItems.map((t) => t.dedupeHash).filter(Boolean)));
       }
     },
-    [canAdmin, items]
+    [canAdmin, filteredItems]
   );
 
   // Context menu handlers
@@ -964,7 +1034,7 @@ const TransactionsPage: React.FC = () => {
               onValueChange={(v) => setDirection(v as "all" | "in" | "out")}
               ariaLabel="Filter by direction"
               options={[
-                { value: "all", label: "Flow: In + Out" },
+                { value: "all", label: "Flow: Both" },
                 { value: "out", label: "Flow: Out" },
                 { value: "in", label: "Flow: In" },
               ]}
@@ -998,6 +1068,13 @@ const TransactionsPage: React.FC = () => {
                 { value: "all", label: "All categories" },
                 { value: "UNCATEGORIZED", label: "Uncategorized" },
               ]}
+            />
+
+            <ProjectFilter
+              value={projectFilter}
+              onChange={setProjectFilter}
+              projects={projects}
+              className={styles.filterField}
             />
 
             <div className={styles.amountSlot}>
@@ -1135,7 +1212,9 @@ const TransactionsPage: React.FC = () => {
                 >
                   {totals ? (
                     <>
-                      <span className={styles.totalsValue}>{totals.count}</span>&nbsp;
+                      <span className={styles.totalsValue}>
+                        {projectFilter.type !== "all" ? filteredItems.length : totals.count}
+                      </span>&nbsp;
                       <span className={styles.totalsLabel}>txns</span>
                       <span className={styles.totalsSep}>·</span>
                       <span className={styles.totalsLabel}>In</span>&nbsp;
@@ -1204,14 +1283,14 @@ const TransactionsPage: React.FC = () => {
                   type="button"
                   className={styles.selectAllButton}
                   onClick={() => {
-                    if (selectedRows.size === items.length) {
+                    if (selectedRows.size === filteredItems.length) {
                       setSelectedRows(new Set());
                     } else {
-                      setSelectedRows(new Set(items.map((t) => t.dedupeHash).filter(Boolean)));
+                      setSelectedRows(new Set(filteredItems.map((t) => t.dedupeHash).filter(Boolean)));
                     }
                   }}
-                  aria-label={selectedRows.size === items.length ? "Deselect all" : "Select all"}
-                  title={selectedRows.size === items.length ? "Deselect all" : "Select all"}
+                  aria-label={selectedRows.size === filteredItems.length ? "Deselect all" : "Select all"}
+                  title={selectedRows.size === filteredItems.length ? "Deselect all" : "Select all"}
                 >
                   <span className={[
                     styles.selectAllIndicator,
@@ -1343,13 +1422,13 @@ const TransactionsPage: React.FC = () => {
                 <div className={styles.emptyState} role="status">
                   Loading transactions…
                 </div>
-              ) : items.length === 0 ? (
+              ) : filteredItems.length === 0 ? (
                 <div className={styles.emptyState} role="status">
                   No transactions for this filter. Import a CSV or adjust your search.
                 </div>
               ) : (
                 <div className={styles.table} role="region" aria-label="Transactions table">
-                  {items.map((txn, index) => {
+                  {filteredItems.map((txn, index) => {
                     const accountLabel = accountsById.get(txn.accountId) || "Account";
                     const currentCategoryId: HqCategoryId = (txn.categoryId || "OTHER") as HqCategoryId;
                     const directionClass = txn.amount < 0 ? styles.out : styles.in;
@@ -1456,21 +1535,18 @@ const TransactionsPage: React.FC = () => {
                                     )}
                                   </button>
 
-                                  {/* Project chips - show when allocated */}
-                                  {hasAllocations && projectIds.length > 0 && (
-                                    <div className={styles.projectChips}>
-                                      {projectIds.map((pid, i) => (
-                                        <span key={pid + i} className={styles.projectChip}>
-                                          {pid.slice(0, 8)}
-                                        </span>
-                                      ))}
-                                      {moreCount > 0 && (
-                                        <span className={styles.projectChipMore}>
-                                          +{moreCount}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
+                                  {/* Project chip - shows linked project(s) */}
+                                  <TxnProjectChip
+                                    allocations={txn.allocations || []}
+                                    projectsMap={projectsMap}
+                                    showUnlinked={false}
+                                    onOpenProject={(pid) => navigate(`/project/${pid}`)}
+                                    onViewAllocations={() => {
+                                      setAllocationTxn(txn);
+                                      setIsAllocationOpen(true);
+                                    }}
+                                    canUnlink={canAdmin}
+                                  />
                                 </>
                               );
                             })()}
@@ -1682,8 +1758,16 @@ const TransactionsPage: React.FC = () => {
             orgId={activeOrgId}
             isOpen={isAllocationOpen}
             txn={allocationTxn}
-            onSaved={() => {
-              // Refresh list after allocation update
+            onSaved={(dedupeHash, allocations) => {
+              // Immediately update local items with new allocations (optimistic update)
+              setItems((prev) =>
+                prev.map((item) =>
+                  item.dedupeHash === dedupeHash
+                    ? { ...item, allocations }
+                    : item
+                )
+              );
+              // Also refresh list from API to ensure consistency
               setTimeout(() => {
                 loadPage({ cursor: null, append: false, includeTotals: true });
               }, 150);

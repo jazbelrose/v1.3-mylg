@@ -1992,7 +1992,8 @@ const patchTransaction = async (e, C, { dedupeHash }) => {
   if (!orgId) return json(400, C, { error: "orgId required" });
   await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
 
-  dedupeHash = String(dedupeHash || "").trim();
+  // Decode URL-encoded dedupeHash from path parameter
+  dedupeHash = decodeURIComponent(String(dedupeHash || "")).trim();
   if (!dedupeHash) return json(400, C, { error: "dedupeHash required" });
 
   const body = B(e);
@@ -3969,7 +3970,8 @@ const addTransactionAllocation = async (e, C, { dedupeHash }) => {
   if (!orgId) return json(400, C, { error: "orgId required" });
   await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
 
-  dedupeHash = String(dedupeHash || "").trim();
+  // Decode URL-encoded dedupeHash from path parameter
+  dedupeHash = decodeURIComponent(String(dedupeHash || "")).trim();
   if (!dedupeHash) return json(400, C, { error: "dedupeHash required" });
 
   const body = B(e);
@@ -4021,8 +4023,9 @@ const removeTransactionAllocation = async (e, C, { dedupeHash, budgetItemId }) =
   if (!orgId) return json(400, C, { error: "orgId required" });
   await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
 
-  dedupeHash = String(dedupeHash || "").trim();
-  budgetItemId = String(budgetItemId || "").trim();
+  // Decode URL-encoded path parameters
+  dedupeHash = decodeURIComponent(String(dedupeHash || "")).trim();
+  budgetItemId = decodeURIComponent(String(budgetItemId || "")).trim();
   if (!dedupeHash) return json(400, C, { error: "dedupeHash required" });
   if (!budgetItemId) return json(400, C, { error: "budgetItemId required" });
 
@@ -4062,7 +4065,8 @@ const updateTransactionAllocations = async (e, C, { dedupeHash }) => {
   if (!orgId) return json(400, C, { error: "orgId required" });
   await requireOrgAdmin({ ddb, tableName: ORG_MEMBERS_TABLE, orgId, userId });
 
-  dedupeHash = String(dedupeHash || "").trim();
+  // Decode URL-encoded dedupeHash from path parameter
+  dedupeHash = decodeURIComponent(String(dedupeHash || "")).trim();
   if (!dedupeHash) return json(400, C, { error: "dedupeHash required" });
 
   const body = B(e);
