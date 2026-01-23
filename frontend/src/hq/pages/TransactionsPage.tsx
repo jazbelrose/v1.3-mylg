@@ -388,6 +388,12 @@ const TransactionsPage: React.FC = () => {
     return map;
   }, [accounts]);
 
+  const projectFilterParam = React.useMemo(() => {
+    if (projectFilter.type === "all") return undefined;
+    if (projectFilter.type === "project") return projectFilter.projectId;
+    return projectFilter.type;
+  }, [projectFilter]);
+
   const listQueryKey = React.useMemo(
     () =>
       JSON.stringify({
@@ -405,7 +411,7 @@ const TransactionsPage: React.FC = () => {
         amountMaxCents,
         sortKey: sort.key,
         sortDir: sort.dir,
-        projectFilter: projectFilter.type === "project" ? projectFilter.projectId : projectFilter.type,
+        projectFilter: projectFilterParam || "all",
       }),
     [
       accountId,
@@ -416,7 +422,7 @@ const TransactionsPage: React.FC = () => {
       direction,
       endDate,
       paymentType,
-      projectFilter,
+      projectFilterParam,
       recurringOnly,
       searchTerm,
       seriesKey,
@@ -456,6 +462,7 @@ const TransactionsPage: React.FC = () => {
           amountMode: "ABS",
           sortKey: sort.key,
           sortDir: sort.dir,
+          projectFilter: projectFilterParam,
           includeTotals: opts.includeTotals !== false,
           cursor: opts.cursor || null,
           limit: 200,
@@ -491,6 +498,7 @@ const TransactionsPage: React.FC = () => {
       direction,
       endDate,
       paymentType,
+      projectFilterParam,
       recurringOnly,
       searchTerm,
       seriesKey,
@@ -528,6 +536,7 @@ const TransactionsPage: React.FC = () => {
       amountMode: "ABS",
       sortKey: sort.key,
       sortDir: sort.dir,
+      projectFilter: projectFilterParam,
       includeTotals: true,
       cursor: null,
       limit: 200,
@@ -536,6 +545,7 @@ const TransactionsPage: React.FC = () => {
       .then((res) => {
         const pageItems = res.items ?? res.transactions ?? [];
         const cursor = res.nextCursor ?? res.cursor ?? null;
+
         setItems(pageItems);
         setNextCursor(cursor);
         setTotals(res.totals ?? null);
@@ -562,6 +572,7 @@ const TransactionsPage: React.FC = () => {
     direction,
     endDate,
     paymentType,
+    projectFilterParam,
     recurringOnly,
     searchTerm,
     seriesKey,
@@ -588,59 +599,9 @@ const TransactionsPage: React.FC = () => {
     };
   }, [activeOrgId, loadPage]);
 
-  // Client-side project filtering (backend doesn't support project filter yet)
-  const filteredItems = React.useMemo(() => {
-    if (projectFilter.type === "all") return items;
-
-    // Debug: log items with allocations
-    const itemsWithAllocations = items.filter((txn) => {
-      const allocs = Array.isArray(txn.allocations) ? txn.allocations : [];
-      return allocs.length > 0;
-    });
-    console.log("[filteredItems] Project filter:", projectFilter);
-    console.log("[filteredItems] Items with allocations:", itemsWithAllocations.length, itemsWithAllocations.map(t => ({
-      vendor: t.vendor,
-      allocations: t.allocations,
-    })));
-
-    return items.filter((txn) => {
-      // Ensure allocations is an array
-      const allocations = Array.isArray(txn.allocations) ? txn.allocations : [];
-      const hasAllocations = allocations.length > 0;
-
-      if (projectFilter.type === "linked") {
-        return hasAllocations;
-      }
-
-      if (projectFilter.type === "unlinked") {
-        return !hasAllocations;
-      }
-
-      if (projectFilter.type === "project") {
-        const targetId = String(projectFilter.projectId || "").toLowerCase().trim();
-        const targetProject = projectsMap.get(projectFilter.projectId);
-        const targetName = targetProject?.title?.toLowerCase().trim();
-
-        return allocations.some((a) => {
-          const allocProjectId = String(a.projectId || "").toLowerCase().trim();
-          
-          // Primary match: by project ID
-          if (allocProjectId === targetId) return true;
-          
-          // Fallback match: by project name (in case IDs are different but same project)
-          if (targetName) {
-            const allocProject = projectsMap.get(a.projectId);
-            const allocName = allocProject?.title?.toLowerCase().trim();
-            if (allocName === targetName) return true;
-          }
-          
-          return false;
-        });
-      }
-
-      return true;
-    });
-  }, [items, projectFilter, projectsMap]);
+  // Project filtering is handled server-side via `projectFilter` query param.
+  const filteredItems = items;
+  const displayedTotals = totals;
 
   const amountValue = React.useMemo(() => {
     if (typeof amountMinCents !== "number" && typeof amountMaxCents !== "number") return "Any";
@@ -1207,34 +1168,34 @@ const TransactionsPage: React.FC = () => {
                 <button
                   type="button"
                   className={styles.totalsLine}
-                  disabled={!totals}
-                  aria-label={totals ? "View totals (filtered)" : "Totals unavailable"}
+                  disabled={!displayedTotals}
+                  aria-label={displayedTotals ? "View totals (filtered)" : "Totals unavailable"}
                 >
-                  {totals ? (
+                  {displayedTotals ? (
                     <>
                       <span className={styles.totalsValue}>
-                        {projectFilter.type !== "all" ? filteredItems.length : totals.count}
+                        {displayedTotals.count}
                       </span>&nbsp;
                       <span className={styles.totalsLabel}>txns</span>
                       <span className={styles.totalsSep}>·</span>
                       <span className={styles.totalsLabel}>In</span>&nbsp;
                       <span className={[styles.totalsValue, styles.totalsIn].join(" ")}>
-                        {currency.format(totals.inCents / 100)}
+                        {currency.format(displayedTotals.inCents / 100)}
                       </span>
                       <span className={styles.totalsSep}>·</span>
                       <span className={styles.totalsLabel}>Out</span>&nbsp;
                       <span className={[styles.totalsValue, styles.totalsOut].join(" ")}>
-                        {currency.format(totals.outCents / 100)}
+                        {currency.format(displayedTotals.outCents / 100)}
                       </span>
                       <span className={styles.totalsSep}>·</span>
                       <span className={styles.totalsLabel}>Net</span>&nbsp;
                       <span
                         className={[
                           styles.totalsValue,
-                          totals.netCents < 0 ? styles.totalsOut : styles.totalsIn,
+                          displayedTotals.netCents < 0 ? styles.totalsOut : styles.totalsIn,
                         ].join(" ")}
                       >
-                        {currency.format(totals.netCents / 100)}
+                        {currency.format(displayedTotals.netCents / 100)}
                       </span>
                     </>
                   ) : (
@@ -1244,25 +1205,25 @@ const TransactionsPage: React.FC = () => {
               </PopoverTrigger>
               <PopoverContent className={styles.totalsPopover} align="end" role="dialog" aria-label="Totals (filtered)">
                 <div className={styles.totalsPopoverTitle}>Totals (filtered)</div>
-                {totals ? (
+                {displayedTotals ? (
                   <>
                     <div className={styles.totalsGrid}>
                       <div>Count</div>
-                      <div className={styles.totalsValue}>{totals.count}</div>
+                      <div className={styles.totalsValue}>{displayedTotals.count}</div>
                       <div>In</div>
-                      <div className={styles.totalsValue}>{currency.format(totals.inCents / 100)}</div>
+                      <div className={styles.totalsValue}>{currency.format(displayedTotals.inCents / 100)}</div>
                       <div>Out</div>
-                      <div className={styles.totalsValue}>{currency.format(totals.outCents / 100)}</div>
+                      <div className={styles.totalsValue}>{currency.format(displayedTotals.outCents / 100)}</div>
                       <div>Net</div>
-                      <div className={styles.totalsValue}>{currency.format(totals.netCents / 100)}</div>
+                      <div className={styles.totalsValue}>{currency.format(displayedTotals.netCents / 100)}</div>
                     </div>
                     <button
                       type="button"
                       className={styles.totalsCopy}
                       onClick={async () => {
-                        const text = `${totals.count} txns\nIn ${currency.format(totals.inCents / 100)}\nOut ${currency.format(
-                          totals.outCents / 100
-                        )}\nNet ${currency.format(totals.netCents / 100)}`;
+                        const text = `${displayedTotals.count} txns\nIn ${currency.format(displayedTotals.inCents / 100)}\nOut ${currency.format(
+                          displayedTotals.outCents / 100
+                        )}\nNet ${currency.format(displayedTotals.netCents / 100)}`;
                         await copyTextToClipboard(text);
                       }}
                     >

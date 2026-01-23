@@ -2322,6 +2322,8 @@ const listTransactions = async (e, C) => {
   const textQuery = String(q.q || "").trim();
   const direction = String(q.dir ?? q.flow ?? "").trim().toLowerCase(); // in|out
   const paymentType = String(q.paymentType ?? q.type ?? "").trim();
+  const projectFilterRaw = String(q.projectFilter ?? q.project_filter ?? q.projectId ?? q.project_id ?? "").trim();
+  const projectFilterMode = projectFilterRaw.toLowerCase();
   const recurringOnly =
     String(q.recurringOnly ?? q.recurring ?? "").trim() === "1" ||
     String(q.recurringOnly ?? q.recurring ?? "").trim().toLowerCase() === "true" ||
@@ -2343,6 +2345,7 @@ const listTransactions = async (e, C) => {
     Boolean(textQuery) ||
     Boolean(direction) ||
     Boolean(paymentType) ||
+    (projectFilterRaw && projectFilterMode !== "all") ||
     recurringOnly ||
     Boolean(seriesKey) ||
     Boolean(categoryId) ||
@@ -2457,6 +2460,7 @@ const listTransactions = async (e, C) => {
 
   const seriesIndex = seriesKey ? buildRecurringSeriesKeyIndexServer(enriched.map((x) => x.ddb)) : null;
   const term = textQuery.trim().toLowerCase();
+  const wantsProjectFilter = Boolean(projectFilterRaw) && projectFilterMode !== "all";
 
   const filtered = [];
   let totalsCount = 0;
@@ -2479,6 +2483,32 @@ const listTransactions = async (e, C) => {
     if (paymentType && paymentType !== "all") {
       const effective = effectivePaymentTypeServer(raw);
       if (effective !== paymentType) continue;
+    }
+
+    if (wantsProjectFilter) {
+      const directProjectId = String(raw?.projectId ?? txn.projectId ?? "").trim();
+      const directProjectIdLower = directProjectId.toLowerCase();
+      const allocations = Array.isArray(raw?.allocations)
+        ? raw.allocations
+        : (Array.isArray(txn.allocations) ? txn.allocations : []);
+      const hasAnyLink = Boolean(directProjectId) || allocations.length > 0;
+
+      if (projectFilterMode === "linked") {
+        if (!hasAnyLink) continue;
+      } else if (projectFilterMode === "unlinked") {
+        if (hasAnyLink) continue;
+      } else {
+        const target = projectFilterRaw.trim();
+        const targetLower = target.toLowerCase();
+        const matchesDirect =
+          Boolean(directProjectId) && (directProjectId === target || directProjectIdLower === targetLower);
+        const matchesAllocation = allocations.some((a) => {
+          const pid = String(a?.projectId ?? "").trim();
+          if (!pid) return false;
+          return pid === target || pid.toLowerCase() === targetLower;
+        });
+        if (!matchesDirect && !matchesAllocation) continue;
+      }
     }
 
     if (recurringOnly && raw?.isRecurring !== true) continue;

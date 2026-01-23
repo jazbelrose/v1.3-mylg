@@ -96,6 +96,8 @@ export async function fetchHqTransactions(input: {
   q?: string;
   dir?: "in" | "out" | "all";
   paymentType?: string;
+  /** "linked" | "unlinked" | specific projectId */
+  projectFilter?: string;
   recurringOnly?: boolean;
   seriesKey?: string;
   categoryId?: string;
@@ -117,6 +119,7 @@ export async function fetchHqTransactions(input: {
   if (input.q) params.set("q", input.q);
   if (input.dir && input.dir !== "all") params.set("dir", input.dir);
   if (input.paymentType && input.paymentType !== "all") params.set("paymentType", input.paymentType);
+  if (input.projectFilter && input.projectFilter !== "all") params.set("projectFilter", input.projectFilter);
   if (input.recurringOnly) params.set("recurringOnly", "1");
   if (input.seriesKey) params.set("seriesKey", input.seriesKey);
   if (input.categoryId && input.categoryId !== "all") params.set("categoryId", input.categoryId);
