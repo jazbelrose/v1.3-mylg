@@ -732,3 +732,192 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+/* Rich allocation item (with full budget line details) */
+.allocationItemRich {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: background 0.2s ease;
+}
+
+.allocationItemRich:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.allocationItemRich.markedForRemoval {
+  opacity: 0.5;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.allocationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.allocationActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.allocationBody {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.allocationLineInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.allocationLineDesc {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-primary, #f6f7fb);
+  line-height: 1.35;
+}
+
+.allocationCategory {
+  font-size: 0.75rem;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Add file button */
+.addFileButton {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  border: none;
+  background: rgba(45, 212, 191, 0.12);
+  color: #2dd4bf;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.addFileButton:hover:not(:disabled) {
+  background: rgba(45, 212, 191, 0.2);
+  transform: scale(1.05);
+}
+
+.addFileButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Uploading spinner */
+.uploadingSpinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(45, 212, 191, 0.3);
+  border-top-color: #2dd4bf;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Attachments row */
+.attachmentsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.attachmentThumbs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.attachmentThumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.attachmentThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pdfThumb {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--brand, #fa3356);
+  text-transform: uppercase;
+}
+
+.attachmentMore {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+}
+
+.attachmentCount {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-tertiary, rgba(246, 247, 251, 0.65));
+}
+
+/* Loading dots animation for section title */
+.loadingDots {
+  display: inline-block;
+  margin-left: 4px;
+  animation: loadingDots 1s steps(4, end) infinite;
+}
+
+@keyframes loadingDots {
+  0%,
+  20% {
+    content: "";
+  }
+  40% {
+    content: ".";
+  }
+  60% {
+    content: "..";
+  }
+  80%,
+  100% {
+    content: "...";
+  }
+}

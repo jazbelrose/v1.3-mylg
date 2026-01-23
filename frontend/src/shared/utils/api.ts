@@ -1862,6 +1862,14 @@ export async function fetchBudgetItems(budgetId: string, revision?: number): Pro
   return revision != null ? lines.filter((it) => (it.revision ?? 0) === revision) : lines;
 }
 
+/** Fetch a single budget item by its ID (works without projectId) */
+export async function fetchBudgetItemById(budgetItemId: string): Promise<BudgetItem | null> {
+  if (!budgetItemId) return null;
+  const url = `${PROJECTS_SERVICE_URL}/budgets/byItemId/${encodeURIComponent(budgetItemId)}`;
+  const data = await apiFetch<BudgetItem | null>(url);
+  return data ?? null;
+}
+
 export async function createBudgetItem(
   projectId: string,
   budgetId: string,

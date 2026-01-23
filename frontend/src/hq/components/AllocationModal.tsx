@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { toast } from "react-toastify";
 import Modal from "@/shared/ui/ModalWithStack";
 import { useSocket } from "@/app/contexts/useSocket";
@@ -14,13 +14,18 @@ import {
   fetchProjectsFromApi,
   fetchBudgetItems,
   fetchBudgetHeaders,
+  fetchBudgetItemById,
+  updateBudgetItem,
+  uploadFile,
+  getFileUrl,
   type Project as ApiProject,
   type BudgetHeader,
   type BudgetLine,
+  type BudgetItem,
 } from "@/shared/utils/api";
 import { useAuth } from "@/app/contexts/useAuth";
 import ProjectAvatar from "@/shared/ui/ProjectAvatar";
-import { ChevronDown, ChevronRight, X, Plus, Check } from "lucide-react";
+import { ChevronDown, ChevronRight, X, Plus, Check, Paperclip, Image as ImageIcon } from "lucide-react";
 import styles from "./AllocationModal.module.css";
 
 if (typeof document !== "undefined") {
@@ -49,12 +54,39 @@ type BudgetRevision = {
   budgetId: string;
 };
 
+// Budget attachment type (matches Budget feature)
+type BudgetAttachment = {
+  id: string;
+  fileName: string;
+  mimeType?: string;
+  url: string;
+  uploadedAt?: string;
+  size?: number;
+};
+
+// Enriched allocation with full budget line details
+type EnrichedAllocation = HqTransactionAllocation & {
+  // Budget line details (fetched)
+  description?: string;
+  category?: string;
+  areaGroup?: string;
+  revision?: number;
+  attachments?: BudgetAttachment[];
+  itemBudgetedCost?: number | string;
+  itemActualCost?: number | string;
+  // Loading/error state per allocation
+  isLoading?: boolean;
+  loadError?: string;
+};
+
 // Pending allocation before save
 type PendingAllocation = {
   budgetItemId: string;
   projectId: string;
   projectName: string;
   budgetLineDescription: string;
+  category?: string;
+  areaGroup?: string;
   amount: number;
   revision: number;
 };
@@ -111,6 +143,14 @@ const AllocationModal: React.FC<Props> = ({
   const [pendingAllocations, setPendingAllocations] = useState<PendingAllocation[]>([]);
   const [pendingRemovals, setPendingRemovals] = useState<string[]>([]); // budgetItemIds to remove
 
+  // Enriched allocations with budget line details
+  const [enrichedAllocations, setEnrichedAllocations] = useState<EnrichedAllocation[]>([]);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  
+  // File upload state
+  const [uploadingForItemId, setUploadingForItemId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetRef = useRef<string | null>(null);
   // Filter projects by search
   const filteredProjects = useMemo(() => {
     if (!projectSearchQuery.trim()) return projects;
@@ -124,8 +164,8 @@ const AllocationModal: React.FC<Props> = ({
   
   // Allocations still active (existing minus pending removals)
   const activeExistingAllocations = useMemo(
-    () => existingAllocations.filter((a) => !pendingRemovals.includes(a.budgetItemId)),
-    [existingAllocations, pendingRemovals]
+    () => enrichedAllocations.filter((a) => !pendingRemovals.includes(a.budgetItemId)),
+    [enrichedAllocations, pendingRemovals]
   );
 
   const allocatedTotal = useMemo(() => {
@@ -137,6 +177,59 @@ const AllocationModal: React.FC<Props> = ({
     () => Math.max(0, txnAmount - allocatedTotal),
     [txnAmount, allocatedTotal]
   );
+
+  // Fetch budget line details for existing allocations
+  useEffect(() => {
+    if (!isOpen || existingAllocations.length === 0) {
+      setEnrichedAllocations([]);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingDetails(true);
+
+    const fetchDetails = async () => {
+      const enriched: EnrichedAllocation[] = await Promise.all(
+        existingAllocations.map(async (alloc) => {
+          try {
+            const budgetItem = await fetchBudgetItemById(alloc.budgetItemId);
+            if (cancelled) return alloc as EnrichedAllocation;
+            
+            if (budgetItem) {
+              const record = budgetItem as unknown as Record<string, unknown>;
+              return {
+                ...alloc,
+                description: typeof record.description === "string" ? record.description : undefined,
+                category: typeof record.category === "string" ? record.category : undefined,
+                areaGroup: typeof record.areaGroup === "string" ? record.areaGroup : undefined,
+                revision: typeof record.revision === "number" ? record.revision : undefined,
+                attachments: Array.isArray(record.attachments) ? record.attachments as BudgetAttachment[] : [],
+                itemBudgetedCost: record.itemBudgetedCost as number | string | undefined,
+                itemActualCost: record.itemActualCost as number | string | undefined,
+                isLoading: false,
+              };
+            }
+            return { ...alloc, isLoading: false };
+          } catch (err) {
+            console.error(`Failed to fetch budget item ${alloc.budgetItemId}`, err);
+            return { ...alloc, isLoading: false, loadError: "Failed to load" };
+          }
+        })
+      );
+
+      if (!cancelled) {
+        setEnrichedAllocations(enriched);
+        setIsLoadingDetails(false);
+      }
+    };
+
+    void fetchDetails();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, existingAllocations]);
+
 
   // Load projects on open
   useEffect(() => {
@@ -298,11 +391,11 @@ const AllocationModal: React.FC<Props> = ({
 
   // Computed: modal title based on state
   const modalTitle = useMemo(() => {
-    if (existingAllocations.length > 0 || pendingAllocations.length > 0) {
+    if (enrichedAllocations.length > 0 || pendingAllocations.length > 0) {
       return "Manage Allocations";
     }
     return "Link to Budget";
-  }, [existingAllocations.length, pendingAllocations.length]);
+  }, [enrichedAllocations.length, pendingAllocations.length]);
 
   // Computed: has changes to save
   const hasChanges = pendingAllocations.length > 0 || pendingRemovals.length > 0;
@@ -371,6 +464,8 @@ const AllocationModal: React.FC<Props> = ({
         projectId: selectedProjectId,
         projectName: project?.name || selectedProjectId,
         budgetLineDescription: budgetLine?.description || selectedBudgetItemId,
+        category: budgetLine?.category,
+        areaGroup: budgetLine?.areaGroup,
         amount: amountNum,
         revision: selectedRevision,
       },
@@ -476,6 +571,90 @@ const AllocationModal: React.FC<Props> = ({
     setPendingRemovals((prev) => prev.filter((id) => id !== budgetItemId));
   }, []);
 
+  // Handle file upload for a budget line
+  const handleAddFileClick = useCallback((budgetItemId: string) => {
+    uploadTargetRef.current = budgetItemId;
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    const targetItemId = uploadTargetRef.current;
+    
+    if (!files || files.length === 0 || !targetItemId) {
+      uploadTargetRef.current = null;
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    // Find the enriched allocation to get projectId
+    const alloc = enrichedAllocations.find((a) => a.budgetItemId === targetItemId);
+    if (!alloc) {
+      toast.error("Could not find allocation");
+      uploadTargetRef.current = null;
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setUploadingForItemId(targetItemId);
+
+    try {
+      const newAttachments: BudgetAttachment[] = [];
+
+      for (const file of Array.from(files)) {
+        // Only allow JPEG/PNG/PDF
+        const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
+        if (!allowedTypes.includes(file.type.toLowerCase())) {
+          toast.warning(`Skipped "${file.name}" - only JPEG, PNG, or PDF allowed`);
+          continue;
+        }
+
+        try {
+          const uploadedUrl = await uploadFile(file);
+          newAttachments.push({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            fileName: file.name,
+            mimeType: file.type,
+            url: uploadedUrl,
+            uploadedAt: new Date().toISOString(),
+            size: file.size,
+          });
+        } catch (err) {
+          console.error("Failed to upload file", err);
+          toast.error(`Failed to upload "${file.name}"`);
+        }
+      }
+
+      if (newAttachments.length > 0) {
+        // Update the budget line with new attachments
+        const existingAttachments = alloc.attachments || [];
+        const updatedAttachments = [...existingAttachments, ...newAttachments];
+
+        await updateBudgetItem(alloc.projectId, targetItemId, {
+          attachments: updatedAttachments,
+        } as Partial<BudgetItem>);
+
+        // Update local state
+        setEnrichedAllocations((prev) =>
+          prev.map((a) =>
+            a.budgetItemId === targetItemId
+              ? { ...a, attachments: updatedAttachments }
+              : a
+          )
+        );
+
+        toast.success(`Added ${newAttachments.length} file${newAttachments.length > 1 ? "s" : ""}`);
+      }
+    } catch (err) {
+      console.error("Failed to update budget line attachments", err);
+      toast.error("Failed to save attachments to budget line");
+    } finally {
+      setUploadingForItemId(null);
+      uploadTargetRef.current = null;
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }, [enrichedAllocations]);
+
   // Set default amount when budget line selected
   useEffect(() => {
     if (selectedBudgetItemId && !amount) {
@@ -531,20 +710,31 @@ const AllocationModal: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Existing allocations */}
-          {existingAllocations.length > 0 && (
+          {/* Existing allocations (enriched with budget line details) */}
+          {enrichedAllocations.length > 0 && (
             <div className={styles.existingAllocations}>
-              <h3 className={styles.sectionTitle}>Allocations</h3>
+              <h3 className={styles.sectionTitle}>
+                Linked Allocations
+                {isLoadingDetails && <span className={styles.loadingDots}>...</span>}
+              </h3>
               <div className={styles.allocationsList}>
-                {existingAllocations.map((alloc) => {
+                {enrichedAllocations.map((alloc) => {
                   const proj = projects.find((p) => p.projectId === alloc.projectId);
                   const isMarkedForRemoval = pendingRemovals.includes(alloc.budgetItemId);
+                  const isUploading = uploadingForItemId === alloc.budgetItemId;
+                  const attachmentCount = alloc.attachments?.length || 0;
+                  
+                  // Build category path (e.g., "FABRICATION → POLY")
+                  const categoryPath = [alloc.category, alloc.areaGroup]
+                    .filter(Boolean)
+                    .join(" → ");
+
                   return (
                     <div
                       key={alloc.budgetItemId}
-                      className={`${styles.allocationItem} ${isMarkedForRemoval ? styles.markedForRemoval : ""}`}
+                      className={`${styles.allocationItemRich} ${isMarkedForRemoval ? styles.markedForRemoval : ""}`}
                     >
-                      <div className={styles.allocationInfo}>
+                      <div className={styles.allocationHeader}>
                         <div className={styles.allocationProjectRow}>
                           <ProjectAvatar
                             thumb={proj?.thumbnails?.[0]}
@@ -555,37 +745,94 @@ const AllocationModal: React.FC<Props> = ({
                           <span className={styles.allocationProject}>
                             {proj?.name || alloc.projectId}
                           </span>
+                          {alloc.revision != null && (
+                            <span className={styles.revisionBadge}>Rev {alloc.revision}</span>
+                          )}
                           {isMarkedForRemoval && (
                             <span className={styles.removalBadge}>Will be removed</span>
                           )}
                         </div>
-                        <span className={styles.allocationLineDesc}>
-                          {alloc.budgetItemId.replace("LINE-", "").slice(0, 20)}...
-                        </span>
+                        <div className={styles.allocationActions}>
+                          {!isMarkedForRemoval && (
+                            <button
+                              type="button"
+                              className={styles.addFileButton}
+                              onClick={() => handleAddFileClick(alloc.budgetItemId)}
+                              disabled={isSaving || isUploading}
+                              aria-label="Add file to budget line"
+                              title="Add invoice/receipt"
+                            >
+                              {isUploading ? (
+                                <span className={styles.uploadingSpinner} />
+                              ) : (
+                                <Paperclip size={14} />
+                              )}
+                            </button>
+                          )}
+                          {isMarkedForRemoval ? (
+                            <button
+                              type="button"
+                              className={styles.undoButton}
+                              onClick={() => handleUndoRemoval(alloc.budgetItemId)}
+                              disabled={isSaving}
+                              aria-label="Undo removal"
+                            >
+                              Undo
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className={styles.removeButton}
+                              onClick={() => handleQueueRemoval(alloc)}
+                              disabled={isSaving}
+                              aria-label="Remove allocation"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className={styles.allocationBody}>
+                        <div className={styles.allocationLineInfo}>
+                          <span className={styles.allocationLineDesc}>
+                            {alloc.description || alloc.budgetItemId.replace("LINE-", "").slice(0, 20) + "..."}
+                          </span>
+                          {categoryPath && (
+                            <span className={styles.allocationCategory}>{categoryPath}</span>
+                          )}
+                        </div>
                         <span className={styles.allocationAmount}>
                           {currency.format(alloc.amount)}
                         </span>
                       </div>
-                      {isMarkedForRemoval ? (
-                        <button
-                          type="button"
-                          className={styles.undoButton}
-                          onClick={() => handleUndoRemoval(alloc.budgetItemId)}
-                          disabled={isSaving}
-                          aria-label="Undo removal"
-                        >
-                          Undo
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className={styles.removeButton}
-                          onClick={() => handleQueueRemoval(alloc)}
-                          disabled={isSaving}
-                          aria-label="Remove allocation"
-                        >
-                          <X size={14} />
-                        </button>
+
+                      {/* Attachments preview */}
+                      {attachmentCount > 0 && (
+                        <div className={styles.attachmentsRow}>
+                          <div className={styles.attachmentThumbs}>
+                            {(alloc.attachments || []).slice(0, 4).map((att) => {
+                              const isPdf = att.mimeType?.includes("pdf");
+                              const thumbUrl = isPdf ? null : getFileUrl(att.url);
+                              return (
+                                <div key={att.id} className={styles.attachmentThumb} title={att.fileName}>
+                                  {thumbUrl ? (
+                                    <img src={thumbUrl} alt={att.fileName} />
+                                  ) : (
+                                    <div className={styles.pdfThumb}>PDF</div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {attachmentCount > 4 && (
+                              <div className={styles.attachmentMore}>+{attachmentCount - 4}</div>
+                            )}
+                          </div>
+                          <span className={styles.attachmentCount}>
+                            <ImageIcon size={12} />
+                            {attachmentCount}
+                          </span>
+                        </div>
                       )}
                     </div>
                   );
@@ -599,31 +846,43 @@ const AllocationModal: React.FC<Props> = ({
             <div className={styles.pendingAllocations}>
               <h3 className={styles.sectionTitle}>Pending Allocations</h3>
               <div className={styles.allocationsList}>
-                {pendingAllocations.map((alloc) => (
-                  <div key={alloc.budgetItemId} className={styles.allocationItem}>
-                    <div className={styles.allocationInfo}>
-                      <div className={styles.allocationProjectRow}>
-                        <span className={styles.allocationProject}>{alloc.projectName}</span>
-                        <span className={styles.revisionBadge}>Rev {alloc.revision}</span>
+                {pendingAllocations.map((alloc) => {
+                  const categoryPath = [alloc.category, alloc.areaGroup]
+                    .filter(Boolean)
+                    .join(" → ");
+                  return (
+                    <div key={alloc.budgetItemId} className={styles.allocationItemRich}>
+                      <div className={styles.allocationHeader}>
+                        <div className={styles.allocationProjectRow}>
+                          <span className={styles.allocationProject}>{alloc.projectName}</span>
+                          <span className={styles.revisionBadge}>Rev {alloc.revision}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.removeButton}
+                          onClick={() => handleRemovePending(alloc.budgetItemId)}
+                          disabled={isSaving}
+                          aria-label="Remove pending allocation"
+                        >
+                          <X size={14} />
+                        </button>
                       </div>
-                      <span className={styles.allocationLineDesc}>
-                        {alloc.budgetLineDescription}
-                      </span>
-                      <span className={styles.allocationAmount}>
-                        {currency.format(alloc.amount)}
-                      </span>
+                      <div className={styles.allocationBody}>
+                        <div className={styles.allocationLineInfo}>
+                          <span className={styles.allocationLineDesc}>
+                            {alloc.budgetLineDescription}
+                          </span>
+                          {categoryPath && (
+                            <span className={styles.allocationCategory}>{categoryPath}</span>
+                          )}
+                        </div>
+                        <span className={styles.allocationAmount}>
+                          {currency.format(alloc.amount)}
+                        </span>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      className={styles.removeButton}
-                      onClick={() => handleRemovePending(alloc.budgetItemId)}
-                      disabled={isSaving}
-                      aria-label="Remove pending allocation"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -837,6 +1096,16 @@ const AllocationModal: React.FC<Props> = ({
           </button>
         </footer>
       </div>
+
+      {/* Hidden file input for attachment uploads */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/jpg,application/pdf"
+        multiple
+        style={{ display: "none" }}
+        onChange={handleFileInputChange}
+      />
     </Modal>
   );
 };
