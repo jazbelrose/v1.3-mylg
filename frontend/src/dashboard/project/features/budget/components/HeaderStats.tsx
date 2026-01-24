@@ -43,7 +43,7 @@ type MetricTitle =
   | "Target"
   | "Cost"
   | "Margin"
-  | "Client Price"
+  | "Client Total"
   | "Spend";
 
 type GroupBy = "none" | "areaGroup" | "invoiceGroup" | "category";
@@ -296,7 +296,7 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
   initialMetric,
 }) => {
   const [selectedMetric, setSelectedMetric] = useState<MetricTitle>(
-    initialMetric ?? "Client Price"
+    initialMetric ?? "Client Total"
   );
   const [isMobile, setIsMobile] = useState(false);
   const [isBallparkModalOpen, setBallparkModalOpen] = useState(false);
@@ -383,7 +383,7 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
   }, [selectedMetric]);
 
   const handleSelectClientPrice = useCallback(() => {
-    setSelectedMetric("Client Price");
+    setSelectedMetric("Client Total");
   }, []);
 
   const metrics = useMemo<MetricConfig[]>(() => {
@@ -425,7 +425,7 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
     // Total cost shown = vendor costs + at-cost items (internal has no cost)
     const costTotal = vendorCost + atCostTotal;
     
-    // Total margin = Client Price - Cost (same as original calculation)
+    // Total margin = Client Total - Cost (same as original calculation)
     const totalMargin = clientPriceTotal - costTotal;
     
     // Breakdown: vendor margin = totalMargin - internal revenue
@@ -519,7 +519,16 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
         color: CHART_COLORS[2],
         value: formatUSD(totalMargin),
         chartValue: totalMargin,
-        description: marginDescription,
+        description: (
+          <>
+            <span style={{ display: "block" }}>
+              {clientPriceTotal > 0
+                ? `${((totalMargin / clientPriceTotal) * 100).toFixed(1)}% margin`
+                : "—"}
+            </span>
+            <span style={{ display: "block" }}>{marginDescription}</span>
+          </>
+        ),
         field: "markupAmount",
         isPercentage: false,
         ariaLabel: "Total profit from vendor markups and internal labor",
@@ -527,17 +536,17 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
         onSelect: undefined,
       },
       {
-        title: "Client Price" as MetricTitle,
-        tag: "Price",
+        title: "Client Total" as MetricTitle,
+        tag: budgetHeader?.clientRevisionId ? "FINAL" : "ESTIMATE",
         icon: faFileInvoiceDollar,
         color: CHART_COLORS[3],
         value: formatUSD(clientPriceTotal),
         chartValue: clientPriceTotal,
-        description: "Computed only (Cost × (1 + markup))",
+        description: "Computed from Cost + Markup",
         field: "itemFinalCost",
         sticky: true,
         onSelect: handleSelectClientPrice,
-        ariaLabel: "View client price totals",
+        ariaLabel: "View client total",
         isSelectable: true,
       },
     ];
@@ -569,11 +578,11 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
   );
 
   const finalMetric = useMemo(
-    () => metrics.find((metric) => metric.title === "Client Price"),
+    () => metrics.find((metric) => metric.title === "Client Total"),
     [metrics]
   );
 
-  const finalMetricTitle = finalMetric?.title ?? "Client Price";
+  const finalMetricTitle = finalMetric?.title ?? "Client Total";
   const finalMetricDescription = finalMetric?.description ?? "Computed sell";
   const finalMetricIcon = finalMetric?.icon ?? faFileInvoiceDollar;
 
@@ -634,11 +643,11 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
 
     if (groupBy === "none") {
       // Per spec: when Group By = NONE, the chart shows Price Composition
-      // Total (center) = Client Price
-      // Slices = [Cost, Margin] where Margin = Client Price - Cost
+      // Total (center) = Client Total
+      // Slices = [Cost, Margin] where Margin = Client Total - Cost
       // Target is NOT part of the pie (shown as delta indicator separately)
       
-      const clientPriceMetric = metrics.find((m) => m.title === "Client Price");
+      const clientPriceMetric = metrics.find((m) => m.title === "Client Total");
       const costMetric = metrics.find((m) => m.title === "Cost");
       
       const clientPrice = toNumber(clientPriceMetric?.chartValue as number | string | undefined | null);
@@ -663,11 +672,11 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
         });
       }
       
-      // If no slices (both zero), show placeholder with Client Price
+      // If no slices (both zero), show placeholder with Client Total
       if (slices.length === 0 && clientPrice > 0) {
         slices.push({
-          id: "metric-ClientPrice",
-          label: "Client Price",
+          id: "metric-ClientTotal",
+          label: "Client Total",
           value: clientPrice,
         });
       }
@@ -678,7 +687,7 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
 
       return {
         slices,
-        total: clientPrice, // Center always shows Client Price
+        total: clientPrice, // Center always shows Client Total
         palette,
         signature: computeSignature(slices),
       };
@@ -791,7 +800,7 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
     if (groupBy !== "none") return null;
 
     const targetMetric = metrics.find((m) => m.title === "Target");
-    const clientPriceMetric = metrics.find((m) => m.title === "Client Price");
+    const clientPriceMetric = metrics.find((m) => m.title === "Client Total");
 
     const target = toNumber(targetMetric?.chartValue as number | string | undefined | null);
     const clientPrice = toNumber(clientPriceMetric?.chartValue as number | string | undefined | null);
@@ -985,7 +994,7 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
                 description={m.description}
                 className={[
                   m.sticky ? summaryStyles.stickyCard : "",
-                  m.title === "Client Price" ? summaryStyles.finalCard : "",
+                  m.title === "Client Total" ? summaryStyles.finalCard : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
@@ -1013,7 +1022,7 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
                 description={m.description}
                 className={[
                   m.sticky ? summaryStyles.stickyCard : "",
-                  m.title === "Client Price" ? summaryStyles.finalCard : "",
+                  m.title === "Client Total" ? summaryStyles.finalCard : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
