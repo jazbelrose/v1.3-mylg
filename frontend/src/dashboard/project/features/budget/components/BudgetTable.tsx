@@ -28,8 +28,6 @@ const EMPTY_PLACEHOLDER = "\u2014";
 
 /* ----------------------------- Date Utilities ----------------------------- */
 
-type DateBadge = 'overdue' | 'today' | 'thisWeek' | null;
-
 const parseDate = (value: unknown): Date | null => {
   if (!value) return null;
   const d = new Date(String(value));
@@ -60,31 +58,6 @@ const formatDateRange = (startDate: unknown, endDate: unknown): string => {
 
   // Different months: Aug 18 – Sep 2
   return `${startFormatted} – ${endFormatted}`;
-};
-
-const getDateBadge = (startDate: unknown, endDate: unknown): DateBadge => {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const start = parseDate(startDate);
-  const end = parseDate(endDate);
-
-  const referenceDate = end ?? start;
-  if (!referenceDate) return null;
-
-  const refDateOnly = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
-
-  // Overdue: end date is in the past
-  if (end && refDateOnly < today) return 'overdue';
-
-  // Today: reference date is today
-  if (refDateOnly.getTime() === today.getTime()) return 'today';
-
-  // This week: within next 7 days
-  const weekFromNow = new Date(today);
-  weekFromNow.setDate(weekFromNow.getDate() + 7);
-  if (refDateOnly <= weekFromNow && refDateOnly > today) return 'thisWeek';
-
-  return null;
 };
 
 const toAttachmentPreviewItems = (raw: unknown): AttachmentPreviewItem[] => {
@@ -745,17 +718,12 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                           {/* Date chip - replaces Coverage */}
                           {(() => {
                             const dateRange = formatDateRange(record.startDate, record.endDate);
-                            const badge = getDateBadge(record.startDate, record.endDate);
                             const hasDate = Boolean(dateRange);
-                            const badgeClass = badge === 'overdue' ? styles.dateChipOverdue
-                              : badge === 'today' ? styles.dateChipToday
-                              : badge === 'thisWeek' ? styles.dateChipThisWeek
-                              : '';
 
                             return (
                               <button
                                 type="button"
-                                className={`${styles.dateChipButton}${badgeClass ? ` ${badgeClass}` : ''}`}
+                                className={styles.dateChipButton}
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   if (isLocked || isSelectMode) return;
@@ -765,14 +733,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                                 title={hasDate ? `Dates: ${dateRange}` : 'Add dates'}
                               >
                                 {hasDate ? (
-                                  <>
-                                    <span>{dateRange}</span>
-                                    {badge && (
-                                      <span className={styles.dateBadge}>
-                                        {badge === 'overdue' ? 'Overdue' : badge === 'today' ? 'Today' : 'This week'}
-                                      </span>
-                                    )}
-                                  </>
+                                  <span>{dateRange}</span>
                                 ) : (
                                   <span className={styles.dateChipPlaceholder}>Add dates</span>
                                 )}
