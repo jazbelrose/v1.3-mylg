@@ -31,9 +31,9 @@ export const useProjectTabs = (
 
   const showBudgetTab = isAdmin;
   const showCalendarTab = isAdmin || isDesigner;
-  const showEditorTab = isAdmin || isDesigner;
   const showSlidesTab = isAdmin || isDesigner;
   // Files tab removed - folder icon is the single entry point
+  // Editor tab removed - migrated to Slides
 
   const hasProject = Boolean(projectId);
 
@@ -64,18 +64,6 @@ export const useProjectTabs = (
             projectId,
             projectTitle ?? undefined,
             "/calendar"
-          )
-        : "/dashboard/projects",
-    [hasProject, projectId, projectTitle]
-  );
-
-  const editorPath = React.useMemo(
-    () =>
-      hasProject
-        ? getProjectDashboardPath(
-            projectId,
-            projectTitle ?? undefined,
-            "/editor"
           )
         : "/dashboard/projects",
     [hasProject, projectId, projectTitle]
@@ -119,13 +107,6 @@ export const useProjectTabs = (
         visible: showCalendarTab,
       },
       {
-        key: "editor",
-        label: "Editor",
-        path: editorPath,
-        matches: (pathname: string) => pathname.startsWith(editorPath),
-        visible: showEditorTab,
-      },
-      {
         key: "slides",
         label: "Slides",
         path: slidesPath,
@@ -133,6 +114,7 @@ export const useProjectTabs = (
         visible: showSlidesTab,
       },
       // Files tab removed - folder icon is the single entry point
+      // Editor tab removed - migrated to Slides
     ];
 
     return tabDefinitions.reduce<ProjectTabItem[]>((acc, tab) => {
@@ -153,11 +135,9 @@ export const useProjectTabs = (
     basePath,
     budgetPath,
     calendarPath,
-    editorPath,
     slidesPath,
     showBudgetTab,
     showCalendarTab,
-    showEditorTab,
     showSlidesTab,
   ]);
 
