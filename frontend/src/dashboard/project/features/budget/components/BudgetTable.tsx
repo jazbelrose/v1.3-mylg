@@ -7,11 +7,10 @@ import React, {
 } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faClone,
   faPaperclip,
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
-import { Link2 } from "lucide-react";
+import { Link2, Pencil, ListTodo, DollarSign, Copy } from "lucide-react";
 import AttachmentPreviewModal, { type AttachmentPreviewItem } from "@/shared/ui/AttachmentPreviewModal";
 import BudgetLineTransactionsDrawer from "./BudgetLineTransactionsDrawer";
 import { useOrg } from "@/app/contexts/useOrg";
@@ -19,19 +18,74 @@ import { fetchHqAllocationsByProject } from "@/hq/lib/hqApi";
 import styles from "@/dashboard/project/features/budget/pages/budget-page.module.css";
 import { formatUSD, parseBudget } from "@/shared/utils/budgetUtils";
 import type { Task } from "@/shared/utils/api";
-import {
-  BUDGET_TASK_LINK_TYPES,
-  getTaskLinkTypeForBudgetItem,
-  inferBudgetTaskLinkTypeFromTitle,
-  taskHasBudgetLink,
-  type BudgetTaskLinkType,
-} from "@/shared/utils/budgetTaskLinks";
+import { type BudgetTaskLinkType } from "@/shared/utils/budgetTaskLinks";
 
 const MOBILE_BREAKPOINT = 768;
 
 const PAGINATION_ESTIMATE = 96;
 
 const EMPTY_PLACEHOLDER = "\u2014";
+
+/* ----------------------------- Date Utilities ----------------------------- */
+
+type DateBadge = 'overdue' | 'today' | 'thisWeek' | null;
+
+const parseDate = (value: unknown): Date | null => {
+  if (!value) return null;
+  const d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const formatDateShort = (date: Date): string => {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const formatDateRange = (startDate: unknown, endDate: unknown): string => {
+  const start = parseDate(startDate);
+  const end = parseDate(endDate);
+
+  if (!start && !end) return '';
+  if (start && !end) return formatDateShort(start);
+  if (!start && end) return formatDateShort(end);
+
+  // Both dates exist
+  const startFormatted = formatDateShort(start!);
+  const endFormatted = formatDateShort(end!);
+
+  // Same month: Aug 18–22
+  if (start!.getMonth() === end!.getMonth() && start!.getFullYear() === end!.getFullYear()) {
+    const month = start!.toLocaleDateString('en-US', { month: 'short' });
+    return `${month} ${start!.getDate()}–${end!.getDate()}`;
+  }
+
+  // Different months: Aug 18 – Sep 2
+  return `${startFormatted} – ${endFormatted}`;
+};
+
+const getDateBadge = (startDate: unknown, endDate: unknown): DateBadge => {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const start = parseDate(startDate);
+  const end = parseDate(endDate);
+
+  const referenceDate = end ?? start;
+  if (!referenceDate) return null;
+
+  const refDateOnly = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
+
+  // Overdue: end date is in the past
+  if (end && refDateOnly < today) return 'overdue';
+
+  // Today: reference date is today
+  if (refDateOnly.getTime() === today.getTime()) return 'today';
+
+  // This week: within next 7 days
+  const weekFromNow = new Date(today);
+  weekFromNow.setDate(weekFromNow.getDate() + 7);
+  if (refDateOnly <= weekFromNow && refDateOnly > today) return 'thisWeek';
+
+  return null;
+};
 
 const toAttachmentPreviewItems = (raw: unknown): AttachmentPreviewItem[] => {
   if (!Array.isArray(raw)) return [];
@@ -162,10 +216,6 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
     costTargetTotal?: number | null;
   } | null>(null);
   const menuContainersRef = useRef<Map<string, HTMLDivElement>>(new Map());
-  const [coverageMenuOpenForId, setCoverageMenuOpenForId] = useState<string | null>(null);
-  const coverageDropdownRef = useRef<HTMLDivElement | null>(null);
-  const [isCoveragePopoverHovered, setIsCoveragePopoverHovered] = useState(false);
-  const [optimisticUnlinkedByLineId, setOptimisticUnlinkedByLineId] = useState<Record<string, Record<string, true>>>({});
   const [attachmentMenuState, setAttachmentMenuState] = useState<{
     id: string;
     items: AttachmentPreviewItem[];
@@ -224,57 +274,6 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
     return () => mediaQuery.removeListener(listener);
   }, []);
 
-  useEffect(() => {
-    if (!coverageMenuOpenForId) return undefined;
-
-    const onPointerDown = (event: MouseEvent | PointerEvent) => {
-      const target = event.target as Node | null;
-      if (target && coverageDropdownRef.current?.contains(target)) return;
-      setCoverageMenuOpenForId(null);
-    };
-
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [coverageMenuOpenForId]);
-
-  useEffect(() => {
-    if (coverageMenuOpenForId) return;
-    setIsCoveragePopoverHovered(false);
-  }, [coverageMenuOpenForId]);
-
-  useEffect(() => {
-    if (!tasks || tasks.length === 0) return;
-    setOptimisticUnlinkedByLineId((prev) => {
-      let changed = false;
-      const next: Record<string, Record<string, true>> = { ...prev };
-
-      for (const [lineId, removedMap] of Object.entries(prev)) {
-        if (!removedMap) continue;
-        const kept: Record<string, true> = { ...removedMap };
-
-        for (const taskId of Object.keys(removedMap)) {
-          const task = tasks.find((t) => t.taskId === taskId);
-          const stillLinked = task ? taskHasBudgetLink(task, lineId) : false;
-          if (!stillLinked) {
-            delete kept[taskId];
-            changed = true;
-          }
-        }
-
-        if (Object.keys(kept).length === 0) {
-          if (next[lineId]) {
-            delete next[lineId];
-            changed = true;
-          }
-        } else {
-          next[lineId] = kept;
-        }
-      }
-
-      return changed ? next : prev;
-    });
-  }, [tasks]);
-
   const openAttachmentPreview = useCallback((items: AttachmentPreviewItem[], index: number) => {
     if (!items.length) return;
     const boundedIndex = Math.min(Math.max(index, 0), items.length - 1);
@@ -302,8 +301,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
 
     const primaryMetrics = useMemo(
       () => [
-        { key: "quantity", label: "Qty" },
-        { key: "unit", label: "U" },
+        { key: "qtyUnit", label: "Qty" }, // Combined quantity and unit
         { key: "planCost", label: "Cost" },
       ],
       []
@@ -414,6 +412,15 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
 
     const formatMetricValue = useCallback(
       (record: BudgetItem, metricKey: string) => {
+        // Combined quantity and unit: "1 · Each"
+        if (metricKey === "qtyUnit") {
+          const qty = record.quantity;
+          const unit = record.unit;
+          const qtyStr = isDefined(qty) ? String(qty) : "1";
+          const unitStr = typeof unit === "string" && unit.trim() ? unit.trim() : "Each";
+          return `${qtyStr} · ${unitStr}`;
+        }
+
         if (metricKey === "planCost") {
           const basis = resolvePricingBasisUnitCost(record);
           return isDefined(basis) ? formatUSD(basis) : EMPTY_PLACEHOLDER;
@@ -579,13 +586,6 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                  const attachmentsForRecord = toAttachmentPreviewItems(record.attachments);
                  const attachmentCount = attachmentsForRecord.length;
                  const workCount = workCountByLineItemId?.[record.budgetItemId] ?? 0;
-                 const coverage = workCoverageByLineItemId?.[record.budgetItemId] ?? null;
-                 const coverageCount = coverage
-                   ? BUDGET_TASK_LINK_TYPES.reduce((sum, t) => {
-                       const state = coverage[t.id] ?? "missing";
-                       return sum + (state === "missing" ? 0 : 1);
-                     }, 0)
-                   : 0;
                  const isAttachmentMenuOpen = attachmentMenuState?.id === record.budgetItemId;
                  const menuAttachments = isAttachmentMenuOpen ? attachmentMenuState?.items ?? attachmentsForRecord : attachmentsForRecord;
 
@@ -610,16 +610,18 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                         openEditModal(record);
                       }
                     }}
+                    onContextMenu={(event) => {
+                      // Right-click to open context menu
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (isLocked || isSelectMode) return;
+                      setOpenMenuId((prev) =>
+                        prev === record.budgetItemId ? null : record.budgetItemId
+                      );
+                    }}
                     onKeyDown={(event) =>
                       handleCardKeyDown(event, record, isLocked, isSelectMode, isSelected)
                     }
-                    onPointerEnter={() => {
-                      if (!coverageMenuOpenForId) return;
-                      if (isCoveragePopoverHovered) return;
-                      if (coverageMenuOpenForId !== record.budgetItemId) {
-                        setCoverageMenuOpenForId(null);
-                      }
-                    }}
                   >
                     <div className={styles.cardRow}>
                       {isSelectMode && (
@@ -740,157 +742,43 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                             </button>
                           )}
 
-                          {coverage ? (
-                            <div className={styles.coverageAddWrapper}>
+                          {/* Date chip - replaces Coverage */}
+                          {(() => {
+                            const dateRange = formatDateRange(record.startDate, record.endDate);
+                            const badge = getDateBadge(record.startDate, record.endDate);
+                            const hasDate = Boolean(dateRange);
+                            const badgeClass = badge === 'overdue' ? styles.dateChipOverdue
+                              : badge === 'today' ? styles.dateChipToday
+                              : badge === 'thisWeek' ? styles.dateChipThisWeek
+                              : '';
+
+                            return (
                               <button
                                 type="button"
-                                className={styles.coverageAddButton}
-                                aria-haspopup="menu"
-                                aria-expanded={coverageMenuOpenForId === record.budgetItemId}
-                                disabled={isLocked || isSelectMode || !onCreateMissingWorkStage}
+                                className={`${styles.dateChipButton}${badgeClass ? ` ${badgeClass}` : ''}`}
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  if (isLocked || isSelectMode || !onCreateMissingWorkStage) return;
-                                  setCoverageMenuOpenForId((prev) =>
-                                    prev === record.budgetItemId ? null : record.budgetItemId
-                                  );
+                                  if (isLocked || isSelectMode) return;
+                                  openEditModal(record);
                                 }}
-                                title="Coverage"
+                                disabled={isLocked || isSelectMode}
+                                title={hasDate ? `Dates: ${dateRange}` : 'Add dates'}
                               >
-                                <span>Coverage</span>
-                                <span aria-hidden>·</span>
-                                <span>{coverageCount}</span>
+                                {hasDate ? (
+                                  <>
+                                    <span>{dateRange}</span>
+                                    {badge && (
+                                      <span className={styles.dateBadge}>
+                                        {badge === 'overdue' ? 'Overdue' : badge === 'today' ? 'Today' : 'This week'}
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span className={styles.dateChipPlaceholder}>Add dates</span>
+                                )}
                               </button>
-
-                              {coverageMenuOpenForId === record.budgetItemId ? (
-                                <div
-                                  className={styles.coverageDropdown}
-                                  ref={coverageDropdownRef}
-                                  role="menu"
-                                  aria-label="Add coverage"
-                                  onPointerEnter={() => setIsCoveragePopoverHovered(true)}
-                                  onPointerLeave={() => setIsCoveragePopoverHovered(false)}
-                                  onPointerDown={(event) => event.stopPropagation()}
-                                  onClick={(event) => event.stopPropagation()}
-                                >
-                                  {(() => {
-                                    const budgetItemId = record.budgetItemId;
-                                    const removedForLine = optimisticUnlinkedByLineId[budgetItemId] ?? {};
-                                    const linked = (tasks ?? [])
-                                      .filter((t) => taskHasBudgetLink(t, budgetItemId))
-                                      .filter((t) => (t.taskId ? !removedForLine[t.taskId] : true));
-
-                                    const grouped: Record<BudgetTaskLinkType, Task[]> = {
-                                      quote: [],
-                                      procure: [],
-                                      build: [],
-                                      install: [],
-                                      strike: [],
-                                      invoice: [],
-                                    };
-
-                                    linked.forEach((t) => {
-                                      const linkType =
-                                        getTaskLinkTypeForBudgetItem(t, budgetItemId) ??
-                                        inferBudgetTaskLinkTypeFromTitle(t.title ?? "");
-                                      grouped[linkType].push(t);
-                                    });
-
-                                    return (
-                                      <div className={styles.coverageRows}>
-                                        {BUDGET_TASK_LINK_TYPES.map((step) => {
-                                          const stepTasks = grouped[step.id] ?? [];
-                                          const canMutate = !isLocked && !isSelectMode;
-                                          const canAdd = canMutate && Boolean(onCreateMissingWorkStage);
-                                          const canUnlink = canMutate && Boolean(onUnlinkWorkTask);
-
-                                          return (
-                                            <div key={step.id} className={styles.coverageRow} role="none">
-                                              <div className={styles.coverageRowLabel}>{step.label}</div>
-                                              <div className={styles.coverageRowChips}>
-                                                {stepTasks.length === 0 ? (
-                                                  <span className={styles.coverageRowEmpty}>—</span>
-                                                ) : (
-                                                  stepTasks.map((t) => {
-                                                    const title =
-                                                      (t.title || "Untitled task").trim() || "Untitled task";
-                                                    const taskId = t.taskId ?? title;
-                                                    const hasRealTaskId = Boolean(t.taskId);
-                                                    const canUnlinkThis = canUnlink && hasRealTaskId;
-
-                                                    return (
-                                                      <span
-                                                        key={taskId}
-                                                        className={styles.coverageTaskChip}
-                                                        title={title}
-                                                      >
-                                                        <span className={styles.coverageTaskChipText}>{title}</span>
-                                                        <button
-                                                          type="button"
-                                                          className={styles.coverageTaskChipRemove}
-                                                          aria-label={`Unlink ${step.label} task`}
-                                                          disabled={!canUnlinkThis}
-                                                          onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            if (!canUnlinkThis) return;
-
-                                                            setOptimisticUnlinkedByLineId((prev) => ({
-                                                              ...prev,
-                                                              [budgetItemId]: {
-                                                                ...(prev[budgetItemId] ?? {}),
-                                                                [t.taskId as string]: true,
-                                                              },
-                                                            }));
-
-                                                            Promise.resolve(
-                                                              onUnlinkWorkTask?.(budgetItemId, t)
-                                                            ).catch(() => {
-                                                              setOptimisticUnlinkedByLineId((prev) => {
-                                                                const existing = prev[budgetItemId];
-                                                                if (!existing || !existing[t.taskId as string]) return prev;
-                                                                const nextLine = { ...existing };
-                                                                delete nextLine[t.taskId as string];
-                                                                const next = { ...prev };
-                                                                if (Object.keys(nextLine).length === 0) {
-                                                                  delete next[budgetItemId];
-                                                                } else {
-                                                                  next[budgetItemId] = nextLine;
-                                                                }
-                                                                return next;
-                                                              });
-                                                            });
-                                                          }}
-                                                        >
-                                                          ×
-                                                        </button>
-                                                      </span>
-                                                    );
-                                                  })
-                                                )}
-                                              </div>
-
-                                              <button
-                                                type="button"
-                                                className={styles.coverageRowAction}
-                                                disabled={!canAdd}
-                                                onClick={(event) => {
-                                                  event.stopPropagation();
-                                                  if (!canAdd) return;
-                                                  onCreateMissingWorkStage?.(record, step.id);
-                                                }}
-                                              >
-                                                Add
-                                              </button>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-                              ) : null}
-                            </div>
-                          ) : null}
+                            );
+                          })()}
 
                           {attachmentCount > 0 && (
                             <div className={styles.attachmentIconWrapper}>
@@ -994,6 +882,76 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                               className={styles.cardMenu}
                               onClick={(event) => event.stopPropagation()}
                             >
+                              {/* Primary actions */}
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className={styles.cardMenuItem}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMenuId(null);
+                                  openEditModal(record);
+                                }}
+                              >
+                                <span className={styles.cardMenuItemIcon}>
+                                  <Pencil size={14} />
+                                </span>
+                                <span>Edit item</span>
+                              </button>
+
+                              {/* Work section */}
+                              {openWorkModal && (
+                                <>
+                                  <div className={styles.cardMenuDivider} />
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    className={styles.cardMenuItem}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setOpenMenuId(null);
+                                      openWorkModal(record);
+                                    }}
+                                  >
+                                    <span className={styles.cardMenuItemIcon}>
+                                      <ListTodo size={14} />
+                                    </span>
+                                    <span>{workCount > 0 ? `Open tasks (${workCount})` : 'Add task'}</span>
+                                  </button>
+                                </>
+                              )}
+
+                              {/* Spend section */}
+                              {projectId && (
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className={styles.cardMenuItem}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setOpenMenuId(null);
+                                    const qtyRaw = parseFloat(String(record.quantity ?? ""));
+                                    const quantity = Number.isFinite(qtyRaw) ? qtyRaw : 0;
+                                    const basisUnit = resolvePricingBasisUnitCost(record);
+                                    const costTargetTotal =
+                                      quantity > 0 && basisUnit > 0 ? Math.round(basisUnit * quantity * 100) / 100 : null;
+                                    setAllocationDrawerItem({
+                                      id: record.budgetItemId,
+                                      name: record.description ? String(record.description) : undefined,
+                                      costTargetTotal,
+                                    });
+                                    setAllocationDrawerOpen(true);
+                                  }}
+                                >
+                                  <span className={styles.cardMenuItemIcon}>
+                                    <DollarSign size={14} />
+                                  </span>
+                                  <span>View allocations</span>
+                                </button>
+                              )}
+
+                              {/* Admin section */}
+                              <div className={styles.cardMenuDivider} />
                               <button
                                 type="button"
                                 role="menuitem"
@@ -1005,7 +963,7 @@ const BudgetItemsTable: React.FC<BudgetItemsTableProps> = React.memo(
                                 }}
                               >
                                 <span className={styles.cardMenuItemIcon}>
-                                  <FontAwesomeIcon icon={faClone} />
+                                  <Copy size={14} />
                                 </span>
                                 <span>Duplicate</span>
                               </button>

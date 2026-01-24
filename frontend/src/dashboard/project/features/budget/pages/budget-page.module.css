@@ -658,6 +658,83 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Date chip button - replaces Coverage */
+.dateChipButton {
+  border: none;
+  background: rgba(139, 92, 246, 0.08);
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: var(--sheet-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dateChipButton:hover,
+.dateChipButton:focus-visible {
+  background: rgba(139, 92, 246, 0.16);
+  color: #a78bfa;
+}
+
+.dateChipButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dateChipPlaceholder {
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+}
+
+.dateBadge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.dateChipOverdue {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+.dateChipOverdue .dateBadge {
+  background: rgba(239, 68, 68, 0.24);
+  color: #fca5a5;
+}
+
+.dateChipToday {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+}
+
+.dateChipToday .dateBadge {
+  background: rgba(251, 191, 36, 0.24);
+  color: #fcd34d;
+}
+
+.dateChipThisWeek {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+}
+
+.dateChipThisWeek .dateBadge {
+  background: rgba(34, 197, 94, 0.24);
+  color: #86efac;
+}
+
+/* Context menu divider */
+.cardMenuDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 4px 8px;
+}
+
 .workCoverage {
   display: flex;
   align-items: center;
