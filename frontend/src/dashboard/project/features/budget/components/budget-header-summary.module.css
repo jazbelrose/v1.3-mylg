@@ -313,6 +313,17 @@
   color: rgba(241, 245, 249, 0.68);
 }
 
+.marginChip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(241, 245, 249, 0.12);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(241, 245, 249, 0.85);
+  letter-spacing: 0.02em;
+}
+
 .finalCard {
   background: linear-gradient(155deg, rgba(17, 24, 39, 0.94), var(--budget-accent-chip-active));
   border-color: var(--budget-accent-border);

@@ -95,6 +95,7 @@ interface SummaryCardProps {
   tag: string;
   value: string;
   description: React.ReactNode;
+  tooltip?: string;
   onClick?: () => void;
   active?: boolean;
   className?: string;
@@ -115,6 +116,7 @@ interface MetricConfig {
   value: string;
   chartValue: number;
   description: React.ReactNode;
+  tooltip?: string;
   field: MetricField;
   sticky?: boolean;
   extra?: React.ReactNode;
@@ -221,6 +223,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
   tag,
   value,
   description,
+  tooltip,
   onClick,
   active,
   className = "",
@@ -255,13 +258,14 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
         onClick && typeof ariaPressed === "boolean" ? ariaPressed : undefined
       }
       onKeyDown={handleKeyDown}
+      title={tooltip}
     >
       <div className={summaryStyles.cardHeader}>
         <div className={summaryStyles.cardIcon} style={{ background: color }}>
           {typeof icon === "object" && "iconName" in (icon as IconDefinition) ? (
             <FontAwesomeIcon icon={icon as IconDefinition} />
           ) : (
-            icon
+            icon as React.ReactNode
           )}
         </div>
         <span className={summaryStyles.cardTag}>{tag}</span>
@@ -272,7 +276,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
       <div className={summaryStyles.cardBody}>
         <div className={summaryStyles.cardTitle}>{title}</div>
         <div className={summaryStyles.cardValue}>{value}</div>
-        <div className={summaryStyles.cardDesc}>{description}</div>
+        {description ? <div className={summaryStyles.cardDesc}>{description}</div> : null}
       </div>
     </div>
   );
@@ -463,6 +467,11 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
       ? `Remaining ${formatSignedUSD(remaining)}`
       : "No allocations yet";
 
+    // Compute margin percentage for display
+    const marginPercent = clientPriceTotal > 0
+      ? Math.round((totalMargin / clientPriceTotal) * 100)
+      : 0;
+
     return [
       {
         title: "Target" as MetricTitle,
@@ -471,7 +480,8 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
         color: CHART_COLORS[4] ?? CHART_COLORS[0],
         value: targetDisplay,
         chartValue: targetValue,
-        description: "Client stated budget",
+        description: null,
+        tooltip: "Client stated budget",
         field: null,
         sticky: true,
         onSelect: handleOpenBallpark,
@@ -485,7 +495,8 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
         color: CHART_COLORS[0],
         value: formatUSD(costTotal),
         chartValue: costTotal,
-        description: "Uses Actual if present, else Planned",
+        description: null,
+        tooltip: "Uses Actual if present, else Planned",
         field: "costBasis",
         sticky: true,
         onSelect: handleSelectCost,
@@ -499,12 +510,8 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
         color: CHART_COLORS[1],
         value: spendValue,
         chartValue: spend,
-        description: (
-          <>
-            <span style={{ display: "block" }}>Bank-linked truth</span>
-            <span style={{ display: "block" }}>{remainingText}</span>
-          </>
-        ),
+        description: hasAllocationData && spend > 0 ? `${formatSignedUSD(remaining)} left` : null,
+        tooltip: hasAllocationData ? `Bank-linked spend · Remaining ${formatSignedUSD(remaining)}` : "No bank allocations yet",
         field: null,
         isSelectable: false,
         onSelect: undefined,
@@ -514,21 +521,13 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
       },
       {
         title: "Margin" as MetricTitle,
-        tag: "TOTAL PROFIT",
+        tag: "PROFIT",
         icon: faPercent,
         color: CHART_COLORS[2],
         value: formatUSD(totalMargin),
         chartValue: totalMargin,
-        description: (
-          <>
-            <span style={{ display: "block" }}>
-              {clientPriceTotal > 0
-                ? `${((totalMargin / clientPriceTotal) * 100).toFixed(1)}% margin`
-                : "—"}
-            </span>
-            <span style={{ display: "block" }}>{marginDescription}</span>
-          </>
-        ),
+        description: <span className={summaryStyles.marginChip}>{marginPercent}%</span>,
+        tooltip: `${marginPercent}% margin · ${marginDescription}`,
         field: "markupAmount",
         isPercentage: false,
         ariaLabel: "Total profit from vendor markups and internal labor",
@@ -542,7 +541,8 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
         color: CHART_COLORS[3],
         value: formatUSD(clientPriceTotal),
         chartValue: clientPriceTotal,
-        description: "Computed from Cost + Markup",
+        description: "Final price due",
+        tooltip: "Computed from Cost + Markup",
         field: "itemFinalCost",
         sticky: true,
         onSelect: handleSelectClientPrice,
@@ -584,7 +584,12 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
 
   const finalMetricTitle = finalMetric?.title ?? "Client Total";
   const finalMetricDescription = finalMetric?.description ?? "Computed sell";
-  const finalMetricIcon = finalMetric?.icon ?? faFileInvoiceDollar;
+  // Cast icon safely - we know our metrics use IconDefinition for icons
+  const rawIcon = finalMetric?.icon;
+  const finalMetricIcon: IconDefinition =
+    rawIcon && typeof rawIcon === "object" && "iconName" in (rawIcon as IconDefinition)
+      ? (rawIcon as IconDefinition)
+      : faFileInvoiceDollar;
 
   const handleBallparkSave = async (val: number) => {
     // If the header doesn't exist yet, delegate up — parent will create it once
@@ -992,6 +997,7 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
                 tag={m.tag}
                 value={m.value}
                 description={m.description}
+                tooltip={m.tooltip}
                 className={[
                   m.sticky ? summaryStyles.stickyCard : "",
                   m.title === "Client Total" ? summaryStyles.finalCard : "",
@@ -1020,6 +1026,7 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
                 tag={m.tag}
                 value={m.value}
                 description={m.description}
+                tooltip={m.tooltip}
                 className={[
                   m.sticky ? summaryStyles.stickyCard : "",
                   m.title === "Client Total" ? summaryStyles.finalCard : "",
