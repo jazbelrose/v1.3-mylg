@@ -1129,7 +1129,7 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
       if (isCostType) {
         const costTypeConfig = COST_TYPE_CONFIG[item.costType as CostType] || COST_TYPE_CONFIG.vendor;
         control = (
-          <div className={styles.costTypeContainer}>
+          <div className={styles.costTypeContainer} title={costTypeConfig.description}>
             <select
               name="costType"
               value={item.costType || "vendor"}
@@ -1141,7 +1141,6 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
                 </option>
               ))}
             </select>
-            <span className={styles.costTypeHint}>{costTypeConfig.description}</span>
           </div>
         );
       } else {
@@ -1291,19 +1290,22 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
             <header className={styles.modalHeader}>
               <div className={styles.headerText}>
                 <h2 className={styles.modalTitle}>{title}</h2>
-                <p className={styles.modalSubtitle}>
-                  Capture every detail about your budget line item with structured sections and live totals.
-                </p>
+                <p className={styles.modalSubtitle}>Configure costs, vendors, and attachments.</p>
               </div>
               <div className={styles.headerActions}>
-                <span className={styles.revisionPill}>Rev. {revision}</span>
+                <span className={styles.revisionPill}>Rev {revision}</span>
                 <button type="button" className={styles.closeButton} onClick={() => handleClose()} aria-label="Close">
                   <FontAwesomeIcon icon={faXmark} />
                 </button>
               </div>
             </header>
           <div className={styles.modalBody} onClick={handleFormBodyClick}>
-            {SECTION_DEFINITIONS.map((section) => (
+            {SECTION_DEFINITIONS.map((section) => {
+              const gridClass = 
+                section.id === "details" ? styles.fieldGridDetails :
+                section.id === "financials" ? styles.fieldGridFinancials :
+                styles.fieldGrid;
+              return (
               <section key={section.id} className={styles.section}>
                 <div className={styles.sectionHeader}>
                   <h3 className={styles.sectionTitle}>{section.title}</h3>
@@ -1311,46 +1313,12 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
                     <p className={styles.sectionDescription}>{section.description}</p>
                   ) : null}
                 </div>
-                <div className={styles.fieldGrid}>
+                <div className={gridClass}>
                   {section.fields.map((fieldName) => renderField(fieldName))}
-                  {section.id === "financials" ? (
-                    <div className={`${styles.field} ${styles.fieldFullWidth}`}>
-                      <span className={styles.fieldLabel}>Spend (linked)</span>
-                      <div className={styles.spendRow}>
-                        <input
-                          type="text"
-                          value={
-                            spendLoading
-                              ? "Loading…"
-                              : spendError
-                              ? "—"
-                              : spendTotal != null
-                              ? formatUSD(spendTotal)
-                              : "—"
-                          }
-                          disabled
-                        />
-                        <button
-                          type="button"
-                          className={styles.spendButton}
-                          onClick={() => setSpendDrawerOpen(true)}
-                          disabled={
-                            !activeProject?.projectId ||
-                            typeof item.budgetItemId !== "string" ||
-                            item.budgetItemId.trim() === ""
-                          }
-                        >
-                          View
-                        </button>
-                      </div>
-                      <div className={styles.spendHint}>
-                        Bank-linked truth (read-only). Link/unlink via HQ allocations.
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               </section>
-            ))}
+            );
+            })}
             <section className={styles.section}>
               <div className={styles.sectionHeader}>
                 <h3 className={styles.sectionTitle}>Attachments</h3>

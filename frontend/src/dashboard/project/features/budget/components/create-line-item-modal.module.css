@@ -8,13 +8,13 @@
   overflow: hidden;
   overscroll-behavior: contain;
   background: var(--overlay-color);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
 }
 
 @media (min-width: 720px) {
   .sheetOverlay {
     align-items: center;
-    padding: clamp(20px, 4vh, 48px) 0;
+    padding: clamp(16px, 3vh, 32px) 16px;
   }
 }
 
@@ -23,25 +23,28 @@
   --line-item-accent-rgb: 250, 51, 86;
   --line-item-accent-gradient-start: color-mix(in srgb, var(--color-accent) 88%, white 12%);
   --line-item-accent-gradient-end: color-mix(in srgb, var(--color-accent) 82%, black 18%);
-  --sheet-surface: color-mix(in srgb, var(--bg3) 96%, transparent);
-  --sheet-surface-muted: color-mix(in srgb, var(--bg2) 82%, transparent);
-  --sheet-surface-strong: color-mix(in srgb, var(--bg3) 88%, black 12%);
-  --sheet-border: color-mix(in srgb, var(--border-color) 75%, transparent);
+  --sheet-surface: color-mix(in srgb, var(--bg3) 98%, transparent);
+  --sheet-surface-muted: color-mix(in srgb, var(--bg2) 85%, transparent);
+  --sheet-surface-strong: color-mix(in srgb, var(--bg3) 90%, black 10%);
+  --sheet-border: color-mix(in srgb, var(--border-color) 60%, transparent);
+  --sheet-border-subtle: color-mix(in srgb, var(--border-color) 40%, transparent);
   --sheet-text-muted: color-mix(in srgb, var(--text) 68%, transparent);
-  --sheet-text-soft: color-mix(in srgb, var(--text) 54%, transparent);
-  width: min(640px, 100%);
-  max-height: calc(100vh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+  --sheet-text-soft: color-mix(in srgb, var(--text) 50%, transparent);
+  width: min(720px, 100%);
+  max-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
   background: var(--sheet-surface);
   border: 1px solid var(--sheet-border);
-  border-radius: 22px 22px 0 0;
+  border-radius: 20px 20px 0 0;
   display: flex;
   flex-direction: column;
   color: var(--text);
-  box-shadow: 0 36px 68px rgba(0, 0, 0, 0.55);
+  box-shadow:
+    0 -1px 0 0 rgba(255, 255, 255, 0.06) inset,
+    0 24px 48px -12px rgba(0, 0, 0, 0.5),
+    0 48px 80px rgba(0, 0, 0, 0.35);
   isolation: isolate;
-  mix-blend-mode: normal;
   overflow: hidden;
-  transition: transform 0.3s ease, opacity 0.25s ease;
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease;
 }
 
 .sheetModalDragging {
@@ -50,20 +53,21 @@
 
 @media (min-width: 720px) {
   .sheetModal {
-    border-radius: 22px;
+    border-radius: 16px;
     margin: 0 auto;
+    max-height: min(97dvh, 1040px);
   }
 }
 
 @media (min-width: 1024px) {
   .sheetOverlay {
-    padding: clamp(32px, 6vh, 72px) 0;
+    padding: clamp(8px, 1.5vh, 16px) 24px;
   }
 
   .sheetModal {
-    width: min(1024px, 100%);
-    max-height: calc(100vh - clamp(72px, 12vh, 128px));
-    border-radius: 28px;
+    width: min(800px, 100%);
+    max-height: min(98dvh, 1080px);
+    border-radius: 18px;
   }
 }
 
@@ -72,12 +76,19 @@
 }
 
 .grabZone {
+  flex-shrink: 0;
   display: flex;
   justify-content: center;
-  padding: 14px 0 6px 0;
+  padding: 10px 0 4px 0;
   touch-action: none;
   cursor: grab;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.15s ease;
+}
+
+@media (min-width: 720px) {
+  .grabZone {
+    display: none;
+  }
 }
 
 .grabZone:hover {
@@ -90,15 +101,15 @@
 }
 
 .grabHandle {
-  width: 68px;
-  height: 5px;
+  width: 40px;
+  height: 4px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--text) 45%, transparent);
-  transition: background 0.2s ease;
+  background: color-mix(in srgb, var(--text) 35%, transparent);
+  transition: background 0.15s ease;
 }
 
 .grabZone:hover .grabHandle {
-  background: color-mix(in srgb, var(--text) 70%, transparent);
+  background: color-mix(in srgb, var(--text) 55%, transparent);
 }
 
 .sheetForm {
@@ -106,209 +117,348 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
+/* Sticky Header */
 .modalHeader {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 0 clamp(22px, 5vw, 36px);
-  padding-bottom: 16px;
+  gap: 12px;
+  padding: 14px clamp(16px, 4vw, 24px);
+  background: var(--sheet-surface);
+  border-bottom: 1px solid var(--sheet-border-subtle);
+  backdrop-filter: blur(12px);
+  flex-shrink: 0;
 }
 
 .headerText {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 2px;
+  min-width: 0;
 }
 
 .modalTitle {
   margin: 0;
-  font-size: clamp(1.35rem, 3vw, 1.75rem);
+  font-size: clamp(1rem, 2.5vw, 1.15rem);
   font-weight: 600;
   letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .modalSubtitle {
   margin: 0;
-  color: var(--sheet-text-muted);
-  font-size: 0.95rem;
-  line-height: 1.5;
+  color: var(--sheet-text-soft);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  display: none;
+}
+
+@media (min-width: 720px) {
+  .modalSubtitle {
+    display: block;
+  }
 }
 
 .headerActions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .revisionPill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-  color: color-mix(in srgb, var(--text) 85%, transparent);
-  font-size: 0.85rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--line-item-accent) 12%, transparent);
+  color: color-mix(in srgb, var(--line-item-accent) 85%, white 15%);
+  font-size: 0.7rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .closeButton {
   border: none;
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-  color: var(--text);
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--sheet-text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .closeButton:hover {
-  background: color-mix(in srgb, var(--text) 16%, transparent);
-  transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  color: var(--text);
 }
 
 .closeButton:active {
-  transform: translateY(0);
+  background: color-mix(in srgb, var(--text) 16%, transparent);
 }
 
+/* Scrollable Body */
 .modalBody {
   flex: 1 1 auto;
   overflow-y: auto;
-  scrollbar-width: none;
-  padding: 0 clamp(22px, 5vw, 36px) clamp(108px, 12vh, 128px);
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text) 20%, transparent) transparent;
+  padding: 0 clamp(14px, 4vw, 24px) 12px;
+  min-height: 0;
 }
 
 .modalBody::-webkit-scrollbar {
-  display: none;
+  width: 6px;
 }
 
+.modalBody::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modalBody::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text) 18%, transparent);
+  border-radius: 3px;
+}
+
+.modalBody::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text) 28%, transparent);
+}
+
+/* Compact Sections */
 .section {
-  padding: 22px 0;
-  border-bottom: 1px solid var(--sheet-border);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--sheet-border-subtle);
+}
+
+.section:first-of-type {
+  padding-top: 8px;
 }
 
 .section:last-of-type {
   border-bottom: none;
-  padding-bottom: 0;
+  padding-bottom: 8px;
 }
 
 .sectionHeader {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 16px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .sectionTitle {
   margin: 0;
-  font-size: 1.08rem;
+  font-size: 0.65rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--text);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sheet-text-soft);
 }
 
 .sectionDescription {
   margin: 0;
-  color: var(--sheet-text-muted);
-  font-size: 0.92rem;
-  line-height: 1.45;
+  color: var(--sheet-text-soft);
+  font-size: 0.65rem;
+  line-height: 1.3;
+  display: none;
+}
+
+@media (min-width: 720px) {
+  .sectionDescription {
+    display: inline;
+  }
+  
+  .sectionHeader {
+    gap: 6px;
+  }
+  
+  .sectionTitle::after {
+    content: "—";
+    margin-left: 6px;
+    opacity: 0.4;
+  }
 }
 
 .fieldGrid {
   display: grid;
-  gap: 14px 18px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 480px) {
+  .fieldGrid {
+    gap: 10px;
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 720px) {
+  .fieldGrid {
+    gap: 10px 12px;
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Details section: all fields stretch evenly on one row */
+.fieldGridDetails {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 480px) {
+  .fieldGridDetails {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 720px) {
+  .fieldGridDetails {
+    gap: 10px;
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .fieldGridDetails {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* Financials section: all core fields stretch evenly on one row */
+.fieldGridFinancials {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 480px) {
+  .fieldGridFinancials {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 720px) {
+  .fieldGridFinancials {
+    gap: 10px;
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* Compact field variant for inline rows */
+.fieldCompact {
+  padding: 8px 10px;
+}
+
+.fieldCompact .fieldLabel {
+  font-size: 0.62rem;
+}
+
+.fieldCompact input,
+.fieldCompact select {
+  padding: 6px 8px;
+  font-size: 0.82rem;
 }
 
 .attachmentsDropzone {
   display: flex;
   align-items: center;
   width: 100%;
-  border-radius: 16px;
+  border-radius: 10px;
   border: 1px dashed var(--sheet-border);
   background: var(--sheet-surface-muted);
-  padding: 18px;
-  gap: 16px;
+  padding: 12px 14px;
+  gap: 12px;
   cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .attachmentsDropzoneActive {
-  border-color: color-mix(in srgb, var(--line-item-accent) 65%, var(--sheet-border) 35%);
-  background: color-mix(in srgb, var(--line-item-accent) 8%, var(--sheet-surface-muted));
+  border-color: color-mix(in srgb, var(--line-item-accent) 60%, var(--sheet-border) 40%);
+  background: color-mix(in srgb, var(--line-item-accent) 6%, var(--sheet-surface-muted));
 }
 
 .attachmentsDropzoneContent {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
 }
 
 .attachmentsDropzoneIcon {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--line-item-accent) 18%, transparent);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--line-item-accent) 14%, transparent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--text);
-  font-size: 1rem;
+  color: color-mix(in srgb, var(--line-item-accent) 80%, white 20%);
+  font-size: 0.85rem;
+  flex-shrink: 0;
 }
 
 .attachmentsDropzoneText {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
+  min-width: 0;
 }
 
 .attachmentsDropzoneLabel {
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 0.85rem;
 }
 
 .attachmentsActions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .attachmentsFromProjectButton {
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary, #f6f7fb);
-  padding: 6px 14px;
-  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--sheet-border);
+  background: transparent;
+  color: var(--sheet-text-muted);
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .attachmentsFromProjectButton:hover:not(:disabled),
 .attachmentsFromProjectButton:focus-visible {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.4);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
   outline: none;
 }
 
 .attachmentsFromProjectButton:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .attachmentsDropzoneHint {
-  font-size: 0.85rem;
-  color: var(--sheet-text-muted);
+  font-size: 0.75rem;
+  color: var(--sheet-text-soft);
 }
 
 .hiddenFileInput {
@@ -316,32 +466,33 @@
 }
 
 .attachmentsHint {
-  margin-top: 8px;
-  font-size: 0.85rem;
+  margin-top: 6px;
+  font-size: 0.75rem;
   color: var(--sheet-text-soft);
 }
 
 .attachmentError {
-  margin-top: 6px;
-  font-size: 0.85rem;
+  margin-top: 4px;
+  font-size: 0.8rem;
   color: var(--color-error);
 }
 
 .attachmentList {
-  margin-top: 12px;
+  margin-top: 8px;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .attachmentChip {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--sheet-border);
-  background: var(--sheet-surface-strong);
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--sheet-border-subtle);
+  background: var(--sheet-surface-muted);
+  font-size: 0.8rem;
 }
 
 .attachmentLink {
@@ -406,27 +557,28 @@
   color: color-mix(in srgb, var(--color-error) 80%, transparent);
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1024px) {
   .fieldGrid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid var(--sheet-border);
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--sheet-border-subtle);
   background: var(--sheet-surface-muted);
-  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  min-width: 0;
+  width: 100%;
 }
 
 .field:focus-within {
-  border-color: color-mix(in srgb, var(--line-item-accent) 65%, var(--sheet-border) 35%);
-  background: color-mix(in srgb, var(--line-item-accent) 8%, var(--sheet-surface-muted));
-  box-shadow: 0 14px 32px rgba(var(--line-item-accent-rgb), 0.25);
+  border-color: color-mix(in srgb, var(--line-item-accent) 50%, var(--sheet-border) 50%);
+  background: color-mix(in srgb, var(--line-item-accent) 5%, var(--sheet-surface-muted));
 }
 
 .fieldFullWidth {
@@ -434,11 +586,11 @@
 }
 
 .fieldLabel {
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--text) 82%, transparent);
+  color: var(--sheet-text-soft);
 }
 
 .field input,
@@ -446,14 +598,14 @@
 .field select {
   width: 100%;
   border: none;
-  border-radius: 12px;
+  border-radius: 6px;
   background: var(--sheet-surface-strong);
   color: var(--text);
-  padding: 10px 12px;
-  font-size: 0.95rem;
+  padding: 5px 7px;
+  font-size: 0.72rem;
   font-family: inherit;
-  transition: background 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-color) 35%, transparent);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-color) 25%, transparent);
   appearance: none;
 }
 
@@ -461,23 +613,22 @@
 .field textarea:focus,
 .field select:focus {
   outline: none;
-  background: color-mix(in srgb, var(--sheet-surface-strong) 92%, var(--line-item-accent) 8%);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--line-item-accent) 80%, transparent),
-    0 16px 28px rgba(var(--line-item-accent-rgb), 0.25);
+  background: color-mix(in srgb, var(--sheet-surface-strong) 95%, var(--line-item-accent) 5%);
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--line-item-accent) 70%, transparent);
 }
 
 .field input:disabled,
 .field textarea:disabled,
 .field select:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-color) 25%, transparent);
+  box-shadow: none;
 }
 
 .spendRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .spendRow input {
@@ -485,55 +636,49 @@
 }
 
 .spendButton {
-  border-radius: 12px;
-  padding: 10px 14px;
-  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-  color: var(--text);
+  border-radius: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--sheet-border);
+  background: transparent;
+  color: var(--sheet-text-muted);
   cursor: pointer;
-  font-weight: 600;
-  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .spendButton:hover:not(:disabled),
 .spendButton:focus-visible {
-  background: color-mix(in srgb, var(--text) 15%, transparent);
-  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
 }
 
 .spendButton:disabled {
-  opacity: 0.6;
+  opacity: 0.4;
   cursor: not-allowed;
-  transform: none;
 }
 
 .spendHint {
-  margin-top: 8px;
-  font-size: 0.88rem;
+  margin-top: 4px;
+  font-size: 0.72rem;
   color: var(--sheet-text-soft);
 }
 
-/* Cost Type field with description hint */
+/* Cost Type field - tooltip only, no visible hint */
 .costTypeContainer {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .costTypeContainer select {
   width: 100%;
 }
 
-.costTypeHint {
-  font-size: 0.82rem;
-  color: var(--sheet-text-soft);
-  font-style: italic;
-}
-
 .field textarea {
-  min-height: 128px;
+  min-height: 72px;
   resize: vertical;
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
 .field input[type="number"] {
@@ -592,44 +737,49 @@
   );
 }
 
+/* Sticky Footer */
 .modalFooter {
   position: sticky;
   bottom: 0;
+  z-index: 10;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  margin-top: auto;
-  padding: 20px clamp(22px, 5vw, 36px) max(28px, env(safe-area-inset-bottom) + 24px);
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    color-mix(in srgb, var(--sheet-surface) 92%, transparent) 28%,
-    color-mix(in srgb, var(--sheet-surface) 98%, transparent) 100%
-  );
-  border-top: 1px solid var(--sheet-border);
+  flex-shrink: 0;
+  padding: 12px clamp(14px, 4vw, 24px) max(14px, env(safe-area-inset-bottom) + 12px);
+  background: var(--sheet-surface);
+  border-top: 1px solid var(--sheet-border-subtle);
+  backdrop-filter: blur(12px);
 }
 
 .shortcutHint {
-  font-size: 0.85rem;
+  font-size: 0.72rem;
   color: var(--sheet-text-soft);
+  display: none;
+}
+
+@media (min-width: 480px) {
+  .shortcutHint {
+    display: block;
+  }
 }
 
 .footerActions {
   display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .primaryButton,
 .secondaryButton {
-  border-radius: 12px;
-  padding: 12px 22px;
-  font-size: 0.95rem;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 0.85rem;
   font-weight: 600;
   border: none;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transition: transform 0.15s ease, opacity 0.15s ease;
   font-family: inherit;
 }
 
@@ -639,32 +789,31 @@
     var(--line-item-accent-gradient-start),
     var(--line-item-accent-gradient-end)
   );
-  color: var(--primary-color);
-  box-shadow: 0 14px 28px rgba(var(--line-item-accent-rgb), 0.35);
+  color: white;
+  box-shadow: 0 2px 8px rgba(var(--line-item-accent-rgb), 0.3);
 }
 
 .primaryButton:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 16px 34px rgba(var(--line-item-accent-rgb), 0.45);
+  opacity: 0.9;
 }
 
 .primaryButton:active {
-  transform: translateY(0);
+  transform: scale(0.98);
 }
 
 .secondaryButton {
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-  color: var(--text);
-  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  background: transparent;
+  color: var(--sheet-text-muted);
+  border: 1px solid var(--sheet-border);
 }
 
 .secondaryButton:hover {
-  background: color-mix(in srgb, var(--text) 15%, transparent);
-  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
 }
 
 .secondaryButton:active {
-  transform: translateY(0);
+  transform: scale(0.98);
 }
 
 .eventsSection {
@@ -893,14 +1042,40 @@
   transform: translateY(16px);
 }
 
+/* Mobile Optimizations */
 @media (max-width: 719px) {
   .sheetModal {
-    border-radius: 22px 22px 0 0;
+    border-radius: 16px 16px 0 0;
     width: 100%;
+    max-height: calc(100dvh - max(8px, env(safe-area-inset-top)));
+  }
+
+  .modalHeader {
+    padding: 12px 16px;
   }
 
   .modalFooter {
-    padding-left: max(18px, env(safe-area-inset-left));
-    padding-right: max(18px, env(safe-area-inset-right));
+    padding: 10px max(16px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-bottom) + 8px) max(16px, env(safe-area-inset-right));
+  }
+
+  .primaryButton,
+  .secondaryButton {
+    padding: 10px 14px;
+    font-size: 0.82rem;
+  }
+
+  .field {
+    padding: 8px 10px;
+  }
+
+  .section {
+    padding: 10px 0;
+  }
+}
+
+/* Tablet Optimizations */
+@media (min-width: 720px) and (max-width: 1023px) {
+  .sheetModal {
+    width: min(680px, calc(100% - 32px));
   }
 }
