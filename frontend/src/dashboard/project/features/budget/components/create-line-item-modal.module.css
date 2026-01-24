@@ -513,6 +513,23 @@
   color: var(--sheet-text-soft);
 }
 
+/* Cost Type field with description hint */
+.costTypeContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.costTypeContainer select {
+  width: 100%;
+}
+
+.costTypeHint {
+  font-size: 0.82rem;
+  color: var(--sheet-text-soft);
+  font-style: italic;
+}
+
 .field textarea {
   min-height: 128px;
   resize: vertical;

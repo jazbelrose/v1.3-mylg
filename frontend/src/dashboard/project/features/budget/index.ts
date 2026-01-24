@@ -23,6 +23,16 @@ export { default as BudgetDonut } from "./components/BudgetDonut";
 export { default as BudgetProvider } from "./context/BudgetProvider";
 export { default as useBudget } from "./context/useBudget";
 
+// Types
+export type { CostType } from "./context/types";
+export { COST_TYPE_CONFIG, COST_TYPE_OPTIONS } from "./context/types";
+export type {
+  BudgetStats,
+  BudgetLineAllocationSummary,
+  PieDataItem,
+  BudgetWebSocketOperations,
+} from "./context/types";
+
 
 
 

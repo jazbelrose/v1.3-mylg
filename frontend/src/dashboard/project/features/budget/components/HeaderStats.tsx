@@ -37,10 +37,12 @@ import mobileStyles from "./budget-header-mobile.module.css";
    Types
    ========================= */
 
+import type { CostType } from "@/dashboard/project/features/budget/context/types";
+
 type MetricTitle =
   | "Target"
   | "Cost"
-  | "Effective Markup"
+  | "Margin"
   | "Client Price"
   | "Spend";
 
@@ -53,6 +55,9 @@ export interface BudgetItem {
   invoiceGroup?: string;
   category?: string;
   quantity?: string | number;
+
+  // Cost type determines profit calculation
+  costType?: CostType;
 
   // numeric fields (string or number in data; we coerce with parseBudget)
   itemBudgetedCost?: string | number;
@@ -386,15 +391,47 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
     const targetValue = toNumber(budgetHeader?.headerBallPark);
     const targetDisplay = targetValue > 0 ? formatUSD(targetValue) : "Set target";
 
-    // Effective pricing basis: Actual (quote-updated plan) overrides Planned per-line.
-    const costTotal = budgetItems.reduce((sum, it) => {
-      const qty = toQuantity(it.quantity);
-      const basisUnit =
-        toNumber(it.itemActualCost) || toNumber(it.itemBudgetedCost) || toNumber(it.itemReconciledCost);
-      return sum + qty * basisUnit;
-    }, 0);
+    // Calculate cost totals by type for profit breakdown
+    let vendorCost = 0;      // Cost of vendor items (profit = markup)
+    let internalRevenue = 0; // Revenue from internal items (entire amount = profit)
+    let atCostTotal = 0;     // At-cost items (no profit)
 
-    const markupDiff = clientPriceTotal - costTotal;
+    budgetItems.forEach((item) => {
+      const qty = toQuantity(item.quantity);
+      const costType = (item.costType as CostType) || "vendor";
+
+      // Get cost basis (Actual > Budgeted > Reconciled)
+      const basisUnit =
+        toNumber(item.itemActualCost) ||
+        toNumber(item.itemBudgetedCost) ||
+        toNumber(item.itemReconciledCost);
+      const lineCost = qty * basisUnit;
+      const linePrice = qty * toNumber(item.itemFinalCost);
+
+      switch (costType) {
+        case "vendor":
+          vendorCost += lineCost;
+          break;
+        case "internal":
+          // For internal: the billed amount IS profit (no real cost)
+          internalRevenue += linePrice || lineCost; // Use price if available, else cost
+          break;
+        case "at-cost":
+          atCostTotal += lineCost;
+          break;
+      }
+    });
+
+    // Total cost shown = vendor costs + at-cost items (internal has no cost)
+    const costTotal = vendorCost + atCostTotal;
+    
+    // Total margin = Client Price - Cost (same as original calculation)
+    const totalMargin = clientPriceTotal - costTotal;
+    
+    // Breakdown: vendor margin = totalMargin - internal revenue
+    // (since internal revenue is 100% profit, vendor margin is the rest)
+    const vendorMargin = totalMargin - internalRevenue;
+    const laborMargin = internalRevenue;
 
     const formatSignedUSD = (value: number, options?: { plus?: boolean }) => {
       if (!Number.isFinite(value)) return "—";
@@ -405,12 +442,13 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
       return abs;
     };
 
-    const markupValue = costTotal
-      ? (() => {
-          const percent = Math.round((markupDiff / costTotal) * 100);
-          return `${percent}% (${formatSignedUSD(markupDiff, { plus: true })})`;
-        })()
-      : "N/A";
+    // Build margin description showing breakdown
+    const marginBreakdown: string[] = [];
+    if (vendorMargin > 0) marginBreakdown.push(`Vendor ${formatUSD(vendorMargin)}`);
+    if (laborMargin > 0) marginBreakdown.push(`Labor ${formatUSD(laborMargin)}`);
+    const marginDescription = marginBreakdown.length > 0
+      ? marginBreakdown.join(" · ")
+      : "Markup vs Cost";
 
     const hasAllocationData = allocatedTotal !== null;
     const spend = allocatedTotal ?? 0;
@@ -475,16 +513,16 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
         disablePointer: true,
       },
       {
-        title: "Effective Markup" as MetricTitle,
-        tag: "Effective",
+        title: "Margin" as MetricTitle,
+        tag: "TOTAL PROFIT",
         icon: faPercent,
         color: CHART_COLORS[2],
-        value: markupValue,
-        chartValue: markupDiff,
-        description: "Markup vs Cost",
+        value: formatUSD(totalMargin),
+        chartValue: totalMargin,
+        description: marginDescription,
         field: "markupAmount",
-        isPercentage: true,
-        ariaLabel: "Effective markup compared to cost totals",
+        isPercentage: false,
+        ariaLabel: "Total profit from vendor markups and internal labor",
         isSelectable: false,
         onSelect: undefined,
       },
@@ -834,7 +872,7 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
           : metrics.find((m) => m.title === selectedMetric);
       const isPercent =
         (metric as { isPercentage?: boolean })?.isPercentage &&
-        (groupBy === "none" ? slice.label !== "Effective Markup" : selectedMetric !== "Effective Markup");
+        (groupBy === "none" ? slice.label !== "Margin" : selectedMetric !== "Margin");
       const rounded = Math.round(slice.value);
       const value = isPercent ? `${rounded}%` : formatUSD(rounded);
       return `${slice.label}: ${value}`;

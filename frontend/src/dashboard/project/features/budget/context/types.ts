@@ -1,4 +1,45 @@
 // Types for budget context and selectors
+
+/**
+ * CostType determines how profit is calculated for a budget line item.
+ *
+ * - vendor: External cost with markup applied (profit = cost × markup)
+ * - internal: Internal labor — the entire billed rate is profit
+ * - at-cost: No profit, just tracking (reimbursables, client-paid)
+ */
+export type CostType = "vendor" | "internal" | "at-cost";
+
+export const COST_TYPE_CONFIG: Record<
+  CostType,
+  {
+    label: string;
+    description: string;
+    showMarkup: boolean;
+  }
+> = {
+  vendor: {
+    label: "Vendor",
+    description: "External cost — markup creates profit",
+    showMarkup: true,
+  },
+  internal: {
+    label: "Internal",
+    description: "Your labor — entire rate is profit",
+    showMarkup: false,
+  },
+  "at-cost": {
+    label: "At Cost",
+    description: "No profit — pass-through",
+    showMarkup: false,
+  },
+};
+
+export const COST_TYPE_OPTIONS = [
+  { value: "vendor" as CostType, label: "Vendor" },
+  { value: "internal" as CostType, label: "Internal" },
+  { value: "at-cost" as CostType, label: "At Cost" },
+] as const;
+
 export type BudgetStats = {
   ballpark: number;
   budgetedCost: number;
@@ -11,6 +52,12 @@ export type BudgetStats = {
   variance?: number;
   /** Variance as percentage of budgetedCost */
   variancePercent?: number;
+  /** Profit from vendor markups */
+  vendorProfit?: number;
+  /** Profit from internal labor (entire billed rate) */
+  internalProfit?: number;
+  /** Combined total profit */
+  totalProfit?: number;
 };
 
 export type BudgetLineAllocationSummary = {

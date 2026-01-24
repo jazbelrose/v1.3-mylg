@@ -14,6 +14,11 @@ import { useData } from "@/app/contexts/useData";
 import { useOrg } from "@/app/contexts/useOrg";
 import { generateSequentialPalette } from "@/shared/utils/colorUtils";
 import { fetchHqBudgetLineAllocations } from "@/hq/lib/hqApi";
+import {
+  type CostType,
+  COST_TYPE_CONFIG,
+  COST_TYPE_OPTIONS,
+} from "@/dashboard/project/features/budget/context/types";
 
 if (typeof document !== "undefined") {
   Modal.setAppElement("#root");
@@ -51,6 +56,7 @@ export interface ItemForm extends Record<string, unknown> {
   quantity: number | string;
   unit: string;
 
+  costType: CostType; // vendor, internal, or at-cost
   itemBudgetedCost: MoneyLike;
   itemActualCost: MoneyLike;
   itemReconciledCost: MoneyLike;
@@ -136,6 +142,8 @@ const PAYMENT_STATUS_OPTIONS = ["PAID", "PARTIAL", "UNPAID"] as const;
 const UNIT_OPTIONS = ["Each", "Hrs", "Days", "EA", "PCS", "Box", "LF", "SQFT", "KG"] as const;
 
 const TOOLTIP_TEXT: Partial<Record<keyof ItemForm, string>> = {
+  costType:
+    "Vendor = markup profit, Internal = entire rate is profit, At Cost = no profit.",
   itemBudgetedCost:
     "Planned Cost (forecast). Used for pricing until Actual Cost is entered.",
   itemActualCost:
@@ -221,6 +229,7 @@ const fields: FieldDef[] = [
   { name: "description", label: "Description", type: "textarea" },
   { name: "quantity", label: "Quantity", type: "number" },
   { name: "unit", label: "Unit", type: "select", options: UNIT_OPTIONS },
+  { name: "costType", label: "Cost Type", type: "select", options: COST_TYPE_OPTIONS.map((o) => o.label) },
   { name: "itemBudgetedCost", label: "Planned Cost", type: "currency" },
   { name: "itemActualCost", label: "Actual Cost", type: "currency" },
   // Legacy only (historical). Spend is tracked via bank allocations.
@@ -249,6 +258,8 @@ const initialState: ItemForm = fields.reduce<ItemForm>(
       acc[f.name] = "Each";
     } else if (f.name === "itemMarkUp") {
       acc[f.name] = "0%";
+    } else if (f.name === "costType") {
+      acc[f.name] = "vendor";
     } else {
       acc[f.name] = "";
     }
@@ -283,6 +294,7 @@ const SECTION_DEFINITIONS: Array<{
     title: "Financials",
     description: "Edit planned + actual costs, track bank spend, and compute client price.",
     fields: [
+      "costType",
       "itemBudgetedCost",
       "itemActualCost",
       "itemMarkUp",
@@ -1076,6 +1088,11 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
     const fieldDef = fieldMap.get(fieldName);
     if (!fieldDef) return null;
 
+    // Hide markup field when costType is not "vendor"
+    if (fieldName === "itemMarkUp" && item.costType !== "vendor") {
+      return null;
+    }
+
     const tooltip = TOOLTIP_TEXT[fieldName];
     const disabled =
       fieldName === "elementKey" ||
@@ -1106,36 +1123,59 @@ const CreateLineItemModal: React.FC<CreateLineItemModalProps> = ({
 
     if (fieldDef.type === "select") {
       const isCategory = fieldName === "category";
-      const selectElement = (
-        <select {...baseProps}>
-          <option hidden value="" />
-          {(fieldDef.options ?? []).map((option) => (
-            <option key={option || "__uncategorized__"} value={option}>
-              {option || (isCategory ? "UNCATEGORIZED" : "")}
-            </option>
-          ))}
-        </select>
-      );
+      const isCostType = fieldName === "costType";
 
-      if (fieldName === "paymentStatus") {
-        const statusValue = String(item[fieldName] ?? "").trim().toUpperCase();
-        const statusClass =
-          statusValue === "PAID"
-            ? styles.paid
-            : statusValue === "PARTIAL"
-            ? styles.partial
-            : statusValue === "UNPAID"
-            ? styles.unpaid
-            : undefined;
-
+      // Special handling for costType - use COST_TYPE_OPTIONS with value mapping
+      if (isCostType) {
+        const costTypeConfig = COST_TYPE_CONFIG[item.costType as CostType] || COST_TYPE_CONFIG.vendor;
         control = (
-          <div className={styles.paymentStatusContainer}>
-            {selectElement}
-            {statusClass ? <span className={`${styles.statusDot} ${statusClass}`} aria-hidden="true" /> : null}
+          <div className={styles.costTypeContainer}>
+            <select
+              name="costType"
+              value={item.costType || "vendor"}
+              onChange={handleChange}
+            >
+              {COST_TYPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <span className={styles.costTypeHint}>{costTypeConfig.description}</span>
           </div>
         );
       } else {
-        control = selectElement;
+        const selectElement = (
+          <select {...baseProps}>
+            <option hidden value="" />
+            {(fieldDef.options ?? []).map((option) => (
+              <option key={option || "__uncategorized__"} value={option}>
+                {option || (isCategory ? "UNCATEGORIZED" : "")}
+              </option>
+            ))}
+          </select>
+        );
+
+        if (fieldName === "paymentStatus") {
+          const statusValue = String(item[fieldName] ?? "").trim().toUpperCase();
+          const statusClass =
+            statusValue === "PAID"
+              ? styles.paid
+              : statusValue === "PARTIAL"
+              ? styles.partial
+              : statusValue === "UNPAID"
+              ? styles.unpaid
+              : undefined;
+
+          control = (
+            <div className={styles.paymentStatusContainer}>
+              {selectElement}
+              {statusClass ? <span className={`${styles.statusDot} ${statusClass}`} aria-hidden="true" /> : null}
+            </div>
+          );
+        } else {
+          control = selectElement;
+        }
       }
     } else if (fieldDef.type === "number" || fieldDef.type === "date") {
       control = (
