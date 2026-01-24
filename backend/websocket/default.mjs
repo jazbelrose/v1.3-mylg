@@ -193,6 +193,17 @@ export const handler = async (event) => {
     case "replyAdded":
       return await forwardProjectEvent(payload);
 
+    // =========================================================================
+    // FILE LIFECYCLE EVENTS
+    // =========================================================================
+    case "fileCreated":
+    case "fileUpdated":
+    case "fileDeleted":
+    case "fileRestored":
+    case "fileRefAdded":
+    case "fileRefRemoved":
+      return await forwardFileEvent(payload);
+
     default:
       console.warn("⚠️ Unknown action:", action);
       return { statusCode: 400, body: `Unknown action: ${action}` };
@@ -219,6 +230,40 @@ const forwardProjectEvent = async (payload) => {
   } catch (err) {
     console.error("? forwardProjectEvent failed", err);
     return { statusCode: 500, body: "Failed to broadcast project event" };
+  }
+};
+
+/**
+ * Forward file lifecycle events to appropriate rooms
+ * - Project files: broadcast to project#<projectId>
+ * - Org files: broadcast to all org members
+ */
+const forwardFileEvent = async (payload) => {
+  if (!payload) {
+    return { statusCode: 400, body: "Missing payload" };
+  }
+
+  const { projectId, orgId, action } = payload;
+
+  try {
+    if (projectId) {
+      // File belongs to a project - broadcast to project conversation
+      const conversationId = `project#${projectId}`;
+      await broadcastToConversation(conversationId, payload);
+      console.log(`📁 File event ${action} broadcast to ${conversationId}`);
+    } else if (orgId) {
+      // File belongs to an org - broadcast to all org members
+      await broadcastToOrgMembers(orgId, payload);
+      console.log(`📁 File event ${action} broadcast to org ${orgId}`);
+    } else {
+      console.warn("⚠️ File event missing projectId or orgId:", payload);
+      return { statusCode: 400, body: "Missing projectId or orgId" };
+    }
+
+    return { statusCode: 200, body: "File event broadcast" };
+  } catch (err) {
+    console.error("❌ forwardFileEvent failed:", err);
+    return { statusCode: 500, body: "Failed to broadcast file event" };
   }
 };
 

@@ -56,6 +56,15 @@ Serverless backend using AWS Lambda, API Gateway (HTTP API v2), and WebSocket AP
   - `/messages/{proxy+}` - Messages proxy routes
   - `/messages/health` - Health check
 
+- **Files Service (v1.3)**: `https://ury7hxwq77.execute-api.us-west-2.amazonaws.com`
+  - `/projects/{projectId}/files` - List/create project files
+  - `/orgs/{orgId}/files` - List/create org files
+  - `/files/{scope}/{fileId}` - Get/update/delete single file
+  - `/files/{scope}/{fileId}/restore` - Restore deleted file
+  - `/files/{scope}/{fileId}/confirm` - Confirm upload
+  - `/files/{scope}/{fileId}/refs` - File references (get/add)
+  - `/files/{scope}/{fileId}/refs/{type}/{id}` - Remove reference
+
 ### WebSocket API
 - **WebSocket Service**: `wss://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev`
   - Single endpoint for all WebSocket operations

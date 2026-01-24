@@ -688,6 +688,9 @@ const BASE_ENDPOINTS = {
     MESSAGES_SERVICE_URL: 'https://uzcx04lrr9.execute-api.us-west-2.amazonaws.com',
     WEBSOCKET_URL: 'wss://hhgvsv3ey7.execute-api.us-west-2.amazonaws.com/dev',
     
+    // File Lifecycle Service (v1.3)
+    FILES_SERVICE_URL: 'https://ury7hxwq77.execute-api.us-west-2.amazonaws.com',
+    
     // Mapped endpoints using v1.2 services with correct routes
     API_BASE_URL: 'https://bevnkraeqa.execute-api.us-west-2.amazonaws.com',
     EDIT_PROJECT_URL: 'https://bevnkraeqa.execute-api.us-west-2.amazonaws.com/projects',
@@ -776,6 +779,8 @@ export const {
   PROJECTS_SERVICE_URL,
   USER_SERVICE_URL,
   MESSAGES_SERVICE_URL,
+  // v1.3 File Lifecycle Service
+  FILES_SERVICE_URL,
   // Core endpoints
   API_BASE_URL,
   USER_PROFILES_API_URL,

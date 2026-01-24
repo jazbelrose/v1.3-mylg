@@ -1,0 +1,205 @@
+service: files
+frameworkVersion: '3'
+
+useDotenv: true
+
+custom:
+  app: mylg
+  ver: v12
+  env: ${file(../serverless.common.yml):env}
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-west-2
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 30
+  stackName: ${self:custom.app}-${self:custom.ver}-${self:service}-${sls:stage}
+  httpApi:
+    name: ${self:custom.app}-${self:custom.ver}-${self:service}-api-${sls:stage}
+    authorizers:
+      jwtAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: https://cognito-idp.us-west-2.amazonaws.com/us-west-2_EmStQTtG1
+        audience:
+          - 6f5f1vsm5bejjaffihc3e0n95k
+  tags:
+    App: MYLG
+    Version: v1.2
+    Domain: files
+    Stage: ${sls:stage}
+  environment:
+    # Tables & shared config (CORS, etc.)
+    ${self:custom.env}
+
+  # Additional environment variables set in custom section
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:BatchWriteItem
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/Files
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/Files/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/FileRefs
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/FileRefs/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/Connections
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/Connections/index/*
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+            - s3:HeadObject
+            - s3:ListBucket
+          Resource:
+            - arn:aws:s3:::mylg-files-v12
+            - arn:aws:s3:::mylg-files-v12/*
+        - Effect: Allow
+          Action:
+            - execute-api:ManageConnections
+          Resource:
+            - arn:aws:execute-api:${aws:region}:${aws:accountId}:*/*/*/*
+
+functions:
+  filesRouter:
+    name: ${self:custom.app}-${self:custom.ver}-files-router-${sls:stage}
+    handler: router.handler
+    layers:
+      - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
+    events:
+      # Project files
+      - httpApi:
+          path: /projects/{projectId}/files
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /projects/{projectId}/files
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+
+      # Org files
+      - httpApi:
+          path: /orgs/{orgId}/files
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /orgs/{orgId}/files
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+
+      # Single file operations
+      - httpApi:
+          path: /files/{scope}/{fileId}
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /files/{scope}/{fileId}
+          method: PATCH
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /files/{scope}/{fileId}
+          method: DELETE
+          authorizer:
+            name: jwtAuthorizer
+
+      # Restore and confirm
+      - httpApi:
+          path: /files/{scope}/{fileId}/restore
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /files/{scope}/{fileId}/confirm
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+
+      # References
+      - httpApi:
+          path: /files/{scope}/{fileId}/refs
+          method: GET
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /files/{scope}/{fileId}/refs
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /files/{scope}/{fileId}/refs/{containerType}/{containerId}
+          method: DELETE
+          authorizer:
+            name: jwtAuthorizer
+
+      # CORS preflight requests (OPTIONS)
+      - httpApi:
+          path: /projects/{projectId}/files
+          method: OPTIONS
+      - httpApi:
+          path: /orgs/{orgId}/files
+          method: OPTIONS
+      - httpApi:
+          path: /files/{scope}/{fileId}
+          method: OPTIONS
+      - httpApi:
+          path: /files/{scope}/{fileId}/restore
+          method: OPTIONS
+      - httpApi:
+          path: /files/{scope}/{fileId}/confirm
+          method: OPTIONS
+      - httpApi:
+          path: /files/{scope}/{fileId}/refs
+          method: OPTIONS
+      - httpApi:
+          path: /files/{scope}/{fileId}/refs/{containerType}/{containerId}
+          method: OPTIONS
+
+  # Background reconciliation job (scheduled - disabled by default)
+  reconciliation:
+    name: ${self:custom.app}-${self:custom.ver}-files-reconciliation-${sls:stage}
+    handler: reconciliation.handler
+    timeout: 900
+    memorySize: 1024
+    layers:
+      - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
+    events:
+      - schedule:
+          rate: rate(1 day)
+          enabled: false
+          input:
+            action: reconcile
+
+  # Hard delete cleanup triggered by DynamoDB TTL streams
+  # NOTE: Enable this after the Files table stream ARN is available
+  # hardDeleteCleanup:
+  #   name: ${self:custom.app}-${self:custom.ver}-files-cleanup-${sls:stage}
+  #   handler: hardDeleteCleanup.handler
+  #   layers:
+  #     - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
+  #   events:
+  #     - stream:
+  #         type: dynamodb
+  #         arn: !ImportValue FilesTableStreamArn
+  #         batchSize: 10
+  #         startingPosition: LATEST
+  #         filterPatterns:
+  #           - eventName: [REMOVE]
+
+package:
+  individually: true
