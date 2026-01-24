@@ -131,7 +131,7 @@ describe("BudgetHeader computeChartState", () => {
     });
   });
 
-  it("computes grouped markup totals against COST basis", async () => {
+  it("computes grouped margin totals against COST basis", async () => {
     render(
       <BudgetHeader
         activeProject={{ projectId: "p1", color: "#123456" }}
@@ -161,7 +161,7 @@ describe("BudgetHeader computeChartState", () => {
           },
         ]}
         onOpenRevisionModal={() => {}}
-        initialMetric="Effective Markup"
+        initialMetric="Margin"
       />
     );
 
@@ -173,5 +173,42 @@ describe("BudgetHeader computeChartState", () => {
       { id: "category-Labor", label: "Labor", value: 15 },
     ]);
     expect(total).toBe(215);
+  });
+
+  it("does not render any chart sidebar callouts", () => {
+    render(
+      <BudgetHeader
+        activeProject={{ projectId: "p1", color: "#123456" }}
+        budgetHeader={{
+          budgetItemId: "b1",
+          revision: 1,
+          headerBallPark: 500,
+          headerBudgetedTotalCost: 450,
+          headerActualTotalCost: 425,
+          headerFinalTotalCost: 640,
+        }}
+        groupBy="none"
+        setGroupBy={() => {}}
+        budgetItems={[
+          {
+            category: "Design",
+            quantity: 2,
+            itemBudgetedCost: 150,
+            itemActualCost: 100,
+            itemFinalCost: 400,
+          },
+          {
+            category: "Labor",
+            quantity: 3,
+            itemBudgetedCost: 50,
+            itemActualCost: 75,
+            itemFinalCost: 240,
+          },
+        ]}
+        onOpenRevisionModal={() => {}}
+      />
+    );
+
+    expect(screen.queryByTestId("cost-callout")).toBeNull();
   });
 });

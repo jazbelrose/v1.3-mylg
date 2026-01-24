@@ -646,14 +646,14 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
   const computeChartState = useCallback((): ChartState => {
     const baseColorSource = accentHex;
 
-    if (groupBy === "none") {
-      // Per spec: when Group By = NONE, the chart shows Price Composition
-      // Total (center) = Client Total
-      // Slices = [Cost, Margin] where Margin = Client Total - Cost
-      // Target is NOT part of the pie (shown as delta indicator separately)
-      
-      const clientPriceMetric = metrics.find((m) => m.title === "Client Total");
-      const costMetric = metrics.find((m) => m.title === "Cost");
+      if (groupBy === "none") {
+        // Per spec: when Group By = NONE, the chart shows Price Composition
+        // Total (center) = Client Total
+        // Slices = [Cost, Margin] where Margin = Client Total - Cost
+        // Target is contextual-only (shown as a small badge in the sidebar)
+        
+        const clientPriceMetric = metrics.find((m) => m.title === "Client Total");
+        const costMetric = metrics.find((m) => m.title === "Cost");
       
       const clientPrice = toNumber(clientPriceMetric?.chartValue as number | string | undefined | null);
       const cost = toNumber(costMetric?.chartValue as number | string | undefined | null);
@@ -798,42 +798,6 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
   }, [computeChartState]);
 
   useEffect(() => scheduleUpdate(), [scheduleUpdate]);
-
-  // Target Delta Indicator: shows "over" or "under" Target
-  // Only displayed when groupBy === "none"
-  const targetDelta = useMemo(() => {
-    if (groupBy !== "none") return null;
-
-    const targetMetric = metrics.find((m) => m.title === "Target");
-    const clientPriceMetric = metrics.find((m) => m.title === "Client Total");
-
-    const target = toNumber(targetMetric?.chartValue as number | string | undefined | null);
-    const clientPrice = toNumber(clientPriceMetric?.chartValue as number | string | undefined | null);
-
-    // Don't show if no target is set
-    if (target <= 0) return null;
-
-    const delta = clientPrice - target;
-    const absDelta = Math.abs(delta);
-    const formattedDelta = formatUSD(absDelta);
-
-    if (delta > 0) {
-      return {
-        label: `${formattedDelta} over Target`,
-        status: "over" as const,
-      };
-    } else if (delta < 0) {
-      return {
-        label: `${formattedDelta} under Target`,
-        status: "under" as const,
-      };
-    } else {
-      return {
-        label: "On Target",
-        status: "on" as const,
-      };
-    }
-  }, [groupBy, metrics]);
 
   useEffect(
     () => () => {
@@ -1075,21 +1039,6 @@ const BudgetHeader: React.FC<BudgetHeaderProps> = ({
                   );
                 })}
               </ul>
-              {targetDelta && (
-                <div
-                  className={`${summaryStyles.targetDelta} ${
-                    targetDelta.status === "over"
-                      ? summaryStyles.targetDeltaOver
-                      : targetDelta.status === "under"
-                      ? summaryStyles.targetDeltaUnder
-                      : summaryStyles.targetDeltaOnTarget
-                  }`}
-                >
-                  <span className={summaryStyles.targetDeltaValue}>
-                    {targetDelta.label}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         </div>
