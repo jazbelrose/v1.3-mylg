@@ -128,6 +128,8 @@ export default function TxnEditSheet({
   // Find similar search state
   const [addMoreSearch, setAddMoreSearch] = React.useState("");
   const [showFindSimilar, setShowFindSimilar] = React.useState(false);
+  // Similar section collapsed by default
+  const [isSimilarExpanded, setIsSimilarExpanded] = React.useState(false);
 
   // View state for drill-down pickers
   const [viewMode, setViewMode] = React.useState<"main" | "category" | "payment">("main");
@@ -469,121 +471,135 @@ export default function TxnEditSheet({
         </div>
       </div>
 
-      {/* Similar Transactions - only in single mode */}
+      {/* Similar Transactions - only in single mode, collapsed by default */}
       {!isBatchMode && (
         <>
-          <div className={styles.similarHeader}>
-            <div className={styles.sectionLabel}>SIMILAR TRANSACTIONS</div>
-            <span className={styles.similarCount}>{similar.length} shown</span>
-          </div>
+          <button
+            type="button"
+            className={styles.similarHeaderBtn}
+            onClick={() => setIsSimilarExpanded((p) => !p)}
+          >
+            <span className={styles.sectionLabel}>SIMILAR TRANSACTIONS</span>
+            <span className={styles.similarCount}>
+              ({similar.length})
+              <ChevronRight
+                size={16}
+                className={`${styles.expandChevron} ${isSimilarExpanded ? styles.expandChevronOpen : ""}`}
+              />
+            </span>
+          </button>
 
-          {similar.length > 0 && (
-            <div className={styles.selectActions}>
-              <button type="button" className={styles.linkButton} onClick={handleSelectAll} disabled={isWorking}>
-                Select all
-              </button>
-              <button type="button" className={styles.linkButton} onClick={handleSelectNone} disabled={isWorking}>
-                Select none
-              </button>
-            </div>
-          )}
+          {isSimilarExpanded && (
+            <>
+              {similar.length > 0 && (
+                <div className={styles.selectActions}>
+                  <button type="button" className={styles.linkButton} onClick={handleSelectAll} disabled={isWorking}>
+                    Select all
+                  </button>
+                  <button type="button" className={styles.linkButton} onClick={handleSelectNone} disabled={isWorking}>
+                    Select none
+                  </button>
+                </div>
+              )}
 
-          {/* Find Similar search */}
-          {showFindSimilar && (
-            <div className={styles.findSimilar}>
-              <div className={styles.findSimilarTitle}>Find similar</div>
-              <div className={styles.findSimilarRow}>
-                <input
-                  type="text"
-                  className={styles.findSimilarInput}
-                  placeholder="Search vendor / memo"
-                  value={addMoreSearch}
-                  onChange={(e) => setAddMoreSearch(e.target.value)}
-                  disabled={isWorking}
-                />
+              {/* Find Similar search */}
+              {showFindSimilar && (
+                <div className={styles.findSimilar}>
+                  <div className={styles.findSimilarTitle}>Find similar</div>
+                  <div className={styles.findSimilarRow}>
+                    <input
+                      type="text"
+                      className={styles.findSimilarInput}
+                      placeholder="Search vendor / memo"
+                      value={addMoreSearch}
+                      onChange={(e) => setAddMoreSearch(e.target.value)}
+                      disabled={isWorking}
+                    />
+                    <button
+                      type="button"
+                      className={styles.findSimilarBtn}
+                      onClick={() => void handleFindSimilar()}
+                      disabled={isWorking || !txn}
+                    >
+                      <Search size={16} />
+                      Search
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Similar list or empty state */}
+              {similarUnavailable && similar.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <div className={styles.emptyTitle}>Similar transactions unavailable</div>
+                  <div className={styles.emptyHint}>No vendor key found. Use "Find similar" above.</div>
+                </div>
+              ) : similar.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <div className={styles.emptyTitle}>No similar transactions found</div>
+                  <div className={styles.emptyHint}>Try searching with "Find similar" above.</div>
+                </div>
+              ) : (
+                <div className={styles.similarList}>
+                  {similar.map((t) => {
+                    const matchReason = txn ? getMatchReason(txn, t) : null;
+                    const isSelected = Boolean(t?.dedupeHash && selectedSimilar[String(t.dedupeHash)]);
+                    return (
+                      <div
+                        key={t.dedupeHash}
+                        className={`${styles.similarRow} ${isSelected ? styles.similarRowSelected : ""}`}
+                        onClick={() => {
+                          if (t?.dedupeHash) toggleSelected(String(t.dedupeHash), !isSelected);
+                        }}
+                      >
+                        <div className={styles.similarCheck}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              if (t?.dedupeHash) toggleSelected(String(t.dedupeHash), e.target.checked);
+                            }}
+                            disabled={isWorking}
+                          />
+                        </div>
+                        <div className={styles.similarMain}>
+                          <div className={styles.similarName}>{txnTitle(t)}</div>
+                          <div className={styles.similarMeta}>
+                            <span>{formatDate(t.postedAt)}</span>
+                            <span>·</span>
+                            <span>{HQ_CATEGORY_LABEL[(t.categoryId || "OTHER") as HqCategoryId]}</span>
+                            {t.isRecurring ? (
+                              <>
+                                <span>·</span>
+                                <span>Recurring</span>
+                              </>
+                            ) : null}
+                          </div>
+                          {matchReason ? (
+                            <div className={styles.matchReason}>{matchReason}</div>
+                          ) : null}
+                        </div>
+                        <div className={`${styles.similarAmt} ${t.amount < 0 ? styles.out : styles.in}`}>
+                          {t.amount < 0 ? "-" : "+"}
+                          {currency.format(Math.abs(t.amount))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {!showFindSimilar && similar.length > 0 && (
                 <button
                   type="button"
-                  className={styles.findSimilarBtn}
-                  onClick={() => void handleFindSimilar()}
-                  disabled={isWorking || !txn}
+                  className={styles.showFindBtn}
+                  onClick={() => setShowFindSimilar(true)}
                 >
-                  <Search size={16} />
-                  Search
+                  Find more similar…
                 </button>
-              </div>
-            </div>
-          )}
-
-          {/* Similar list or empty state */}
-          {similarUnavailable && similar.length === 0 ? (
-            <div className={styles.emptyState}>
-              <div className={styles.emptyTitle}>Similar transactions unavailable</div>
-              <div className={styles.emptyHint}>No vendor key found. Use "Find similar" above.</div>
-            </div>
-          ) : similar.length === 0 ? (
-            <div className={styles.emptyState}>
-              <div className={styles.emptyTitle}>No similar transactions found</div>
-              <div className={styles.emptyHint}>Try searching with "Find similar" above.</div>
-            </div>
-          ) : (
-            <div className={styles.similarList}>
-              {similar.map((t) => {
-                const matchReason = txn ? getMatchReason(txn, t) : null;
-                const isSelected = Boolean(t?.dedupeHash && selectedSimilar[String(t.dedupeHash)]);
-                return (
-                  <div
-                    key={t.dedupeHash}
-                    className={`${styles.similarRow} ${isSelected ? styles.similarRowSelected : ""}`}
-                    onClick={() => {
-                      if (t?.dedupeHash) toggleSelected(String(t.dedupeHash), !isSelected);
-                    }}
-                  >
-                    <div className={styles.similarCheck}>
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          if (t?.dedupeHash) toggleSelected(String(t.dedupeHash), e.target.checked);
-                        }}
-                        disabled={isWorking}
-                      />
-                    </div>
-                    <div className={styles.similarMain}>
-                      <div className={styles.similarName}>{txnTitle(t)}</div>
-                      <div className={styles.similarMeta}>
-                        <span>{formatDate(t.postedAt)}</span>
-                        <span>·</span>
-                        <span>{HQ_CATEGORY_LABEL[(t.categoryId || "OTHER") as HqCategoryId]}</span>
-                        {t.isRecurring ? (
-                          <>
-                            <span>·</span>
-                            <span>Recurring</span>
-                          </>
-                        ) : null}
-                      </div>
-                      {matchReason ? (
-                        <div className={styles.matchReason}>{matchReason}</div>
-                      ) : null}
-                    </div>
-                    <div className={`${styles.similarAmt} ${t.amount < 0 ? styles.out : styles.in}`}>
-                      {t.amount < 0 ? "-" : "+"}
-                      {currency.format(Math.abs(t.amount))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {!showFindSimilar && similar.length > 0 && (
-            <button
-              type="button"
-              className={styles.showFindBtn}
-              onClick={() => setShowFindSimilar(true)}
-            >
-              Find more similar…
-            </button>
+              )}
+            </>
           )}
         </>
       )}

@@ -254,6 +254,7 @@ const TransactionsPage: React.FC = () => {
   const [lastClickedIndex, setLastClickedIndex] = React.useState<number | null>(null);
   const [focusedRowIndex, setFocusedRowIndex] = React.useState<number | null>(null);
   const tableRef = React.useRef<HTMLDivElement>(null);
+  const totalsBarRef = React.useRef<HTMLDivElement>(null);
 
   // Context menu state (desktop)
   const [contextMenuPos, setContextMenuPos] = React.useState<{ x: number; y: number } | null>(null);
@@ -334,6 +335,12 @@ const TransactionsPage: React.FC = () => {
     }
 
   }, [location.search]);
+
+  // On mobile, scroll totals bar to show txn count on left (scroll to start)
+  React.useLayoutEffect(() => {
+    if (!isMobile || !totalsBarRef.current) return;
+    totalsBarRef.current.scrollLeft = 0;
+  }, [isMobile, totals]);
 
   React.useEffect(() => {
     if (!amountPopoverOpen) return;
@@ -1397,7 +1404,7 @@ const TransactionsPage: React.FC = () => {
           </div>
             )}
 
-          <div className={styles.totalsBar}>
+          <div className={styles.totalsBar} ref={totalsBarRef}>
             <Popover>
               <PopoverTrigger asChild>
                 <button
@@ -1668,12 +1675,12 @@ const TransactionsPage: React.FC = () => {
                               {txn.cardLast4 ? (
                                 <>
                                   <span>·</span>
-                                  <span>Card {txn.cardLast4}</span>
+                                  <span>••••{txn.cardLast4}</span>
                                 </>
                               ) : null}
                             </div>
                           </div>
-                          {/* Mobile action button */}
+                          {/* Mobile action button - hidden via CSS, kept for potential future use */}
                           {isMobile && canAdmin ? (
                             <button
                               type="button"
