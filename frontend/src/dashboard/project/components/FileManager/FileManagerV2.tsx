@@ -47,7 +47,9 @@ import {
 } from 'lucide-react';
 import { useData } from '@/app/contexts/useData';
 import { useSocket } from '@/app/contexts/useSocket';
+import { useFileLifecycle } from '@/shared/contexts/FileLifecycleContext';
 import { FolderTree, FolderTreeItem, getFolderIcon } from './FolderTree';
+import { TrashView } from './TrashView';
 import { Breadcrumb, BreadcrumbSegment } from './Breadcrumb';
 import { ContextMenu, ContextMenuAction } from './ContextMenu';
 import { ActionSheet } from './ActionSheet';
@@ -146,6 +148,9 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
     } = useData();
     const { ws } = useSocket() || {};
     const { orgs, activeOrgBranding } = useOrg();
+    
+    // File lifecycle context for trash view
+    const { getDeletedFiles, setScope, fetchFiles: fetchLifecycleFiles } = useFileLifecycle();
 
     // In org mode, everyone with access can upload/delete
     const isOrgMode = Boolean(orgId);
@@ -371,6 +376,28 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
         resizeObserverRef.current = null;
       };
     }, []);
+    
+    // Initialize file lifecycle scope for trash view
+    useEffect(() => {
+      if (isOrgMode && orgId) {
+        setScope(undefined, orgId);
+      } else if (activeProject?.projectId) {
+        setScope(activeProject.projectId, undefined);
+      }
+    }, [isOrgMode, orgId, activeProject?.projectId, setScope]);
+    
+    // Fetch lifecycle files (for trash count) when modal opens
+    useEffect(() => {
+      if (isFilesModalOpen) {
+        fetchLifecycleFiles(true).catch(() => {
+          // Silently ignore - trash feature is optional
+        });
+      }
+    }, [isFilesModalOpen, fetchLifecycleFiles]);
+    
+    // Get deleted files count for trash badge
+    const deletedFiles = useMemo(() => getDeletedFiles(), [getDeletedFiles]);
+    const trashCount = deletedFiles.length;
     
     // Observe content area when ref is set
     useEffect(() => {
@@ -1648,6 +1675,8 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                     name: f.fileName,
                   }))}
                   isCollapsed={sidebarCollapsed}
+                  showTrash={true}
+                  trashCount={trashCount}
                 />
               )}
 
@@ -1692,6 +1721,15 @@ const FileManagerV2Component = forwardRef<FileManagerRef, FileManagerProps>(
                         ))
                       )}
                     </div>
+                  ) : folderKey === '__trash__' ? (
+                    <TrashView
+                      projectId={isOrgMode ? undefined : activeProject?.projectId}
+                      orgId={isOrgMode ? orgId : undefined}
+                      onFileRestored={() => {
+                        // Optionally refresh the files list
+                        fetchLifecycleFiles(true);
+                      }}
+                    />
                   ) : displayedFiles.length === 0 && folderListItems.length === 0 ? (
                     <div className={styles.emptyState}>
                       <Upload size={48} className={styles.emptyStateIcon} />

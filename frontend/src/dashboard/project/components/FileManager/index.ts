@@ -28,6 +28,8 @@ export { FileGridView } from './FileGridView';
 export type { FileGridViewProps, GridItem } from './FileGridView';
 export { FolderPickerModal } from './FolderPickerModal';
 export type { FolderPickerModalProps, FolderPickerFolder } from './FolderPickerModal';
+export { TrashView } from './TrashView';
+export type { default as TrashViewProps } from './TrashView';
 
 // Hooks
 export { useLongPress } from './hooks/useLongPress';

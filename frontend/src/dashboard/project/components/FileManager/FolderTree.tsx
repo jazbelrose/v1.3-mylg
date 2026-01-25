@@ -24,6 +24,7 @@ import {
   Plus,
   Files,
   StickyNote,
+  Trash2,
 } from 'lucide-react';
 import styles from './file-manager-v2.module.css';
 
@@ -59,6 +60,10 @@ export interface FolderTreeProps {
   isCollapsed?: boolean;
   /** Toggle collapsed state */
   onToggleCollapse?: () => void;
+  /** Show trash section with deleted file count */
+  showTrash?: boolean;
+  /** Number of deleted files in trash */
+  trashCount?: number;
 }
 
 const getFolderIcon = (key: string, isOpen: boolean = false, size = 15): React.ReactNode => {
@@ -76,6 +81,8 @@ const getFolderIcon = (key: string, isOpen: boolean = false, size = 15): React.R
       return <Layout size={size} strokeWidth={1.5} />;
     case 'notes':
       return <StickyNote size={size} strokeWidth={1.5} />;
+    case '__trash__':
+      return <Trash2 size={size} strokeWidth={1.5} />;
     default:
       return isOpen ? <FolderOpen size={size} strokeWidth={1.5} /> : <Folder size={size} strokeWidth={1.5} />;
   }
@@ -195,6 +202,8 @@ export function FolderTree({
   onCreateFolder,
   isCollapsed = false,
   onToggleCollapse,
+  showTrash = false,
+  trashCount = 0,
 }: FolderTreeProps) {
   // Combine all folders for a cleaner structure
   const hasFolders = systemFolders.length > 0 || customFolders.length > 0;
@@ -288,6 +297,23 @@ export function FolderTree({
               isCollapsed={isCollapsed}
             />
           ))}
+        </div>
+      )}
+
+      {/* Trash - shown at bottom if enabled */}
+      {showTrash && (
+        <div className={styles.treeSection} style={{ marginTop: 'auto', borderTop: '1px solid var(--border-muted, #333)' }}>
+          <TreeItem
+            item={{
+              key: '__trash__',
+              name: 'Trash',
+              fileCount: trashCount,
+            }}
+            isSelected={currentFolder === '__trash__'}
+            onSelect={onFolderSelect}
+            depth={0}
+            isCollapsed={isCollapsed}
+          />
         </div>
       )}
 
