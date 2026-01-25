@@ -10,8 +10,9 @@ import OrgMessagesThread from "@/hq/components/OrgMessagesThread";
 import OrgFilesOverlay from "@/hq/components/OrgFilesOverlay";
 import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
+import { useSocket } from "@/app/contexts/useSocket";
 import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
-import { useHqStore } from "@/hq/lib/hqStore";
+import { useHqStore, readHqState, hydrateHqState } from "@/hq/lib/hqStore";
 import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
 import {
   computeCashOnHand,
@@ -26,7 +27,9 @@ import {
 import {
   fetchHqChartSeries,
   fetchHqRecurringCommitments,
+  fetchHqSummary,
   fetchHqTopCategories,
+  fetchHqTransactions,
   type HqChartSeriesRange,
   type HqChartSeriesResponse,
   type HqRecurringCommitmentsResponse,
@@ -155,6 +158,9 @@ function buildLocalChartSeries(input: {
       .map((a) => a.accountId)
   );
 
+  console.log("📊 [buildLocalChartSeries] includedAccountIds:", [...includedAccountIds]);
+  console.log("📊 [buildLocalChartSeries] accounts:", input.accounts.map(a => ({ id: a.accountId, name: a.name, includeInCashOnHand: a.includeInCashOnHand, archived: a.archivedAt })));
+
   let start = fixedDays ? addDaysIso(today, -(fixedDays - 1)) : today;
   if (!fixedDays) {
     // ALL: best-effort using whatever the client cache has.
@@ -169,8 +175,14 @@ function buildLocalChartSeries(input: {
   const inflowByDate = new Map<string, number>();
   const outflowByDate = new Map<string, number>();
 
+  let includedCount = 0;
+  let excludedCount = 0;
   for (const t of input.transactions) {
-    if (!includedAccountIds.has(t.accountId)) continue;
+    if (!includedAccountIds.has(t.accountId)) {
+      excludedCount++;
+      continue;
+    }
+    includedCount++;
     const date = String(t.postedAt || "").slice(0, 10);
     if (!date || date < start || date > today) continue;
     const amt = canonicalSignedAmount(t);
@@ -178,6 +190,11 @@ function buildLocalChartSeries(input: {
     if (amt > 0) inflowByDate.set(date, (inflowByDate.get(date) ?? 0) + amt);
     else outflowByDate.set(date, (outflowByDate.get(date) ?? 0) + Math.abs(amt));
   }
+
+  console.log("📊 [buildLocalChartSeries] includedCount:", includedCount, "excludedCount:", excludedCount);
+  console.log("📊 [buildLocalChartSeries] date range:", start, "to", today);
+  console.log("📊 [buildLocalChartSeries] inflowByDate:", Object.fromEntries(inflowByDate));
+  console.log("📊 [buildLocalChartSeries] outflowByDate:", Object.fromEntries(outflowByDate));
 
   const points: HqChartSeriesResponse["points"] = [];
   for (let d = start; d <= today; d = addDaysIso(d, 1)) {
@@ -221,6 +238,7 @@ function buildLocalChartSeries(input: {
 const HQOverview: React.FC = () => {
   useUser();
   const { activeOrgId, activeOrgRole } = useOrg();
+  const { ws } = useSocket();
   const hasOrg = Boolean(activeOrgId);
   const orgId = activeOrgId ?? "__no_org__";
   const canAdmin = hasOrg && isOrgAdmin(activeOrgRole);
@@ -282,9 +300,10 @@ const HQOverview: React.FC = () => {
   React.useEffect(() => {
     if (!activeOrgId) return;
 
+    // Local import complete (same user) - store is already hydrated
     const handleImportComplete = (event: CustomEvent<{ orgId?: string }>) => {
       if (event.detail?.orgId === activeOrgId) {
-        console.log("📊 [HQOverview] Import complete, refreshing charts and metrics...");
+        console.log("📊 [HQOverview] Import complete, refreshing chart...");
         setRefreshCounter((c) => c + 1);
       }
     };
@@ -294,12 +313,45 @@ const HQOverview: React.FC = () => {
       setRefreshCounter((c) => c + 1);
     };
 
+    // WebSocket message from another user - need to fetch fresh data
+    const handleWsMessage = async (event: CustomEvent<{ action?: string; orgId?: string; updateType?: string }>) => {
+      const data = event.detail;
+      if (data?.action === "hqUpdated" && data?.orgId === activeOrgId && data?.updateType === "import") {
+        console.log("📊 [HQOverview] Received hqUpdated from another user, fetching fresh data...");
+        try {
+          // Wait for DynamoDB eventual consistency
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          // Fetch fresh transactions and update the store
+          const [summary, txns] = await Promise.all([
+            fetchHqSummary(activeOrgId),
+            fetchHqTransactions({ orgId: activeOrgId, limit: 5000 }),
+          ]);
+          const prev = readHqState(activeOrgId);
+          hydrateHqState(activeOrgId, {
+            ...prev,
+            accounts: summary.accounts,
+            importRuns: summary.importRuns,
+            transactions: txns.transactions,
+            categoryRules: Array.isArray(summary.categoryRules) ? summary.categoryRules : prev.categoryRules,
+            cashOnHandAggregate: typeof summary.cashOnHandAggregate === "number" ? summary.cashOnHandAggregate : null,
+            missingAnchorAccountIds: Array.isArray(summary.missingAnchorAccountIds) ? summary.missingAnchorAccountIds : [],
+          });
+          // Trigger chart rebuild
+          setRefreshCounter((c) => c + 1);
+        } catch (err) {
+          console.error("📊 [HQOverview] Failed to fetch fresh data after WS import notification:", err);
+        }
+      }
+    };
+
     window.addEventListener("mylg:hq-import-complete", handleImportComplete as EventListener);
     window.addEventListener("mylg:hq-refresh", handleHqRefresh);
+    window.addEventListener("ws-message", handleWsMessage as EventListener);
 
     return () => {
       window.removeEventListener("mylg:hq-import-complete", handleImportComplete as EventListener);
       window.removeEventListener("mylg:hq-refresh", handleHqRefresh);
+      window.removeEventListener("ws-message", handleWsMessage as EventListener);
     };
   }, [activeOrgId]);
 
@@ -334,12 +386,32 @@ const HQOverview: React.FC = () => {
       return;
     }
 
+    const fetchRange: HqChartSeriesRange = "ALL";
+
+    // Always build chart from local transaction data for accuracy
+    // The store has the transactions, so compute the chart locally
+    if (anchorBalanceForChart !== null && transactions.length > 0) {
+      console.log("📊 [HQOverview] Building chart from local transaction data...", transactions.length, "transactions");
+      setChart(
+        buildLocalChartSeries({
+          range: fetchRange,
+          anchorBalance: anchorBalanceForChart,
+          accounts,
+          transactions,
+        })
+      );
+      setChartError(null);
+      setChartLoading(false);
+      setChartNeedsImport(false);
+      return;
+    }
+
+    // Fallback: No local transactions yet, try fetching from backend
     let cancelled = false;
     setChartLoading(true);
     setChartError(null);
     setChartNeedsImport(false);
 
-    const fetchRange: HqChartSeriesRange = "ALL";
     fetchHqChartSeries({ orgId: activeOrgId, scope: "aggregate", range: fetchRange })
       .then((res) => {
         if (cancelled) return;
@@ -1383,7 +1455,7 @@ const HQOverview: React.FC = () => {
 
       {activeOrgId ? (
         <>
-          <ImportCsvModal orgId={activeOrgId} isOpen={isImportOpen} onRequestClose={() => setIsImportOpen(false)} />
+          <ImportCsvModal orgId={activeOrgId} isOpen={isImportOpen} onRequestClose={() => setIsImportOpen(false)} ws={ws} />
           <AddAccountModal
             orgId={activeOrgId}
             isOpen={isAddAccountOpen}

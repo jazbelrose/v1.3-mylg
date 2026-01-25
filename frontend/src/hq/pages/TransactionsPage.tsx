@@ -592,15 +592,23 @@ const TransactionsPage: React.FC = () => {
       if (data?.action === "hqUpdated" && data?.orgId === activeOrgId && 
           (data?.updateType === "transaction" || data?.updateType === "import")) {
         console.log("📊 [TransactionsPage] Received hqUpdated, refreshing list...", data.updateType);
-        loadPage({ cursor: null, append: false, includeTotals: true });
+        // For WS messages from other users, add delay for DynamoDB eventual consistency
+        setTimeout(() => {
+          loadPage({ cursor: null, append: false, includeTotals: true });
+        }, 500);
       }
     };
 
     // Also listen for local import complete event (same-user import)
+    // Note: This is a backup for the onImported callback - the callback handles the primary refresh
     const handleImportComplete = (event: CustomEvent<{ orgId?: string }>) => {
       if (event.detail?.orgId === activeOrgId) {
-        console.log("📊 [TransactionsPage] Import complete, refreshing list...");
-        loadPage({ cursor: null, append: false, includeTotals: true });
+        console.log("📊 [TransactionsPage] Import complete event received (backup refresh)");
+        // Delay this to give DynamoDB time to propagate. The onImported callback also triggers
+        // a refresh, but this event serves as a fallback for other components and edge cases.
+        setTimeout(() => {
+          loadPage({ cursor: null, append: false, includeTotals: true });
+        }, 800);
       }
     };
 
@@ -1600,11 +1608,16 @@ const TransactionsPage: React.FC = () => {
             onRequestClose={() => setIsImportOpen(false)}
             ws={ws}
             onImported={() => {
-              // Refresh transaction list immediately after CSV import
-              // Small delay to allow DynamoDB eventual consistency
+              // Refresh transaction list after CSV import
+              // DynamoDB has eventual consistency, so we do a staggered refresh:
+              // 1) First refresh at 500ms to catch most cases
+              // 2) Second refresh at 1500ms to catch slow propagation
               setTimeout(() => {
                 loadPage({ cursor: null, append: false, includeTotals: true });
-              }, 150);
+              }, 500);
+              setTimeout(() => {
+                loadPage({ cursor: null, append: false, includeTotals: true });
+              }, 1500);
             }}
           />
           <AddAccountModal

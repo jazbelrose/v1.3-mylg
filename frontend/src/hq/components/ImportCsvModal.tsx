@@ -151,9 +151,13 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
         transactions: parsed,
       });
 
+      // Small delay to allow DynamoDB eventual consistency before re-fetching
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
       // Refresh local cache from server so HQ pages stay consistent.
+      // Use a high limit to ensure we get all transactions for accurate chart building
       const summary = await fetchHqSummary(orgId);
-      const txns = await fetchHqTransactions({ orgId, limit: 500 });
+      const txns = await fetchHqTransactions({ orgId, limit: 5000 });
       const prev = readHqState(orgId);
       hydrateHqState(orgId, {
         ...prev,
@@ -165,17 +169,36 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
         missingAnchorAccountIds: Array.isArray(summary.missingAnchorAccountIds) ? summary.missingAnchorAccountIds : [],
       });
 
+      // Schedule a second fetch 1 second later to catch any slow DynamoDB propagation
+      setTimeout(async () => {
+        try {
+          const lateTxns = await fetchHqTransactions({ orgId, limit: 5000 });
+          const currentState = readHqState(orgId);
+          hydrateHqState(orgId, {
+            ...currentState,
+            transactions: lateTxns.transactions,
+          });
+          // Dispatch refresh event to update any listening components
+          window.dispatchEvent(new Event("mylg:hq-refresh"));
+        } catch {
+          // Ignore late refresh failures
+        }
+      }, 1200);
+
       // Notify other org members of the import
       sendHqUpdated(ws, orgId, "import", accountId);
 
       // Dispatch local event to trigger immediate refresh of metrics/charts
       // This ensures the current user sees updates without waiting for WebSocket echo
+      // Use setTimeout to ensure store hydration is complete before triggering refreshes
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("mylg:hq-import-complete", {
-          detail: { orgId, accountId, imported: result.imported, duplicates: result.duplicates },
-        }));
-        // Also trigger general HQ refresh for any listening pages
-        window.dispatchEvent(new Event("mylg:hq-refresh"));
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("mylg:hq-import-complete", {
+            detail: { orgId, accountId, imported: result.imported, duplicates: result.duplicates },
+          }));
+          // Also trigger general HQ refresh for any listening pages
+          window.dispatchEvent(new Event("mylg:hq-refresh"));
+        }, 50);
       }
 
       toast.success(`${result.imported} transactions imported, ${result.duplicates} duplicates skipped.`);
