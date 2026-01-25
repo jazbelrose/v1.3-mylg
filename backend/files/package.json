@@ -6,22 +6,13 @@
   "scripts": {
     "deploy:dev": "serverless deploy --stage dev",
     "deploy:prod": "serverless deploy --stage prod",
-    "offline": "serverless offline",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.x",
-    "@aws-sdk/client-s3": "^3.x",
-    "@aws-sdk/lib-dynamodb": "^3.x",
-    "@aws-sdk/s3-request-presigner": "^3.x",
-    "@aws-sdk/util-dynamodb": "^3.x",
     "ulid": "^2.3.0"
   },
   "devDependencies": {
-    "js-yaml": "^4.1.1",
-    "serverless": "^3.x",
-    "serverless-offline": "^13.x",
     "vitest": "^1.x"
   }
 }
