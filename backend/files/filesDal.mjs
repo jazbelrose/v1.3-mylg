@@ -44,6 +44,8 @@ const SOFT_DELETE_RETENTION_DAYS = 30;
  * @param {string} params.createdBy
  * @param {string} [params.projectId]
  * @param {string} [params.orgId]
+ * @param {string} [params.storageKey] - Optional: use existing storage key (for backfill)
+ * @param {string} [params.status] - Optional: initial status (default: UPLOADING)
  * @returns {Promise<{fileId, storageKey, uploadUrl, file}>}
  */
 export const createFileRecord = async ({
@@ -54,20 +56,27 @@ export const createFileRecord = async ({
   createdBy,
   projectId,
   orgId,
+  storageKey: providedStorageKey,
+  status: providedStatus,
 }) => {
   const fileId = ulid();
   const now = new Date().toISOString();
   
-  // Build storage key based on scope
-  const prefix = projectId
-    ? `public/projects/${projectId}/uploads/`
-    : `public/orgs/${orgId}/uploads/`;
-  
-  // Sanitize filename and add unique suffix
-  const sanitized = sanitizeFilename(filename);
-  const ext = getExtension(sanitized);
-  const baseName = sanitized.replace(ext, "");
-  const storageKey = `${prefix}${baseName}_${fileId.slice(-8)}${ext}`;
+  // Use provided storage key or build one based on scope
+  let storageKey = providedStorageKey;
+  if (!storageKey) {
+    const prefix = projectId
+      ? `public/projects/${projectId}/uploads/`
+      : `public/orgs/${orgId}/uploads/`;
+    
+    // Sanitize filename and add unique suffix
+    const sanitized = sanitizeFilename(filename);
+    const ext = getExtension(sanitized);
+    const baseName = sanitized.replace(ext, "");
+    storageKey = `${prefix}${baseName}_${fileId.slice(-8)}${ext}`;
+  }
+
+  const status = providedStatus || FILE_STATUS.UPLOADING;
 
   const file = {
     PK: scope,
@@ -77,7 +86,7 @@ export const createFileRecord = async ({
     filename,
     mimeType,
     size,
-    status: "UPLOADING",
+    status,
     createdAt: now,
     createdBy,
     updatedAt: now,
@@ -93,16 +102,19 @@ export const createFileRecord = async ({
     })
   );
 
-  // Generate presigned upload URL
-  const uploadUrl = await getSignedUrl(
-    s3Client,
-    new PutObjectCommand({
-      Bucket: S3_BUCKET,
-      Key: storageKey,
-      ContentType: mimeType,
-    }),
-    { expiresIn: 3600 }
-  );
+  // Only generate presigned URL if file is being uploaded (not backfilled)
+  let uploadUrl = null;
+  if (status === FILE_STATUS.UPLOADING) {
+    uploadUrl = await getSignedUrl(
+      s3Client,
+      new PutObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: storageKey,
+        ContentType: mimeType,
+      }),
+      { expiresIn: 3600 }
+    );
+  }
 
   return { fileId, storageKey, uploadUrl, file };
 };

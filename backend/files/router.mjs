@@ -27,6 +27,7 @@ import { sendToWebSocket } from "/opt/nodejs/utils/websocket.mjs";
 import {
   createFileRecord,
   getFile,
+  getFileByStorageKey,
   listFiles,
   updateFileStatus,
   updateFileMetadata,
@@ -95,6 +96,19 @@ export const handler = async (event) => {
     // Confirm upload
     if (path.match(/\/files\/[^/]+\/[^/]+\/confirm$/) && method === "POST") {
       return await handleConfirmUpload(pathParams.scope, pathParams.fileId, userId);
+    }
+
+    // Delete by storage key (legacy integration)
+    if (path.match(/\/files\/by-key$/) && method === "DELETE") {
+      return await handleDeleteByStorageKey(queryParams, userId);
+    }
+
+    // Register existing file (backfill)
+    if (path.match(/\/projects\/[^/]+\/files\/register$/) && method === "POST") {
+      return await handleRegisterExistingFile('project', pathParams.projectId, event, userId);
+    }
+    if (path.match(/\/orgs\/[^/]+\/files\/register$/) && method === "POST") {
+      return await handleRegisterExistingFile('org', pathParams.orgId, event, userId);
     }
 
     // References
@@ -448,6 +462,120 @@ const handleRestoreFile = async (scope, fileId, userId) => {
       ...restored,
       url: buildFileUrl(restored.storageKey),
     },
+  });
+};
+
+// ============================================================================
+// DELETE BY STORAGE KEY (LEGACY INTEGRATION)
+// ============================================================================
+
+const handleDeleteByStorageKey = async (query, userId) => {
+  const { storageKey, force } = query;
+
+  if (!storageKey) {
+    return createResponse(400, { error: "Missing storageKey parameter" });
+  }
+
+  // Look up file by storage key
+  const file = await getFileByStorageKey(storageKey);
+
+  if (!file) {
+    // File not in Files table - might be a legacy file not yet migrated
+    // Return success to not block the deletion
+    return createResponse(200, {
+      message: "File not found in registry (legacy file)",
+      fileId: null,
+      refCount: 0,
+    });
+  }
+
+  if (file.status === FILE_STATUS.DELETED) {
+    return createResponse(200, {
+      message: "File already deleted",
+      fileId: file.fileId,
+    });
+  }
+
+  // Check ref count and warn unless force=true
+  const refCount = await getRefCount(file.fileId);
+  if (refCount > 0 && force !== "true") {
+    return createResponse(409, {
+      error: "File is in use",
+      refCount,
+      message: `This file is referenced in ${refCount} place(s). Add ?force=true to delete anyway.`,
+    });
+  }
+
+  const deleted = await softDeleteFile(file.scope, file.fileId, userId);
+
+  const conversationId = file.projectId
+    ? `project#${file.projectId}`
+    : `org#${file.orgId}`;
+
+  await emitFileEvent("fileDeleted", {
+    projectId: file.projectId,
+    orgId: file.orgId,
+    conversationId,
+    fileId: file.fileId,
+    deletedBy: userId,
+    deletedAt: deleted.deletedAt,
+    refCount,
+  });
+
+  return createResponse(200, {
+    message: "File deleted",
+    fileId: file.fileId,
+    refCount,
+    canRestore: true,
+    restoreDeadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  });
+};
+
+// ============================================================================
+// REGISTER EXISTING FILE (BACKFILL MIGRATION)
+// ============================================================================
+
+const handleRegisterExistingFile = async (scopeType, scopeId, event, userId) => {
+  if (!scopeId) {
+    return createResponse(400, { error: `Missing ${scopeType}Id` });
+  }
+
+  const body = parseBody(event);
+  const validation = validateRequired(body, ["storageKey", "filename", "mimeType"]);
+  if (validation) return validation;
+
+  const scope = `${scopeType}#${scopeId}`;
+
+  // Check if file already exists by storage key
+  const existing = await getFileByStorageKey(body.storageKey);
+  if (existing) {
+    return createResponse(200, {
+      message: "File already registered",
+      fileId: existing.fileId,
+      storageKey: existing.storageKey,
+      uploadUrl: null,
+      alreadyExists: true,
+    });
+  }
+
+  // Create file record directly in READY status (no upload needed)
+  const result = await createFileRecord({
+    scope,
+    filename: body.filename,
+    mimeType: body.mimeType,
+    size: body.size || 0,
+    createdBy: userId,
+    ...(scopeType === 'project' ? { projectId: scopeId } : { orgId: scopeId }),
+    storageKey: body.storageKey, // Use provided storage key
+    status: FILE_STATUS.READY, // Already uploaded
+  });
+
+  return createResponse(201, {
+    message: "File registered",
+    fileId: result.fileId,
+    storageKey: result.storageKey,
+    uploadUrl: null,
+    alreadyExists: false,
   });
 };
 

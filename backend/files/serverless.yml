@@ -130,6 +130,25 @@ functions:
           authorizer:
             name: jwtAuthorizer
 
+      # Delete by storage key (legacy integration)
+      - httpApi:
+          path: /files/by-key
+          method: DELETE
+          authorizer:
+            name: jwtAuthorizer
+
+      # Register existing files (backfill migration)
+      - httpApi:
+          path: /projects/{projectId}/files/register
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+      - httpApi:
+          path: /orgs/{orgId}/files/register
+          method: POST
+          authorizer:
+            name: jwtAuthorizer
+
       # References
       - httpApi:
           path: /files/{scope}/{fileId}/refs
@@ -168,6 +187,15 @@ functions:
           method: OPTIONS
       - httpApi:
           path: /files/{scope}/{fileId}/refs/{containerType}/{containerId}
+          method: OPTIONS
+      - httpApi:
+          path: /files/by-key
+          method: OPTIONS
+      - httpApi:
+          path: /projects/{projectId}/files/register
+          method: OPTIONS
+      - httpApi:
+          path: /orgs/{orgId}/files/register
           method: OPTIONS
 
   # Background reconciliation job (scheduled - disabled by default)

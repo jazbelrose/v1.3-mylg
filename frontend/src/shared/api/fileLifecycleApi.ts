@@ -368,6 +368,88 @@ export async function removeFileRef(
 // ============================================================================
 
 /**
+ * Delete file by S3 storage key
+ * This is used by legacy integrations where we only have the S3 key
+ * The backend will look up the fileId via the storageKey GSI
+ */
+export async function deleteFileByStorageKey(
+  storageKey: string,
+  options?: { force?: boolean }
+): Promise<{
+  success: boolean;
+  refCount?: number;
+  requiresForce?: boolean;
+  message?: string;
+}> {
+  const params = new URLSearchParams();
+  params.set('storageKey', storageKey);
+  if (options?.force) params.set('force', 'true');
+
+  const url = `${FILES_API_BASE}/files/by-key?${params}`;
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+
+  if (res.status === 404) {
+    // File not in Files table - that's OK for legacy files
+    return { success: true };
+  }
+
+  if (res.status === 409) {
+    const data = await res.json();
+    return {
+      success: false,
+      refCount: data.refCount,
+      requiresForce: true,
+      message: data.message,
+    };
+  }
+
+  if (!res.ok) {
+    throw new Error(`Failed to delete file: ${res.statusText}`);
+  }
+
+  const data = await res.json();
+  return {
+    success: true,
+    refCount: data.refCount,
+  };
+}
+
+/**
+ * Register an existing S3 file in the Files table
+ * Used for backfilling legacy files when they're referenced
+ */
+export async function registerExistingFile(
+  scope: 'project' | 'org',
+  scopeId: string,
+  params: {
+    storageKey: string;
+    filename: string;
+    mimeType: string;
+    size?: number;
+  }
+): Promise<CreateFileResponse> {
+  const url =
+    scope === 'project'
+      ? `${FILES_API_BASE}/projects/${scopeId}/files/register`
+      : `${FILES_API_BASE}/orgs/${scopeId}/files/register`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(params),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to register file: ${res.statusText}`);
+  }
+
+  return res.json();
+}
+
+/**
  * Build scope string from projectId or orgId
  */
 export function buildScope(projectId?: string, orgId?: string): string {

@@ -258,6 +258,21 @@ export function FileLifecycleProvider({ children }: { children: React.ReactNode 
     );
   }, [state.files]);
 
+  // Listen for WebSocket file lifecycle events
+  useEffect(() => {
+    const FILE_ACTIONS = ['fileCreated', 'fileUpdated', 'fileDeleted', 'fileRestored', 'fileRefAdded', 'fileRefRemoved'];
+    
+    const handleWsMessage = (event: CustomEvent) => {
+      const data = event.detail;
+      if (data && FILE_ACTIONS.includes(data.action)) {
+        handleWebSocketEvent(data as FileWebSocketEvent);
+      }
+    };
+
+    window.addEventListener('ws-message', handleWsMessage as EventListener);
+    return () => window.removeEventListener('ws-message', handleWsMessage as EventListener);
+  }, [handleWebSocketEvent]);
+
   const value = useMemo(
     () => ({
       state,

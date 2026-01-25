@@ -31,6 +31,7 @@ import {
   failItem,
   type TransferBatch,
 } from "../../FileManager/hooks/useFileTransferStore";
+import { useFileLifecycleIntegration } from "./useFileLifecycleIntegration";
 
 interface UseFileTransfersParams {
   activeProject: Project;
@@ -71,6 +72,9 @@ export const useFileTransfers = ({
 }: UseFileTransfersParams) => {
   // Determine if we're in org mode
   const isOrgMode = Boolean(orgId);
+  
+  // File lifecycle integration for tracking deletions
+  const { trackFileDeletion } = useFileLifecycleIntegration();
   
   // Track drag enter/leave count to prevent flickering
   // (child elements trigger enter/leave events too)
@@ -647,6 +651,12 @@ export const useFileTransfers = ({
       const entityId = isOrgMode ? `org:${orgId}` : projectId;
       fileCache.invalidate(entityId, folderKey);
 
+      // Track deletion in File Lifecycle system (fire and forget)
+      // This enables sync across users and proper file lifecycle management
+      trackFileDeletion(fileKeysToDelete).catch((err) => {
+        console.warn('[FileLifecycle] Failed to track deletion:', err);
+      });
+
       // Note: We DON'T call fetchS3Files here because:
       // 1. Local state is already correct (we filtered out deleted files above)
       // 2. S3 is eventually consistent - might still return deleted files briefly
@@ -670,6 +680,7 @@ export const useFileTransfers = ({
     setSelectedFiles,
     setSelectedItems,
     fileCache,
+    trackFileDeletion,
   ]);
 
   const handleDeleteSingle = useCallback(

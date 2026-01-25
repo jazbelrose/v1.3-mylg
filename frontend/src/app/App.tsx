@@ -19,6 +19,7 @@ import ScrollToTopButton from "../shared/ui/ScrollToTopButton";
 import { SocketProvider } from "./contexts/SocketProvider";
 import NotificationSocketBridge from "./NotificationSocketBridge";
 import { OnlineStatusProvider } from "./contexts/OnlineStatusContext";
+import { FileLifecycleProvider } from "@/shared/contexts/FileLifecycleContext";
 import AppRoutes from "./routes";
 import Preloader from "../shared/ui/Preloader";
 import { NotificationContainer } from "../shared/ui/ToastNotifications";
@@ -79,19 +80,21 @@ export default function App(): React.ReactElement {
               <DMConversationProvider>
                 <SocketProvider>
                   <OnlineStatusProvider>
-                    <NotificationSocketBridge>
-                      <ScrollProvider>
-                        <NavigationDirectionProvider>
-                          <Router basename={import.meta.env.BASE_URL}>
-                            <NotificationsDrawerProvider>
-                              <AuthEventHandler />
-                              <MainContent isLoading={isLoading} />
-                              <NotificationContainer />
-                            </NotificationsDrawerProvider>
-                          </Router>
-                        </NavigationDirectionProvider>
-                      </ScrollProvider>
-                    </NotificationSocketBridge>
+                    <FileLifecycleProvider>
+                      <NotificationSocketBridge>
+                        <ScrollProvider>
+                          <NavigationDirectionProvider>
+                            <Router basename={import.meta.env.BASE_URL}>
+                              <NotificationsDrawerProvider>
+                                <AuthEventHandler />
+                                <MainContent isLoading={isLoading} />
+                                <NotificationContainer />
+                              </NotificationsDrawerProvider>
+                            </Router>
+                          </NavigationDirectionProvider>
+                        </ScrollProvider>
+                      </NotificationSocketBridge>
+                    </FileLifecycleProvider>
                   </OnlineStatusProvider>
                 </SocketProvider>
               </DMConversationProvider>
