@@ -306,7 +306,13 @@
   margin-bottom: 12px;
 }
 
-.select,
+/* HqSelect-based scope dropdown */
+.scopeSelect {
+  flex-shrink: 0;
+  min-width: 140px;
+  max-width: 160px;
+}
+
 .searchInput,
 .amountInput {
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -316,10 +322,6 @@
   padding: 10px 12px;
   font-size: 0.85rem;
   outline: none;
-}
-
-.select {
-  padding-right: 28px;
 }
 
 .searchInput {

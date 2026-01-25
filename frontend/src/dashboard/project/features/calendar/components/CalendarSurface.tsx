@@ -853,19 +853,62 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
       }
 
       const targetDate = request.targetDate;
+      const applyMode = request.applyMode ?? "SCHEDULE_IN_WINDOW";
+
       try {
+        // CREATE_ONLY mode: create tasks without scheduling into focus block
+        if (applyMode === "CREATE_ONLY") {
+          const baseItems = request.variant.items;
+
+          const taskPayloads: Task[] = baseItems.map((item, idx) => ({
+            projectId: activeProjectId,
+            title: item.title,
+            status: "todo",
+            dueDate: targetDate,
+            dueAt: targetDate,
+            kind: "task", // Always create as task for now
+            cluster: item.cluster,
+            tags: item.tags,
+            durationMinutes: item.durationMinutes,
+            // No focusBlockId, startAt, endAt - unscheduled
+          }));
+
+          if (taskPayloads.length > 0) {
+            await createTasksBulk(activeProjectId, taskPayloads);
+          }
+
+          await onRefreshTasks();
+          notify("success", `Created ${taskPayloads.length} task(s).`);
+          return;
+        }
+
+        // SCHEDULE_IN_WINDOW mode: create focus block and pack tasks
         const window = getFocusBlockWindow(request.focusBlockWindowId);
         const startAt = buildIsoDateTime(targetDate, window.startLocalTime);
         const endAt = buildIsoDateTime(targetDate, window.endLocalTime);
         const durationMinutes = blockMinutesFromWindow(window.startLocalTime, window.endLocalTime);
 
-        const focusTitle = "Focus Block";
+        // Infer focus block title and cluster from items (not hardcoded)
+        const baseItems = request.variant.items;
+        const clusterCounts = new Map<string, number>();
+        baseItems.forEach((item) => {
+          if (item.kind !== "task") return;
+          const cluster = item.cluster?.trim() || "General";
+          clusterCounts.set(cluster, (clusterCounts.get(cluster) ?? 0) + 1);
+        });
+        const sortedClusters = [...clusterCounts.entries()].sort((a, b) => b[1] - a[1]);
+        const bestCluster = sortedClusters[0]?.[0] ?? "General";
+        const focusTitle = bestCluster && bestCluster !== "General"
+          ? `${bestCluster}: Focus Block`
+          : "Focus Block";
+        const focusCluster = bestCluster;
+
         const focusTask = await createTask({
           projectId: activeProjectId,
           title: focusTitle,
           status: "todo",
           kind: "focus_block",
-          cluster: "Plan",
+          cluster: focusCluster,
           durationMinutes,
           startAt,
           endAt,
@@ -903,12 +946,22 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
             return;
           }
 
+          // Use pre-packed tasks from request if available, otherwise pack here
           const packable = eligible
             .map((task) => ({ task, taskId: resolveTaskIdentifier(task) }))
             .filter((rec): rec is { task: CalendarTask; taskId: string } => typeof rec.taskId === "string" && rec.taskId.trim().length > 0)
-            .map((rec) => ({ draftId: rec.taskId, title: rec.task.title }));
+            .map((rec) => ({
+              draftId: rec.taskId,
+              title: rec.task.title,
+              durationMinutes: rec.task.durationMinutes,
+              kind: (rec.task.kind ?? "task") as "task" | "intent",
+              mergeKey: `${rec.task.cluster ?? "General"}|task|${(rec.task.tags ?? [])[0] ?? "none"}`,
+            }));
 
-          const packed = packTasksIntoFocusBlock(durationMinutes, packable, { minTaskMinutes: 20, maxTaskMinutes: 120 });
+          const packed = request.packedTasks && request.packedTasks.length > 0
+            ? { tasks: request.packedTasks, warnings: [] }
+            : packTasksIntoFocusBlock(durationMinutes, packable, { minTaskMinutes: 15, maxTaskMinutes: 120 });
+
           const updates: Array<{ taskId: string; fields: Partial<Task> }> = packed.tasks.map((pt) => ({
             taskId: pt.draftId,
             fields: {
@@ -937,30 +990,49 @@ const CalendarSurface: React.FC<CalendarSurfaceProps> = ({
               .filter((item) => item.taskId.trim().length > 0),
           });
         } else {
-          const baseItems = request.variant.items;
           const byDraftId = new Map<string, (typeof baseItems)[number]>();
           baseItems.forEach((item, idx) => {
             byDraftId.set(`item-${idx}`, item);
           });
 
-          const packed = packTasksIntoFocusBlock(
-            durationMinutes,
-            baseItems.map((item, idx) => ({ draftId: `item-${idx}`, title: item.title })),
-            { minTaskMinutes: 20, maxTaskMinutes: 120 },
-          );
+          // Use pre-packed tasks from request to ensure preview == apply
+          const packed = request.packedTasks && request.packedTasks.length > 0
+            ? { tasks: request.packedTasks, warnings: [] }
+            : packTasksIntoFocusBlock(
+                durationMinutes,
+                baseItems.map((item, idx) => ({
+                  draftId: `item-${idx}`,
+                  title: item.title,
+                  durationMinutes: item.durationMinutes,
+                  kind: item.kind === "task" || item.kind === "intent" ? item.kind : ("task" as const),
+                  mergeKey: `${item.cluster}|${item.kind}|${item.tags[0] ?? "none"}`,
+                })),
+                { minTaskMinutes: 15, maxTaskMinutes: 120 },
+              );
 
           const childPayloads: Task[] = packed.tasks.map((pt) => {
             const parts = pt.draftId.split("__");
             const first = byDraftId.get(parts[0]);
+            // Always create as task for storage compatibility
+            const kind = "task";
+            // Add break/buffer as tag if applicable (for future extensibility)
+            const tags = first?.tags ? [...first.tags] : [];
+            const firstKind = first?.kind as string;
+            if (firstKind === "break" || firstKind === "buffer") {
+              // Store original kind as tag for reference
+              if (!tags.includes(firstKind)) {
+                tags.push(firstKind);
+              }
+            }
             return {
               projectId: activeProjectId,
               title: pt.title,
               status: "todo",
               dueDate: targetDate,
               dueAt: targetDate,
-              kind: "task", // Always create as regular task, never as "intent"
+              kind,
               cluster: first?.cluster,
-              tags: first?.tags,
+              tags,
               focusBlockId: focusId,
               plannedMinutes: pt.plannedMinutes,
               order: pt.order,

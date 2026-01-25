@@ -1,3 +1,23 @@
+import {
+  type TaskDraftItem,
+  type TaskDraftKind,
+  type TaskDraftExplanation,
+  type TaskSpellbookMode,
+  type TaskSpellbookDraft,
+  type TaskSpellbookWarning,
+  type TimeOfDayHint,
+  TASK_SPELLBOOK_SCHEMA_VERSION,
+  TASK_SPELLBOOK_ENGINE_VERSION,
+  generateDraftItemId,
+  buildMergeKey,
+  computeDraftStats,
+  inferFocusBlockMetadata,
+} from "./taskSpellbookDraft";
+
+// Re-export draft types for convenience
+export type { TaskDraftItem, TaskDraftKind, TaskSpellbookMode, TaskSpellbookDraft };
+
+// Legacy types for backward compatibility
 export type SpellbookItemKind = "task" | "intent";
 
 export type SpellbookDraftItem = {
@@ -13,6 +33,8 @@ export type SpellbookParseResult = {
   items: SpellbookDraftItem[];
   clusters: string[];
   totalMinutes: number;
+  /** Detected input mode */
+  mode?: TaskSpellbookMode;
 };
 
 export type SpellbookVariantId = "lean" | "producer-standard" | "dispatch-ready" | "bugfix-sprint";
@@ -354,4 +376,619 @@ export function buildSpellbookVariants(result: SpellbookParseResult): SpellbookV
       focusBlocks: buildSingleFocusBlock(bugfixItems),
     },
   ];
+}
+
+// ---------------------------------------------------------------------------
+// Narrative Extraction (V2)
+// ---------------------------------------------------------------------------
+
+/** Action verbs that indicate a task-like sentence */
+const ACTION_VERBS = [
+  "worked",
+  "fixed",
+  "reviewed",
+  "bought",
+  "met",
+  "emailed",
+  "shipped",
+  "merged",
+  "refactored",
+  "designed",
+  "planned",
+  "called",
+  "created",
+  "updated",
+  "deleted",
+  "deployed",
+  "tested",
+  "built",
+  "wrote",
+  "sent",
+  "received",
+  "discussed",
+  "scheduled",
+  "completed",
+  "finished",
+  "started",
+  "began",
+  "implemented",
+  "added",
+  "removed",
+  "changed",
+  "modified",
+  "debugged",
+  "investigated",
+  "researched",
+  "analyzed",
+  "organized",
+  "prepared",
+  "submitted",
+  "approved",
+  "rejected",
+  "requested",
+  "ordered",
+  "delivered",
+  "installed",
+  "configured",
+  "set up",
+  "cleaned",
+  "polished",
+];
+
+const ACTION_VERB_REGEX = new RegExp(`\\b(${ACTION_VERBS.join("|")})\\b`, "i");
+
+/** Date patterns for timeline detection */
+const DATE_ANCHOR_PATTERNS = [
+  /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{1,2}/i,
+  /\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b/,
+  /\b\d{1,2}[-/]\d{1,2}[-/]\d{4}\b/,
+  /\b(yesterday|today|tomorrow)\b/i,
+  /\b\d{1,2}:\d{2}\s*(am|pm)\b/i,
+  /\b(morning|afternoon|evening)\b/i,
+];
+
+/** Time of day patterns */
+const TIME_OF_DAY_PATTERNS: Array<{ hint: TimeOfDayHint; re: RegExp }> = [
+  { hint: "morning", re: /\b(morning|am|a\.m\.|before noon)\b/i },
+  { hint: "afternoon", re: /\b(afternoon|pm|p\.m\.|after noon)\b/i },
+  { hint: "evening", re: /\b(evening|night|late)\b/i },
+];
+
+/** Relative date keywords */
+const RELATIVE_DATE_KEYWORDS: Record<string, number> = {
+  yesterday: -1,
+  today: 0,
+  tomorrow: 1,
+};
+
+/**
+ * Detect the input mode based on content heuristics.
+ */
+export function detectInputMode(input: string): TaskSpellbookMode {
+  const lines = (input ?? "").split(/\r?\n/).filter((line) => line.trim());
+
+  // Check for structured format: lines starting with -, *, 1., [ ]
+  const structuredLineCount = lines.filter((line) =>
+    /^\s*[-*•]\s+/.test(line) ||
+    /^\s*\d+[.)]\s+/.test(line) ||
+    /^\s*\[(?: |x|X)\]\s+/.test(line)
+  ).length;
+
+  if (structuredLineCount >= lines.length * 0.5 && structuredLineCount >= 2) {
+    return "structured";
+  }
+
+  // Check for timeline format: contains date anchors
+  const hasDateAnchors = DATE_ANCHOR_PATTERNS.some((pattern) => pattern.test(input));
+  if (hasDateAnchors) {
+    return "timeline";
+  }
+
+  // Default to narrative
+  return "narrative";
+}
+
+/**
+ * Parse a relative date keyword to an ISO date string.
+ */
+function parseRelativeDate(keyword: string, anchorDate: string): string | null {
+  const normalized = keyword.toLowerCase().trim();
+  const delta = RELATIVE_DATE_KEYWORDS[normalized];
+  if (delta === undefined) return null;
+
+  const [y, m, d] = anchorDate.split("-").map(Number);
+  const base = new Date(Date.UTC(y, m - 1, d));
+  base.setUTCDate(base.getUTCDate() + delta);
+  const yyyy = String(base.getUTCFullYear());
+  const mm = String(base.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(base.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Extract date hint from text.
+ */
+function extractDateHint(text: string, anchorDate: string): { dateHint: string | null; explanation: TaskDraftExplanation | null } {
+  // Check relative dates first
+  for (const [keyword, _delta] of Object.entries(RELATIVE_DATE_KEYWORDS)) {
+    const re = new RegExp(`\\b${keyword}\\b`, "i");
+    if (re.test(text)) {
+      const dateHint = parseRelativeDate(keyword, anchorDate);
+      if (dateHint) {
+        return {
+          dateHint,
+          explanation: {
+            type: "inferred_date",
+            value: `"${keyword}" → ${dateHint}`,
+            confidence: 0.8,
+          },
+        };
+      }
+    }
+  }
+
+  // Check explicit date patterns
+  const isoMatch = text.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch;
+    const dateHint = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    return {
+      dateHint,
+      explanation: {
+        type: "inferred_date",
+        value: dateHint,
+        confidence: 0.95,
+      },
+    };
+  }
+
+  return { dateHint: null, explanation: null };
+}
+
+/**
+ * Extract time of day hint from text.
+ */
+function extractTimeOfDayHint(text: string): { hint: TimeOfDayHint; explanation: TaskDraftExplanation | null } {
+  for (const pattern of TIME_OF_DAY_PATTERNS) {
+    if (pattern.re.test(text)) {
+      return {
+        hint: pattern.hint,
+        explanation: {
+          type: "matched_keyword",
+          value: `time of day: ${pattern.hint}`,
+          confidence: 0.7,
+        },
+      };
+    }
+  }
+  return { hint: null, explanation: null };
+}
+
+/**
+ * Extract owner/assignee hint from text.
+ * Looks for patterns like "Partner A did...", "John worked on..."
+ */
+function extractOwnerHint(text: string): { ownerHint: string | null; explanation: TaskDraftExplanation | null } {
+  // Pattern: "Partner A/B" or "partner 1/2"
+  const partnerMatch = text.match(/\b(partner\s+[a-z0-9]+)\b/i);
+  if (partnerMatch) {
+    return {
+      ownerHint: partnerMatch[1],
+      explanation: {
+        type: "inferred_owner",
+        value: partnerMatch[1],
+        confidence: 0.75,
+      },
+    };
+  }
+
+  // Pattern: Capitalized name before action verb
+  const nameBeforeVerbMatch = text.match(/\b([A-Z][a-z]+)\s+(?:worked|fixed|reviewed|met|emailed|called|created|updated|designed|planned)\b/);
+  if (nameBeforeVerbMatch) {
+    return {
+      ownerHint: nameBeforeVerbMatch[1],
+      explanation: {
+        type: "inferred_owner",
+        value: nameBeforeVerbMatch[1],
+        confidence: 0.6,
+      },
+    };
+  }
+
+  return { ownerHint: null, explanation: null };
+}
+
+/**
+ * Infer kind from text, including break/buffer detection.
+ */
+function inferDraftKind(text: string): { kind: TaskDraftKind; explanation: TaskDraftExplanation | null } {
+  const normalized = text.trim().toLowerCase();
+
+  // Check for break
+  if (/\b(break|lunch|coffee|rest)\b/i.test(text)) {
+    return {
+      kind: "break",
+      explanation: {
+        type: "matched_keyword",
+        value: "break keyword detected",
+        confidence: 0.9,
+      },
+    };
+  }
+
+  // Check for buffer
+  if (/\b(buffer|slack|padding|handoff)\b/i.test(text)) {
+    return {
+      kind: "buffer",
+      explanation: {
+        type: "matched_keyword",
+        value: "buffer keyword detected",
+        confidence: 0.85,
+      },
+    };
+  }
+
+  // Check for intent
+  if (
+    normalized.startsWith("intent:") ||
+    normalized.startsWith("intent -") ||
+    normalized.startsWith("[intent]")
+  ) {
+    return {
+      kind: "intent",
+      explanation: {
+        type: "matched_keyword",
+        value: "intent prefix detected",
+        confidence: 0.95,
+      },
+    };
+  }
+
+  if (/\b(touch base|check in|follow up|triage|review prs?)\b/i.test(text)) {
+    return {
+      kind: "intent",
+      explanation: {
+        type: "matched_keyword",
+        value: "intent keyword detected",
+        confidence: 0.7,
+      },
+    };
+  }
+
+  return { kind: "task", explanation: null };
+}
+
+/**
+ * Split text into sentences using basic regex.
+ */
+function splitIntoSentences(text: string): string[] {
+  // Split on sentence-ending punctuation followed by space/newline
+  const sentences = text
+    .replace(/\r\n/g, "\n")
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 3);
+
+  return sentences;
+}
+
+/**
+ * Check if a sentence looks like a task candidate.
+ */
+function looksLikeTaskCandidate(sentence: string): boolean {
+  // Has action verb?
+  if (ACTION_VERB_REGEX.test(sentence)) {
+    return true;
+  }
+
+  // Has known tag keywords?
+  for (const rule of TAG_RULES) {
+    if (rule.re.test(sentence)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Parse narrative text into task candidates.
+ */
+export function parseNarrativeToCandidates(
+  text: string,
+  options: {
+    maxItems?: number;
+    anchorDate: string;
+  },
+): { items: TaskDraftItem[]; warnings: TaskSpellbookWarning[] } {
+  const maxItems = options.maxItems ?? 60;
+  const warnings: TaskSpellbookWarning[] = [];
+
+  const sentences = splitIntoSentences(text);
+  const items: TaskDraftItem[] = [];
+
+  let charOffset = 0;
+
+  for (const sentence of sentences) {
+    if (items.length >= maxItems) {
+      warnings.push({
+        code: "truncated_items",
+        message: `Input truncated at ${maxItems} items`,
+      });
+      break;
+    }
+
+    // Find position in original text
+    const start = text.indexOf(sentence, charOffset);
+    const end = start >= 0 ? start + sentence.length : charOffset + sentence.length;
+    charOffset = end;
+
+    // Skip if doesn't look like a task
+    if (!looksLikeTaskCandidate(sentence)) {
+      continue;
+    }
+
+    const explanations: TaskDraftExplanation[] = [];
+
+    // Check for action verb match
+    const verbMatch = sentence.match(ACTION_VERB_REGEX);
+    if (verbMatch) {
+      explanations.push({
+        type: "action_verb",
+        value: verbMatch[1].toLowerCase(),
+        confidence: 0.7,
+      });
+    }
+
+    // Extract metadata
+    const { kind, explanation: kindExplanation } = inferDraftKind(sentence);
+    if (kindExplanation) explanations.push(kindExplanation);
+
+    const { dateHint, explanation: dateExplanation } = extractDateHint(sentence, options.anchorDate);
+    if (dateExplanation) explanations.push(dateExplanation);
+
+    const { hint: timeOfDayHint, explanation: timeExplanation } = extractTimeOfDayHint(sentence);
+    if (timeExplanation) explanations.push(timeExplanation);
+
+    const { ownerHint, explanation: ownerExplanation } = extractOwnerHint(sentence);
+    if (ownerExplanation) explanations.push(ownerExplanation);
+
+    // Extract duration
+    const extracted = extractDurationMinutes(sentence);
+    const durationMinutes = extracted.minutes ?? suggestDurationMinutes(sentence);
+    if (extracted.minutes) {
+      explanations.push({
+        type: "extracted_duration",
+        value: `${extracted.minutes}m`,
+        confidence: 0.9,
+      });
+    }
+
+    // Extract tags and cluster
+    const tags = suggestTags(sentence);
+    const cluster = tags[0] || DEFAULT_CLUSTER;
+    if (tags.length > 0) {
+      explanations.push({
+        type: "inferred_cluster",
+        value: cluster,
+        confidence: 0.6,
+      });
+    }
+
+    // Build title from sentence (clean it up)
+    const title = titleCaseFirst(extracted.stripped.replace(/\s{2,}/g, " ").trim());
+    if (!title || title.length < 3) continue;
+
+    const sourceSpan = { start, end };
+    const mergeKey = buildMergeKey(cluster, kind, tags);
+    const confidence = explanations.reduce((sum, e) => sum + e.confidence, 0) / Math.max(1, explanations.length);
+
+    items.push({
+      id: generateDraftItemId(sourceSpan, title),
+      title,
+      kind,
+      cluster,
+      tags,
+      durationMinutes,
+      dateHint,
+      timeOfDayHint,
+      ownerHint,
+      mergeKey,
+      sourceSpan,
+      confidence: Math.min(1, confidence),
+      explanations,
+      raw: sentence,
+    });
+  }
+
+  return { items, warnings };
+}
+
+/**
+ * Parse structured input (lists) into task draft items.
+ */
+export function parseStructuredToDraftItems(
+  input: string,
+  options: {
+    maxItems?: number;
+    anchorDate: string;
+  },
+): { items: TaskDraftItem[]; warnings: TaskSpellbookWarning[] } {
+  const maxItems = options.maxItems ?? 60;
+  const warnings: TaskSpellbookWarning[] = [];
+  const lines = (input ?? "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trimEnd());
+
+  const items: TaskDraftItem[] = [];
+  let currentCluster = DEFAULT_CLUSTER;
+  let charOffset = 0;
+
+  for (const originalLine of lines) {
+    const lineStart = input.indexOf(originalLine, charOffset);
+    const lineEnd = lineStart >= 0 ? lineStart + originalLine.length : charOffset + originalLine.length;
+    charOffset = lineEnd;
+
+    if (items.length >= maxItems) {
+      warnings.push({
+        code: "truncated_items",
+        message: `Input truncated at ${maxItems} items`,
+      });
+      break;
+    }
+
+    const trimmed = originalLine.trim();
+    if (!trimmed) continue;
+
+    if (looksLikeHeader(trimmed)) {
+      currentCluster = normalizeCluster(trimmed);
+      continue;
+    }
+
+    const cleaned = cleanLine(trimmed);
+    if (!cleaned) continue;
+
+    if (looksLikeHeader(cleaned)) {
+      currentCluster = normalizeCluster(cleaned);
+      continue;
+    }
+
+    const explanations: TaskDraftExplanation[] = [];
+
+    const { kind, explanation: kindExplanation } = inferDraftKind(cleaned);
+    if (kindExplanation) explanations.push(kindExplanation);
+
+    const withoutKind = kind === "intent" ? stripIntentPrefix(cleaned) : cleaned;
+
+    const { dateHint, explanation: dateExplanation } = extractDateHint(withoutKind, options.anchorDate);
+    if (dateExplanation) explanations.push(dateExplanation);
+
+    const { hint: timeOfDayHint, explanation: timeExplanation } = extractTimeOfDayHint(withoutKind);
+    if (timeExplanation) explanations.push(timeExplanation);
+
+    const { ownerHint, explanation: ownerExplanation } = extractOwnerHint(withoutKind);
+    if (ownerExplanation) explanations.push(ownerExplanation);
+
+    const extracted = extractDurationMinutes(withoutKind);
+    const durationMinutes = extracted.minutes ?? suggestDurationMinutes(withoutKind);
+    if (extracted.minutes) {
+      explanations.push({
+        type: "extracted_duration",
+        value: `${extracted.minutes}m`,
+        confidence: 0.9,
+      });
+    }
+
+    const title = titleCaseFirst(extracted.stripped.replace(/\s{2,}/g, " ").trim());
+    if (!title) continue;
+
+    const tags = suggestTags(title);
+    const cluster = currentCluster || DEFAULT_CLUSTER;
+    if (tags.length > 0) {
+      explanations.push({
+        type: "inferred_cluster",
+        value: tags[0],
+        confidence: 0.6,
+      });
+    }
+
+    const sourceSpan = { start: lineStart >= 0 ? lineStart : 0, end: lineEnd };
+    const mergeKey = buildMergeKey(cluster, kind, tags);
+    const confidence = Math.max(0.5, explanations.reduce((sum, e) => sum + e.confidence, 0) / Math.max(1, explanations.length));
+
+    items.push({
+      id: generateDraftItemId(sourceSpan, title),
+      title,
+      kind,
+      cluster,
+      tags,
+      durationMinutes,
+      dateHint,
+      timeOfDayHint,
+      ownerHint,
+      mergeKey,
+      sourceSpan,
+      confidence,
+      explanations,
+      raw: originalLine,
+    });
+  }
+
+  return { items, warnings };
+}
+
+/**
+ * Build a full TaskSpellbookDraft envelope from input.
+ */
+export function buildTaskSpellbookDraft(
+  input: string,
+  options: {
+    anchorDate: string;
+    maxItems?: number;
+    focusBlockWindowId?: string;
+    startLocalTime?: string;
+    endLocalTime?: string;
+    windowMinutes?: number;
+  },
+): TaskSpellbookDraft {
+  const mode = detectInputMode(input);
+  const warnings: TaskSpellbookWarning[] = [];
+
+  // Parse based on mode
+  let parseResult: { items: TaskDraftItem[]; warnings: TaskSpellbookWarning[] };
+  if (mode === "narrative") {
+    parseResult = parseNarrativeToCandidates(input, {
+      maxItems: options.maxItems,
+      anchorDate: options.anchorDate,
+    });
+    warnings.push({
+      code: "mode_narrative_create_only",
+      message: "Narrative mode: defaulting to Create-only",
+    });
+  } else {
+    parseResult = parseStructuredToDraftItems(input, {
+      maxItems: options.maxItems,
+      anchorDate: options.anchorDate,
+    });
+  }
+
+  warnings.push(...parseResult.warnings);
+
+  const stats = computeDraftStats(parseResult.items);
+  const focusBlock = inferFocusBlockMetadata(
+    parseResult.items,
+    options.anchorDate,
+    options.windowMinutes ?? 180,
+    options.startLocalTime ?? "10:00",
+    options.endLocalTime ?? "13:00",
+  );
+  warnings.push(...focusBlock.warnings);
+
+  return {
+    schemaVersion: TASK_SPELLBOOK_SCHEMA_VERSION,
+    engineVersion: TASK_SPELLBOOK_ENGINE_VERSION,
+    createdAtIso: new Date().toISOString(),
+    mode,
+    items: parseResult.items,
+    focusBlock,
+    warnings,
+    stats,
+    originalInput: input,
+    selectedDate: options.anchorDate,
+  };
+}
+
+/**
+ * Convert TaskDraftItem[] to legacy SpellbookDraftItem[] for backward compatibility.
+ */
+export function draftItemsToLegacy(items: TaskDraftItem[]): SpellbookDraftItem[] {
+  return items.map((item) => ({
+    kind: item.kind === "task" || item.kind === "intent" ? item.kind : "task",
+    raw: item.raw,
+    title: item.title,
+    cluster: item.cluster,
+    tags: item.tags,
+    durationMinutes: item.durationMinutes ?? 30,
+  }));
 }

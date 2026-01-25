@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Modal from "@/shared/ui/ModalWithStack";
 import { X, ExternalLink, AlertCircle, Sparkles, Link2, Unlink2 } from "lucide-react";
 import { useOrg } from "@/app/contexts/useOrg";
+import HqSelect from "@/hq/components/HqSelect";
 import {
   addHqTransactionAllocation,
   fetchHqBudgetLineAllocations,
@@ -109,41 +110,195 @@ const BudgetLineTransactionsDrawer: React.FC<BudgetLineTransactionsDrawerProps> 
     return Number.isNaN(d.getTime()) ? "—" : dateFormatter.format(d);
   };
 
+  /** Tokenizes a string for fuzzy matching - extracts meaningful words */
   const tokenize = (value: string): string[] =>
     value
       .toLowerCase()
+      .replace(/['']/g, "") // normalize apostrophes
       .split(/[^a-z0-9]+/g)
       .map((t) => t.trim())
-      .filter((t) => t.length >= 3)
-      .slice(0, 16);
+      .filter((t) => t.length >= 2) // allow 2-char tokens for abbreviations
+      .slice(0, 24);
 
+  /** Normalizes vendor/company names for matching (removes common suffixes) */
+  const normalizeVendorName = (name: string): string =>
+    name
+      .toLowerCase()
+      .replace(/\b(inc|llc|ltd|co|corp|company|stores?|shop|market)\b\.?/gi, "")
+      .replace(/[^a-z0-9]/g, "")
+      .trim();
+
+  /**
+   * Patterns for personal recurring expenses that should be deprioritized.
+   * These rarely belong to project budgets unless explicitly searched.
+   */
+  const PERSONAL_EXPENSE_PATTERNS = [
+    // Car payments & leases
+    /\b(car\s*payment|auto\s*payment|vehicle\s*payment|lease\s*payment)\b/i,
+    /\b(toyota|honda|ford|chevrolet|chevy|nissan|hyundai|kia|bmw|mercedes|audi|lexus|acura|mazda|subaru|volkswagen|vw)\s*(financial|motor|credit|lease|finance)\b/i,
+    /\b(ally\s*(auto|financial)|capital\s*one\s*auto|chase\s*auto|wells\s*fargo\s*auto)\b/i,
+    // Insurance
+    /\b(insurance|insur|ins)\s*(payment|premium|pmt)?\b/i,
+    /\b(geico|progressive|state\s*farm|allstate|liberty\s*mutual|farmers|usaa|nationwide|travelers|american\s*family|esurance|metlife\s*auto)\b/i,
+    /\b(auto\s*ins|car\s*ins|vehicle\s*ins)\b/i,
+    // Utilities & recurring personal
+    /\b(electric\s*bill|gas\s*bill|water\s*bill|utility\s*bill|phone\s*bill|cell\s*bill|cable\s*bill|internet\s*bill)\b/i,
+    /\b(mortgage|rent\s*payment|hoa\s*fee|property\s*tax)\b/i,
+    // Subscriptions & memberships
+    /\b(netflix|hulu|spotify|apple\s*music|disney\+?|hbo|amazon\s*prime|gym\s*membership|planet\s*fitness|la\s*fitness)\b/i,
+  ];
+
+  /** Check if transaction looks like a personal recurring expense */
+  const isPersonalRecurringExpense = (txn: HqTransaction): boolean => {
+    const hay = `${txn.vendor ?? ""} ${txn.rawDescription ?? ""} ${txn.normalizedDescription ?? ""}`.toLowerCase();
+    return PERSONAL_EXPENSE_PATTERNS.some((pattern) => pattern.test(hay));
+  };
+
+  /**
+   * Enhanced suggestion scoring algorithm.
+   * Weights:
+   * - 45% amount match (with bonus for exact/near-exact)
+   * - 35% text/vendor match (tokens from line name + search query)
+   * - 20% recency
+   */
   const computeSuggestionScore = (
     txn: HqTransaction,
-    context: { queryTokens: string[]; remainingTarget: number | null }
+    context: {
+      queryTokens: string[];
+      remainingTarget: number | null;
+      lineNameNormalized?: string;
+    }
   ): { score: number; reasons: string[] } => {
     const absAmount = Math.abs(txn.amount);
     const remainingTarget = context.remainingTarget;
-    const amountScore =
-      remainingTarget != null && remainingTarget > 0
-        ? 1 - Math.min(1, Math.abs(absAmount - remainingTarget) / Math.max(absAmount, remainingTarget, 1))
-        : 0.35;
+    const reasons: string[] = [];
 
-    const hay = `${txn.vendor ?? ""} ${txn.rawDescription ?? ""}`.toLowerCase();
-    const tokenMatches = context.queryTokens.filter((t) => hay.includes(t)).length;
-    const textScore = context.queryTokens.length ? tokenMatches / context.queryTokens.length : 0;
+    // ─────────────────────────────────────────────────────────────────────────
+    // 1. AMOUNT SCORE (45% weight) - with bonus for exact/near-exact matches
+    // ─────────────────────────────────────────────────────────────────────────
+    let amountScore = 0.35; // default when no target
+    let exactAmountMatch = false;
 
+    if (remainingTarget != null && remainingTarget > 0) {
+      const diff = Math.abs(absAmount - remainingTarget);
+      const maxVal = Math.max(absAmount, remainingTarget, 1);
+      const percentDiff = diff / maxVal;
+
+      // Exact match (within $0.02 or 0.5%)
+      if (diff <= 0.02 || percentDiff <= 0.005) {
+        amountScore = 1.0;
+        exactAmountMatch = true;
+        reasons.push("Exact match");
+      }
+      // Near-exact match (within 2%)
+      else if (percentDiff <= 0.02) {
+        amountScore = 0.95;
+        reasons.push("Amount match");
+      }
+      // Close match (within 10%)
+      else if (percentDiff <= 0.10) {
+        amountScore = 0.85 - percentDiff * 2;
+        reasons.push("Amount match");
+      }
+      // Standard decay
+      else {
+        amountScore = Math.max(0, 1 - percentDiff);
+        if (amountScore >= 0.75) reasons.push("Similar amount");
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 2. TEXT/VENDOR SCORE (35% weight) - multi-signal matching
+    // ─────────────────────────────────────────────────────────────────────────
+    const txnVendor = txn.vendor ?? "";
+    const txnMemo = txn.rawDescription ?? "";
+    const txnNormalized = txn.normalizedDescription ?? "";
+    const txnVendorKey = txn.vendorKey ?? "";
+    const hay = `${txnVendor} ${txnMemo} ${txnNormalized}`.toLowerCase();
+    const hayTokens = tokenize(hay);
+
+    let textScore = 0;
+    let vendorKeyMatch = false;
+
+    // 2a. Check vendorKey match against line name (strongest signal)
+    if (txnVendorKey && context.lineNameNormalized) {
+      const normalizedVendorKey = normalizeVendorName(txnVendorKey);
+      if (
+        normalizedVendorKey.includes(context.lineNameNormalized) ||
+        context.lineNameNormalized.includes(normalizedVendorKey)
+      ) {
+        textScore = 0.9;
+        vendorKeyMatch = true;
+        if (!reasons.includes("Vendor match")) reasons.push("Vendor match");
+      }
+    }
+
+    // 2b. Token matching (line name + search query tokens)
+    if (!vendorKeyMatch && context.queryTokens.length > 0) {
+      // Count how many query tokens appear in transaction
+      const matchedTokens = context.queryTokens.filter((qt) => {
+        // Check substring match
+        if (hay.includes(qt)) return true;
+        // Check if any hay token starts with query token (prefix match)
+        return hayTokens.some((ht) => ht.startsWith(qt) || qt.startsWith(ht));
+      });
+
+      const matchRatio = matchedTokens.length / context.queryTokens.length;
+      textScore = Math.max(textScore, matchRatio);
+
+      if (matchRatio >= 0.5 && !reasons.some((r) => r.includes("match"))) {
+        reasons.push("Memo/vendor match");
+      }
+    }
+
+    // 2c. Fallback: check if vendor name contains significant budget line words
+    if (textScore < 0.3 && txnVendor && context.lineNameNormalized) {
+      const normalizedTxnVendor = normalizeVendorName(txnVendor);
+      if (
+        normalizedTxnVendor.includes(context.lineNameNormalized) ||
+        context.lineNameNormalized.includes(normalizedTxnVendor)
+      ) {
+        textScore = Math.max(textScore, 0.7);
+        if (!reasons.some((r) => r.includes("match"))) reasons.push("Vendor match");
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 3. RECENCY SCORE (20% weight) - exponential decay ~35 days half-life
+    // ─────────────────────────────────────────────────────────────────────────
     const posted = new Date(txn.postedAt);
     const ageDays = Number.isNaN(posted.getTime())
       ? 365
       : Math.max(0, (Date.now() - posted.getTime()) / (1000 * 60 * 60 * 24));
     const recencyScore = Math.exp(-ageDays / 35);
+    if (recencyScore >= 0.55 && !reasons.includes("Recent")) reasons.push("Recent");
 
-    const score = 0.5 * amountScore + 0.3 * textScore + 0.2 * recencyScore;
+    // ─────────────────────────────────────────────────────────────────────────
+    // FINAL SCORE with bonus multipliers and penalties
+    // ─────────────────────────────────────────────────────────────────────────
+    let score = 0.45 * amountScore + 0.35 * textScore + 0.2 * recencyScore;
 
-    const reasons: string[] = [];
-    if (textScore >= 0.34) reasons.push("Memo/vendor match");
-    if (amountScore >= 0.75) reasons.push("Amount match");
-    if (recencyScore >= 0.55) reasons.push("Recent");
+    // Bonus: exact amount + any text match = push to top
+    if (exactAmountMatch && textScore >= 0.3) {
+      score = Math.min(1.0, score * 1.15);
+    }
+
+    // Bonus: vendor key match = significant boost
+    if (vendorKeyMatch) {
+      score = Math.min(1.0, score * 1.1);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PENALTY: Personal recurring expenses (car payments, insurance, etc.)
+    // Unless user is explicitly searching for them (textScore high), heavily penalize
+    // ─────────────────────────────────────────────────────────────────────────
+    if (isPersonalRecurringExpense(txn) && textScore < 0.5) {
+      // Heavy penalty: push these to the bottom of suggestions
+      score = score * 0.15;
+      // Remove any positive reason chips since this is likely not relevant
+      reasons.length = 0;
+      reasons.push("Personal expense");
+    }
 
     return { score, reasons };
   };
@@ -243,9 +398,15 @@ const BudgetLineTransactionsDrawer: React.FC<BudgetLineTransactionsDrawerProps> 
     });
   }, [isOpen, data?.transactions]);
 
-  const suggestions = (() => {
+  const suggestions = useMemo(() => {
     if (!candidateTxns.length) return [];
-    const queryTokens = tokenize(budgetItemName ?? "");
+
+    // Combine budget line name tokens with search query tokens for matching
+    const lineNameTokens = tokenize(budgetItemName ?? "");
+    const searchTokens = tokenize(suggestionQuery);
+    const queryTokens = [...new Set([...lineNameTokens, ...searchTokens])];
+    const lineNameNormalized = normalizeVendorName(budgetItemName ?? "");
+
     const remainingTarget = getLineRemainingTarget();
     const linkedSet = new Set(
       (data?.transactions ?? []).map((t) => `${t.dedupeHash}:${projectId}:${budgetItemId}`)
@@ -266,13 +427,17 @@ const BudgetLineTransactionsDrawer: React.FC<BudgetLineTransactionsDrawerProps> 
         return unallocated == null ? true : unallocated > 0.01;
       })
       .map((txn) => {
-        const { score, reasons } = computeSuggestionScore(txn, { queryTokens, remainingTarget });
+        const { score, reasons } = computeSuggestionScore(txn, {
+          queryTokens,
+          remainingTarget,
+          lineNameNormalized: lineNameNormalized || undefined,
+        });
         return { txn, score, reasons };
       })
       .sort((a, b) => b.score - a.score);
 
     return scored.slice(0, 12);
-  })();
+  }, [candidateTxns, budgetItemName, suggestionQuery, data?.transactions, projectId, budgetItemId, costTargetTotal]);
 
   useEffect(() => {
     if (!isOpen || !suggestions.length) return;
@@ -522,16 +687,17 @@ const BudgetLineTransactionsDrawer: React.FC<BudgetLineTransactionsDrawerProps> 
                 </div>
 
                 <div className={styles.suggestionControls}>
-                  <select
-                    className={styles.select}
+                  <HqSelect
                     value={suggestionScope}
-                    onChange={(e) => setSuggestionScope(e.target.value as SuggestionScope)}
-                    aria-label="Suggestion scope"
-                  >
-                    <option value="project">This project</option>
-                    <option value="unlinked">Unlinked</option>
-                    <option value="all">All</option>
-                  </select>
+                    onValueChange={(val) => setSuggestionScope(val as SuggestionScope)}
+                    options={[
+                      { value: "project", label: "This project" },
+                      { value: "unlinked", label: "Unlinked" },
+                      { value: "all", label: "All transactions" },
+                    ]}
+                    ariaLabel="Suggestion scope"
+                    className={styles.scopeSelect}
+                  />
                   <input
                     className={styles.searchInput}
                     type="text"

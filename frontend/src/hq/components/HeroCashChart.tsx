@@ -62,7 +62,7 @@ const money = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-const VOLUME_SCALE_ID = "volume";
+const NUMBER_SCALE_ID = "number";
 
 type Props = {
   balance: DailyPoint[];
@@ -151,7 +151,7 @@ const HeroCashChart: React.FC<Props> = ({ balance, inflow, outflow, range, visib
 
     const inflowSeries = chart.addSeries(HistogramSeries, {
       color: "rgba(45, 212, 191, 0.32)",
-      priceScaleId: VOLUME_SCALE_ID,
+      priceScaleId: NUMBER_SCALE_ID,
       base: 0,
       priceLineVisible: false,
       lastValueVisible: false,
@@ -159,14 +159,14 @@ const HeroCashChart: React.FC<Props> = ({ balance, inflow, outflow, range, visib
 
     const outflowSeries = chart.addSeries(HistogramSeries, {
       color: "rgba(250, 51, 86, 0.26)",
-      priceScaleId: VOLUME_SCALE_ID,
+      priceScaleId: NUMBER_SCALE_ID,
       base: 0,
       priceLineVisible: false,
       lastValueVisible: false,
     });
 
-    chart.priceScale(VOLUME_SCALE_ID).applyOptions({
-      scaleMargins: { top: 0.78, bottom: 0.02 },
+    chart.priceScale(NUMBER_SCALE_ID).applyOptions({
+      scaleMargins: { top: 0.65, bottom: 0.02 },
       borderVisible: false,
       visible: false,
     });

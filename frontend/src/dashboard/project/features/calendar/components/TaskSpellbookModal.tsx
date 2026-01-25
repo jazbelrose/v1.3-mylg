@@ -1,18 +1,28 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Modal from "@/shared/ui/ModalWithStack";
-import { Sparkles, X } from "lucide-react";
+import { Sparkles, X, AlertCircle, Info } from "lucide-react";
 import styles from "./task-spellbook-modal.module.css";
 import type { CalendarEvent, CalendarTask } from "../utils";
 import { fmtLocal, safeDate } from "../utils";
 import { blockMinutesFromWindow, getFocusBlockWindow, type FocusBlockWindowId, FOCUS_BLOCK_WINDOWS } from "@/shared/utils/focusBlockWindows";
-import { packTasksIntoFocusBlock } from "@/shared/utils/packTasksIntoFocusBlock";
+import { packTasksIntoFocusBlock, type PackedTask } from "@/shared/utils/packTasksIntoFocusBlock";
 import {
   buildSpellbookVariants,
   parseSpellbookInput,
+  buildTaskSpellbookDraft,
+  detectInputMode,
+  draftItemsToLegacy,
   type SpellbookParseResult,
   type SpellbookVariant,
   type SpellbookVariantId,
+  type TaskSpellbookDraft,
+  type TaskSpellbookMode,
 } from "../lib/taskSpellbook";
+import {
+  type TaskSpellbookApplyMode,
+  getDefaultApplyMode,
+  type TaskDraftItem,
+} from "../lib/taskSpellbookDraft";
 
 if (typeof document !== "undefined") {
   Modal.setAppElement("#root");
@@ -26,6 +36,12 @@ export type TaskSpellbookApplyRequest = {
   variant: SpellbookVariant;
   parseResult: SpellbookParseResult;
   focusBlockWindowId: FocusBlockWindowId;
+  /** Apply mode - CREATE_ONLY or SCHEDULE_IN_WINDOW */
+  applyMode: TaskSpellbookApplyMode;
+  /** Full draft envelope for apply (preview == apply) */
+  draft?: TaskSpellbookDraft;
+  /** Pre-packed tasks for apply (to ensure preview == apply) */
+  packedTasks?: PackedTask[];
 };
 
 export type TaskSpellbookModalProps = {
@@ -118,6 +134,20 @@ export default function TaskSpellbookModal({
   const [focusBlockWindowId, setFocusBlockWindowId] = useState<FocusBlockWindowId>("balanced");
   const [isApplying, setIsApplying] = useState(false);
   const [selectedLoadTodayTaskIds, setSelectedLoadTodayTaskIds] = useState<Set<string>>(() => new Set());
+  const [applyMode, setApplyMode] = useState<TaskSpellbookApplyMode>("SCHEDULE_IN_WINDOW");
+
+  // Detect input mode and set default apply mode
+  const detectedMode = useMemo<TaskSpellbookMode>(() => {
+    if (inputSource === "load-today") return "structured";
+    return detectInputMode(text);
+  }, [inputSource, text]);
+
+  // Update apply mode when detected mode changes
+  useEffect(() => {
+    if (!isOpen) return;
+    const defaultMode = getDefaultApplyMode(detectedMode);
+    setApplyMode(defaultMode);
+  }, [detectedMode, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -169,7 +199,10 @@ export default function TaskSpellbookModal({
   }, [inputSource, loadTodayCandidates, selectedLoadTodayTaskIds]);
 
   const parseResult = useMemo<SpellbookParseResult>(() => {
-    if (inputSource === "paste") return parseSpellbookInput(text);
+    if (inputSource === "paste") {
+      const result = parseSpellbookInput(text);
+      return { ...result, mode: detectedMode };
+    }
 
     const items = selectedLoadTodayTasks
       .map((task) => {
@@ -188,8 +221,23 @@ export default function TaskSpellbookModal({
 
     const clusters = [...new Set(items.map((item) => item.cluster || "General"))];
     const totalMinutes = items.reduce((sum, item) => sum + (item.durationMinutes || 0), 0);
-    return { items, clusters, totalMinutes };
-  }, [inputSource, selectedLoadTodayTasks, text]);
+    return { items, clusters, totalMinutes, mode: "structured" as TaskSpellbookMode };
+  }, [detectedMode, inputSource, selectedLoadTodayTasks, text]);
+
+  // Build draft envelope for preview == apply
+  const draft = useMemo<TaskSpellbookDraft | null>(() => {
+    if (inputSource !== "paste" || !isMeaningfulText(text)) return null;
+    return buildTaskSpellbookDraft(text, {
+      anchorDate: targetDate,
+      focusBlockWindowId,
+      startLocalTime: getFocusBlockWindow(focusBlockWindowId).startLocalTime,
+      endLocalTime: getFocusBlockWindow(focusBlockWindowId).endLocalTime,
+      windowMinutes: blockMinutesFromWindow(
+        getFocusBlockWindow(focusBlockWindowId).startLocalTime,
+        getFocusBlockWindow(focusBlockWindowId).endLocalTime
+      ),
+    });
+  }, [focusBlockWindowId, inputSource, targetDate, text]);
 
   const variants = useMemo(() => buildSpellbookVariants(parseResult), [parseResult]);
   const selectedVariant = useMemo(
@@ -202,6 +250,24 @@ export default function TaskSpellbookModal({
     () => blockMinutesFromWindow(selectedWindow.startLocalTime, selectedWindow.endLocalTime),
     [selectedWindow.endLocalTime, selectedWindow.startLocalTime],
   );
+
+  const hasItems = parseResult.items.length > 0;
+
+  // Pack tasks with weighted allocation for preview
+  // This same packed result is sent to Apply to ensure preview == apply
+  const previewTasks = useMemo(() => {
+    if (!hasItems) return [];
+    const baseItems = selectedVariant.items;
+    // Include durationMinutes and kind for weighted packing
+    const packable = baseItems.map((item, idx) => ({
+      draftId: `item-${idx}`,
+      title: item.title,
+      durationMinutes: item.durationMinutes,
+      kind: item.kind === "task" || item.kind === "intent" ? item.kind : ("task" as const),
+      mergeKey: `${item.cluster}|${item.kind}|${item.tags[0] ?? "none"}`,
+    }));
+    return packTasksIntoFocusBlock(blockMinutes, packable, { minTaskMinutes: 15, maxTaskMinutes: 120 }).tasks;
+  }, [blockMinutes, hasItems, selectedVariant.items]);
 
   const handleApply = useCallback(async () => {
     if (!selectedVariant) return;
@@ -225,6 +291,9 @@ export default function TaskSpellbookModal({
         variant: selectedVariant,
         parseResult,
         focusBlockWindowId,
+        applyMode,
+        draft: draft ?? undefined,
+        packedTasks: previewTasks,
       });
       onClose();
       setText("");
@@ -235,11 +304,14 @@ export default function TaskSpellbookModal({
     }
   }, [
     anchorDate,
+    applyMode,
+    draft,
     inputSource,
     focusBlockWindowId,
     onApply,
     onClose,
     parseResult,
+    previewTasks,
     selectedLoadTodayTasks,
     selectedVariant,
     targetDate,
@@ -261,20 +333,16 @@ export default function TaskSpellbookModal({
     } as React.CSSProperties;
   }, [accentColor]);
 
-  const hasItems = parseResult.items.length > 0;
   const canApply =
     !isApplying &&
     (inputSource === "paste" ? isMeaningfulText(text) : selectedLoadTodayTasks.length > 0);
 
-  const previewTasks = useMemo(() => {
-    if (!hasItems) return [];
-    const baseItems = selectedVariant.items;
-    const packable = baseItems.map((item, idx) => ({ draftId: `item-${idx}`, title: item.title }));
-    return packTasksIntoFocusBlock(blockMinutes, packable, { minTaskMinutes: 20, maxTaskMinutes: 120 }).tasks;
-  }, [blockMinutes, hasItems, selectedVariant.items]);
-
   const previewTaskCount = previewTasks.length;
   const previewAvg = previewTaskCount > 0 ? Math.round((blockMinutes / previewTaskCount) / 5) * 5 : 0;
+
+  // Collect warnings from draft for display
+  const draftWarnings = draft?.warnings ?? [];
+  const showModeWarning = detectedMode === "narrative" || detectedMode === "timeline";
 
   if (!isOpen) return null;
 
@@ -393,13 +461,29 @@ export default function TaskSpellbookModal({
               <div className={styles.summary} aria-live="polite">
                 {hasItems ? (
                   <span>
-                    Creates: 1 Focus Block ({selectedWindow.startLocalTime}–{selectedWindow.endLocalTime}) • Tasks: {previewTaskCount}
-                    {previewTaskCount > 0 ? ` • Auto-fit: ~${previewAvg}m each (min 20m)` : ""}
+                    {applyMode === "SCHEDULE_IN_WINDOW" ? (
+                      <>Creates: 1 Focus Block ({selectedWindow.startLocalTime}–{selectedWindow.endLocalTime}) • Tasks: {previewTaskCount}
+                      {previewTaskCount > 0 ? ` • Weighted fit: ~${previewAvg}m avg` : ""}</>
+                    ) : (
+                      <>Creates: {previewTaskCount} tasks (unscheduled) • Total: ~{Math.round(parseResult.totalMinutes)}m</>
+                    )}
                   </span>
                 ) : (
                   <span>Paste anything to detect items.</span>
                 )}
               </div>
+              {showModeWarning && hasItems ? (
+                <div className={styles.modeWarning}>
+                  <Info size={14} aria-hidden />
+                  <span>Narrative/timeline detected — defaulting to Create-only mode</span>
+                </div>
+              ) : null}
+              {draftWarnings.filter(w => w.code === "date_mismatch").map((warning, idx) => (
+                <div key={idx} className={styles.warningItem}>
+                  <AlertCircle size={14} aria-hidden />
+                  <span>{warning.message}</span>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -472,6 +556,28 @@ export default function TaskSpellbookModal({
                 onChange={(event) => setTargetDate(event.target.value)}
               />
             </label>
+            <div className={styles.applyModeToggle} role="radiogroup" aria-label="Apply mode">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={applyMode === "CREATE_ONLY"}
+                className={`${styles.applyModeButton} ${applyMode === "CREATE_ONLY" ? styles.applyModeButtonActive : ""}`}
+                onClick={() => setApplyMode("CREATE_ONLY")}
+                disabled={!hasItems}
+              >
+                Create tasks only
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={applyMode === "SCHEDULE_IN_WINDOW"}
+                className={`${styles.applyModeButton} ${applyMode === "SCHEDULE_IN_WINDOW" ? styles.applyModeButtonActive : ""}`}
+                onClick={() => setApplyMode("SCHEDULE_IN_WINDOW")}
+                disabled={!hasItems}
+              >
+                Schedule in window
+              </button>
+            </div>
           </div>
 
           <div className={styles.actions}>
@@ -479,7 +585,7 @@ export default function TaskSpellbookModal({
               Cancel
             </button>
             <button type="button" className={styles.apply} disabled={!canApply} onClick={handleApply}>
-              {isApplying ? "Applying..." : "Apply"}
+              {isApplying ? "Applying..." : applyMode === "CREATE_ONLY" ? "Create Tasks" : "Apply"}
             </button>
           </div>
         </div>
