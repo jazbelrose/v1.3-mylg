@@ -1,0 +1,30 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+}
+
+.threadWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Override thread's own padding for sheet context */
+  margin: -4px -16px -16px;
+}
+
+/* Ensure the thread fills the sheet */
+.threadWrap :global(.project-messages-thread-wrapper) {
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+}
+
+.threadWrap :global(.project-messages-thread-header) {
+  display: none;
+}

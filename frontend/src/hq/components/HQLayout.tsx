@@ -518,42 +518,22 @@ const HQLayout: React.FC<HQLayoutProps> = ({
     />
   );
 
-  // New mobile header: single row, no wrapping, org actions via sheet
+  // New mobile header: title + org pill on left (no icons - moved to org sheet)
   const mobilePageHeader = (
     <header className={styles.mobilePageHeader}>
-      <h1 className={styles.mobilePageTitle}>{title}</h1>
-      <div className={styles.mobileHeaderActions}>
-        {onOpenChat && (
-          <button
-            type="button"
-            className={styles.mobileIconButton}
-            onClick={onOpenChat}
-            aria-label="Open chat"
-          >
-            <MessageCircle size={20} />
-          </button>
-        )}
-        {onOpenFiles && (
-          <button
-            type="button"
-            className={styles.mobileIconButton}
-            onClick={onOpenFiles}
-            aria-label="Open files"
-          >
-            <FolderOpen size={20} />
-          </button>
-        )}
+      <div className={styles.mobileTitleRow}>
+        <h1 className={styles.mobilePageTitle}>{title}</h1>
         <button
           type="button"
-          className={styles.mobileOrgButton}
+          className={styles.mobileOrgPill}
           onClick={() => setIsOrgSheetOpen(true)}
           disabled={orgsLoading}
           aria-label="Organization actions"
         >
-          <span className={styles.mobileOrgName}>
+          <span className={styles.mobileOrgPillName}>
             {activeOrgName ?? (orgs.length ? "Select…" : "No org")}
           </span>
-          <ChevronDown size={16} className={styles.mobileOrgChevron} />
+          <ChevronDown size={12} className={styles.mobileOrgPillChevron} />
         </button>
       </div>
     </header>
@@ -897,8 +877,8 @@ const HQLayout: React.FC<HQLayoutProps> = ({
       orgs={orgs}
       activeOrgId={activeOrgId}
       onOrgChange={setActiveOrgId}
-      onOpenChat={onOpenChat || (() => {})}
-      onOpenFiles={onOpenFiles || (() => {})}
+      onOpenChat={onOpenChat}
+      onOpenFiles={onOpenFiles}
       onExportCsv={handleExportCsv}
       onExportBundle={handleExportBundle}
       isExporting={isExporting}

@@ -92,6 +92,25 @@
   flex-shrink: 0;
 }
 
+/* Active nav item styling */
+.actionItem[data-active="true"] {
+  background: rgba(250, 51, 86, 0.1);
+}
+
+.actionItem[data-active="true"] .actionIcon {
+  color: rgba(250, 51, 86, 0.9);
+}
+
+.actionItem[data-active="true"] .actionLabel {
+  color: rgba(250, 51, 86, 0.95);
+}
+
+.navCheck {
+  color: rgba(250, 51, 86, 0.9);
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .orgItem[data-active="true"] {
   background: rgba(250, 51, 86, 0.1);
 }

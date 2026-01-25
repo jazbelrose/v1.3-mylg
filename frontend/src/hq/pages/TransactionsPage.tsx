@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import HQLayout from "../components/HQLayout";
+import OrgChatSheet from "@/hq/components/OrgChatSheet";
 import AddAccountModal from "@/hq/components/AddAccountModal";
 import ImportCsvModal from "@/hq/components/ImportCsvModal";
 import TransactionsFilterSheet from "@/hq/components/TransactionsFilterSheet";
@@ -183,7 +184,7 @@ type SortDir = "asc" | "desc";
 
 const TransactionsPage: React.FC = () => {
   useUser();
-  const { activeOrgId, activeOrgRole } = useOrg();
+  const { activeOrgId, activeOrgRole, orgs } = useOrg();
   const hasOrg = Boolean(activeOrgId);
   const orgId = activeOrgId ?? "__no_org__";
   const canAdmin = hasOrg && isOrgAdmin(activeOrgRole);
@@ -194,6 +195,8 @@ const TransactionsPage: React.FC = () => {
 
   // Mobile filter sheet state
   const [isFilterSheetOpen, setIsFilterSheetOpen] = React.useState(false);
+  // Mobile chat sheet state
+  const [isChatSheetOpen, setIsChatSheetOpen] = React.useState(false);
 
   // Get projects for filter and chips
   const { projects } = useProjects();
@@ -1045,10 +1048,22 @@ const TransactionsPage: React.FC = () => {
     </div>
   );
 
+  // Mobile chat sheet for org messages
+  const mobileChatSheet = isMobile && activeOrgId ? (
+    <OrgChatSheet
+      isOpen={isChatSheetOpen}
+      onClose={() => setIsChatSheetOpen(false)}
+      orgId={activeOrgId}
+      orgName={orgs.find((o) => o.orgId === activeOrgId)?.name}
+    />
+  ) : null;
+
   return (
     <HQLayout
       title="Transactions"
       actions={actions}
+      onOpenChat={isMobile ? () => setIsChatSheetOpen(true) : undefined}
+      onOpenFiles={isMobile ? () => toast.info("Files coming soon") : undefined}
     >
       <div className={styles.page}>
         <div className={styles.transactionsShell}>
@@ -1784,6 +1799,7 @@ const TransactionsPage: React.FC = () => {
           />
         </>
       ) : null}
+      {mobileChatSheet}
     </HQLayout>
   );
 };

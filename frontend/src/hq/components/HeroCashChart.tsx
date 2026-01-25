@@ -62,6 +62,18 @@ const money = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
+// Compact formatter for Y-axis tick labels (20K, 150K, 1.2M)
+function formatCompact(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  }
+  if (abs >= 1_000) {
+    return `${(value / 1_000).toFixed(0)}K`;
+  }
+  return String(Math.round(value));
+}
+
 const NUMBER_SCALE_ID = "number";
 
 type Props = {
@@ -104,17 +116,25 @@ const HeroCashChart: React.FC<Props> = ({ balance, inflow, outflow, range, visib
       height: stage.clientHeight,
       layout: {
         background: { type: ColorType.Solid, color: bg },
-        textColor: "rgba(255, 255, 255, 0.65)",
+        textColor: "rgba(255, 255, 255, 0.42)",
         fontFamily: "var(--font-family-helvetica-special, 'Helvetica Special', sans-serif)",
+        fontSize: 10,
         attributionLogo: false,
       },
       grid: {
         vertLines: { color: "rgba(255, 255, 255, 0.06)" },
         horzLines: { color: "rgba(255, 255, 255, 0.06)" },
       },
-      rightPriceScale: {
+      leftPriceScale: {
         borderVisible: false,
         scaleMargins: { top: 0.12, bottom: 0.18 },
+        visible: true,
+      },
+      rightPriceScale: {
+        visible: false,
+      },
+      localization: {
+        priceFormatter: formatCompact,
       },
       timeScale: {
         borderVisible: false,
@@ -147,6 +167,7 @@ const HeroCashChart: React.FC<Props> = ({ balance, inflow, outflow, range, visib
       lineWidth: 2,
       priceLineVisible: false,
       lastValueVisible: false,
+      priceScaleId: "left",
     });
 
     const inflowSeries = chart.addSeries(HistogramSeries, {
@@ -190,8 +211,8 @@ const HeroCashChart: React.FC<Props> = ({ balance, inflow, outflow, range, visib
         timeScale: {
           barSpacing: isMobile ? 10 : 14,
         },
-        rightPriceScale: {
-          minimumWidth: isMobile ? 44 : 56,
+        leftPriceScale: {
+          minimumWidth: isMobile ? 36 : 44,
         },
       });
 

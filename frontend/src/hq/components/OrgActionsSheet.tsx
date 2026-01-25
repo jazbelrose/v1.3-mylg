@@ -1,5 +1,6 @@
 import React, { useCallback } from "react";
-import { MessageCircle, FolderOpen, Download, ChevronRight } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { LayoutDashboard, Receipt, Landmark, Download, ChevronRight, FileText, FileSpreadsheet, MessageCircle, FolderOpen } from "lucide-react";
 import { BottomSheet } from "@/shared/components/BottomSheet";
 import styles from "./OrgActionsSheet.module.css";
 
@@ -10,12 +11,21 @@ type OrgActionsSheetProps = {
   orgs: { orgId: string; name?: string }[];
   activeOrgId: string | null;
   onOrgChange: (orgId: string) => void;
-  onOpenChat: () => void;
-  onOpenFiles: () => void;
+  onOpenChat?: () => void;
+  onOpenFiles?: () => void;
   onExportCsv: () => void;
   onExportBundle: () => void;
   isExporting?: boolean;
 };
+
+// HQ navigation items
+const HQ_NAV_ITEMS = [
+  { path: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { path: "/dashboard/hq/transactions", label: "Transactions", icon: Receipt },
+  { path: "/dashboard/hq/accounts", label: "Accounts", icon: Landmark },
+  { path: "/dashboard/hq/reports", label: "Reports", icon: FileText },
+  { path: "/dashboard/hq/invoices", label: "Invoices", icon: FileSpreadsheet },
+] as const;
 
 /**
  * Mobile-only org actions sheet.
@@ -35,6 +45,17 @@ const OrgActionsSheet: React.FC<OrgActionsSheetProps> = ({
   onExportBundle,
   isExporting = false,
 }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleNavigate = useCallback(
+    (path: string) => {
+      navigate(path);
+      onClose();
+    },
+    [navigate, onClose]
+  );
+
   const handleSelectOrg = useCallback(
     (orgId: string) => {
       onOrgChange(orgId);
@@ -51,6 +72,20 @@ const OrgActionsSheet: React.FC<OrgActionsSheetProps> = ({
     [onClose]
   );
 
+  const handleOpenChat = useCallback(() => {
+    if (onOpenChat) {
+      onOpenChat();
+      onClose();
+    }
+  }, [onOpenChat, onClose]);
+
+  const handleOpenFiles = useCallback(() => {
+    if (onOpenFiles) {
+      onOpenFiles();
+      onClose();
+    }
+  }, [onOpenFiles, onClose]);
+
   return (
     <BottomSheet
       isOpen={isOpen}
@@ -63,28 +98,62 @@ const OrgActionsSheet: React.FC<OrgActionsSheetProps> = ({
       }
     >
       <div className={styles.body}>
-        {/* Quick actions */}
+        {/* Chat & Files */}
+        {(onOpenChat || onOpenFiles) && (
+          <section className={styles.section}>
+            <div className={styles.sectionLabel}>Quick actions</div>
+            <div className={styles.actionList}>
+              {onOpenChat && (
+                <button
+                  type="button"
+                  className={styles.actionItem}
+                  onClick={handleOpenChat}
+                >
+                  <MessageCircle size={20} className={styles.actionIcon} />
+                  <span className={styles.actionLabel}>Chat</span>
+                  <ChevronRight size={18} className={styles.actionChevron} />
+                </button>
+              )}
+              {onOpenFiles && (
+                <button
+                  type="button"
+                  className={styles.actionItem}
+                  onClick={handleOpenFiles}
+                >
+                  <FolderOpen size={20} className={styles.actionIcon} />
+                  <span className={styles.actionLabel}>Files</span>
+                  <ChevronRight size={18} className={styles.actionChevron} />
+                </button>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* HQ Navigation */}
         <section className={styles.section}>
-          <div className={styles.sectionLabel}>Quick actions</div>
+          <div className={styles.sectionLabel}>Navigate</div>
           <div className={styles.actionList}>
-            <button
-              type="button"
-              className={styles.actionItem}
-              onClick={() => handleAction(onOpenChat)}
-            >
-              <MessageCircle size={20} className={styles.actionIcon} />
-              <span className={styles.actionLabel}>Chat</span>
-              <ChevronRight size={18} className={styles.actionChevron} />
-            </button>
-            <button
-              type="button"
-              className={styles.actionItem}
-              onClick={() => handleAction(onOpenFiles)}
-            >
-              <FolderOpen size={20} className={styles.actionIcon} />
-              <span className={styles.actionLabel}>Files</span>
-              <ChevronRight size={18} className={styles.actionChevron} />
-            </button>
+            {HQ_NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname === item.path;
+              return (
+                <button
+                  key={item.path}
+                  type="button"
+                  className={styles.actionItem}
+                  data-active={isActive}
+                  onClick={() => handleNavigate(item.path)}
+                >
+                  <Icon size={20} className={styles.actionIcon} />
+                  <span className={styles.actionLabel}>{item.label}</span>
+                  {isActive ? (
+                    <span className={styles.navCheck}>✓</span>
+                  ) : (
+                    <ChevronRight size={18} className={styles.actionChevron} />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </section>
 

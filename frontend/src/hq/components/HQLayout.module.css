@@ -633,7 +633,7 @@
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 4px;
+  
 }
 
 /* Right panel (docked chat) styles handled by chat-panel.css */
@@ -650,22 +650,28 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   min-height: 44px;
   flex-wrap: nowrap;
 }
 
+/* Left side: title + org pill inline */
+.mobileTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .mobilePageTitle {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: #ffffff;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 1;
-  min-width: 0;
+  flex-shrink: 0;
 }
 
 .mobilePageSubtitle {
@@ -679,25 +685,24 @@
 .mobileHeaderActions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
+/* Right side icon buttons - match desktop chat/files visual language */
 .mobileIconButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
-  /* Visual height 34-36px, tap target 44px */
-  padding: 5px;
 }
 
 .mobileIconButton:hover {
@@ -709,47 +714,49 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
-.mobileOrgButton {
+/* Org pill - smaller, more rounded, matches desktop style */
+.mobileOrgPill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 44px;
-  padding: 0 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
-  max-width: 140px;
+  min-width: 0;
+  max-width: 130px;
 }
 
-.mobileOrgButton:hover {
+.mobileOrgPill:hover {
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
-.mobileOrgButton:active {
+.mobileOrgPill:active {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.mobileOrgButton:disabled {
+.mobileOrgPill:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.mobileOrgName {
+.mobileOrgPillName {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 90px;
 }
 
-.mobileOrgChevron {
+.mobileOrgPillChevron {
   flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.45);
+  margin-left: -2px;
 }
 
 /* Legacy mobile actions row (for backwards compat) */
@@ -827,7 +834,7 @@
 
 @media (min-width: 1024px) {
   .wrapper {
-    border-radius: var(--radius-surface, 32px);
+    border-radius: 20px;
   }
 
   .menuButton {
@@ -847,10 +854,10 @@
   .wrapper {
     width: 100%;
     margin: 0;
-    border-radius: var(--radius-surface, 32px);
-    padding: 18px 12px 28px;
+    border-radius: 20px;
+    padding: 12px 9px 12px;
     box-shadow: none;
-    margin-top: 6px
+    margin-top: 4px
   }
 
   .contentArea {

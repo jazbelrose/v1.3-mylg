@@ -187,8 +187,12 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  z-index: 1000;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  /* Must be higher than AppHeaderCard z-index (1200) */
+  z-index: 1300;
+  /* Ensure backdrop covers everything including app header */
+  will-change: opacity;
 }
 
 .bottom-sheet {
@@ -200,7 +204,7 @@
   border-top-left-radius: var(--bottom-sheet-radius, 20px);
   border-top-right-radius: var(--bottom-sheet-radius, 20px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  z-index: 1001;
+  z-index: 1301;
   max-height: 90vh;
   max-height: 90svh;
   display: flex;

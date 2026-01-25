@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MessageCircle, Folder } from "lucide-react";
+import { MessageCircle, Folder, ChevronDown } from "lucide-react";
 import HQLayout from "../components/HQLayout";
 import HQCard from "../components/HQCard";
 import AddAccountModal from "@/hq/components/AddAccountModal";
@@ -8,9 +8,12 @@ import ImportCsvModal from "@/hq/components/ImportCsvModal";
 import OrgChatPanel from "@/hq/components/OrgChatPanel";
 import OrgMessagesThread from "@/hq/components/OrgMessagesThread";
 import OrgFilesOverlay from "@/hq/components/OrgFilesOverlay";
+import OrgChatSheet from "@/hq/components/OrgChatSheet";
+import SeriesToggleSheet, { type SeriesVisibility } from "@/hq/components/SeriesToggleSheet";
 import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { useSocket } from "@/app/contexts/useSocket";
+import { useIsMobile } from "@/shared/hooks/useBreakpoints";
 import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import { useHqStore, readHqState, hydrateHqState } from "@/hq/lib/hqStore";
 import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
@@ -237,8 +240,9 @@ function buildLocalChartSeries(input: {
 
 const HQOverview: React.FC = () => {
   useUser();
-  const { activeOrgId, activeOrgRole } = useOrg();
+  const { activeOrgId, activeOrgRole, orgs } = useOrg();
   const { ws } = useSocket();
+  const isMobile = useIsMobile();
   const hasOrg = Boolean(activeOrgId);
   const orgId = activeOrgId ?? "__no_org__";
   const canAdmin = hasOrg && isOrgAdmin(activeOrgRole);
@@ -280,6 +284,7 @@ const HQOverview: React.FC = () => {
   const [showBalance, setShowBalance] = React.useState(true);
   const [showInflow, setShowInflow] = React.useState(false);
   const [showOutflow, setShowOutflow] = React.useState(false);
+  const [isSeriesSheetOpen, setIsSeriesSheetOpen] = React.useState(false);
   const [chart, setChart] = React.useState<HqChartSeriesResponse | null>(null);
   const [chartError, setChartError] = React.useState<string | null>(null);
   const [chartLoading, setChartLoading] = React.useState(false);
@@ -873,6 +878,30 @@ const HQOverview: React.FC = () => {
   const toggleInflow = React.useCallback(() => setShowInflow((prev) => !prev), []);
   const toggleOutflow = React.useCallback(() => setShowOutflow((prev) => !prev), []);
 
+  // Handler for SeriesToggleSheet multi-select
+  const handleSeriesToggle = React.useCallback((key: keyof SeriesVisibility) => {
+    // Prevent turning off all series
+    const currentState = { balance: showBalance, inflow: showInflow, outflow: showOutflow };
+    const newState = { ...currentState, [key]: !currentState[key] };
+    const anyOn = newState.balance || newState.inflow || newState.outflow;
+    if (!anyOn) return; // At least one must stay on
+
+    if (key === "balance") setShowBalance(!showBalance);
+    else if (key === "inflow") setShowInflow(!showInflow);
+    else if (key === "outflow") setShowOutflow(!showOutflow);
+  }, [showBalance, showInflow, showOutflow]);
+
+  // Compact label for mobile series pill
+  const seriesPillLabel = React.useMemo(() => {
+    const on: string[] = [];
+    if (showBalance) on.push("Bal");
+    if (showInflow) on.push("In");
+    if (showOutflow) on.push("Out");
+    if (on.length === 3) return "All";
+    if (on.length === 0) return "Bal"; // fallback
+    return on.join("+");
+  }, [showBalance, showInflow, showOutflow]);
+
   const alerts: HqAlert[] = React.useMemo(() => {
     const items: HqAlert[] = [];
     if (totals.runwayMonths !== null && totals.runwayMonths < 2) {
@@ -905,8 +934,8 @@ const HQOverview: React.FC = () => {
     return items.slice(0, 4);
   }, [accounts, totals.runwayMonths, totals.uncategorizedCount]);
 
-  // Docked chat panel (rendered in layout when not floating)
-  const dockedChatPanel = hasOrg && isChatOpen && !isChatFloating ? (
+  // Docked chat panel (rendered in layout when not floating) - desktop only
+  const dockedChatPanel = hasOrg && isChatOpen && !isChatFloating && !isMobile ? (
     <div
       style={{
         flex: "0 0 320px",
@@ -935,12 +964,34 @@ const HQOverview: React.FC = () => {
     </div>
   ) : null;
 
+  // Mobile chat sheet
+  const mobileChatSheet = isMobile && hasOrg ? (
+    <OrgChatSheet
+      isOpen={isChatOpen}
+      onClose={handleCloseChat}
+      orgId={activeOrgId}
+      orgName={orgs.find((o) => o.orgId === activeOrgId)?.name}
+    />
+  ) : null;
+
+  // Mobile series toggle sheet
+  const mobileSeriesSheet = isMobile ? (
+    <SeriesToggleSheet
+      isOpen={isSeriesSheetOpen}
+      onClose={() => setIsSeriesSheetOpen(false)}
+      visibility={{ balance: showBalance, inflow: showInflow, outflow: showOutflow }}
+      onToggle={handleSeriesToggle}
+    />
+  ) : null;
+
   return (
     <HQLayout
       title="HQ"
       description="Accounts, ledger, burn, runway, and anomalies at a glance."
       actions={actions}
       rightPanel={dockedChatPanel}
+      onOpenChat={isMobile ? handleOpenChat : undefined}
+      onOpenFiles={isMobile ? handleOpenFiles : undefined}
     >
       <div className={styles.page}>
         <section className={styles.hero} aria-label="HQ overview">
@@ -981,6 +1032,7 @@ const HQOverview: React.FC = () => {
 
                 <span className={styles.toolbarDivider} aria-hidden="true" />
 
+                {/* Desktop: 3-button toggle */}
                 <div className={styles.seriesSegment} role="group" aria-label="Series toggles">
                   <button
                     type="button"
@@ -1007,6 +1059,19 @@ const HQOverview: React.FC = () => {
                     Outflow
                   </button>
                 </div>
+
+                {/* Mobile: Compact series pill that opens bottom sheet */}
+                {isMobile && (
+                  <button
+                    type="button"
+                    className={styles.mobileSeriesPill}
+                    onClick={() => setIsSeriesSheetOpen(true)}
+                    aria-haspopup="dialog"
+                  >
+                    <span className={styles.mobileSeriesPillLabel}>{seriesPillLabel}</span>
+                    <ChevronDown size={12} className={styles.mobileSeriesPillChevron} />
+                  </button>
+                )}
 
                 <span className={styles.toolbarDivider} aria-hidden="true" />
 
@@ -1511,8 +1576,13 @@ const HQOverview: React.FC = () => {
           {isFilesOpen && (
             <OrgFilesOverlay orgId={activeOrgId} onClose={handleCloseFiles} />
           )}
+
+          {/* Mobile Chat Sheet */}
+          {mobileChatSheet}
         </>
       ) : null}
+      {/* Mobile Series Toggle Sheet */}
+      {mobileSeriesSheet}
     </HQLayout>
   );
 };

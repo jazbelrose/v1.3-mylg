@@ -141,22 +141,22 @@
 }
 
 .hero {
-  margin-top: 10px;
+  margin-top: 4px;
   border-radius: 18px;
   border: none;
   background: transparent;
   padding: 0;
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .heroChart {
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.12);
+  border: none;
+  background: transparent;
   padding: 0;
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .heroChartBar {
@@ -165,8 +165,8 @@
   justify-content: space-between;
   gap: 8px;
   flex-wrap: wrap;
-  min-height: 44px;
-  padding: 6px 8px 0;
+  min-height: 40px;
+  padding: 0;
 }
 
 .heroChartBarLeft {
@@ -208,44 +208,59 @@
   align-items: center;
   gap: 10px;
   flex: 0 0 auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.heroChartBarRight::-webkit-scrollbar {
+  display: none;
 }
 
 .toolbarDivider {
   width: 1px;
-  height: 18px;
-  background: rgba(255, 255, 255, 0.12);
+  height: 16px;
+  background: rgba(255, 255, 255, 0.1);
   flex: 0 0 auto;
 }
 
+/* Google Finance style chips - minimal background, only on individual chips */
 .seriesSegment {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  overflow: hidden;
+  background: transparent;
+  border: none;
+  overflow: visible;
+  gap: 4px;
 }
 
 .seriesButton {
   appearance: none;
-  border: 0;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.78);
-  padding: 5px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 5px 10px;
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .seriesButton:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .seriesButtonActive {
-  background: rgba(250, 51, 86, 0.26);
+  background: rgba(250, 51, 86, 0.22);
+  border-color: rgba(250, 51, 86, 0.4);
   color: #ffffff;
 }
 
@@ -281,7 +296,7 @@
   display: grid;
   gap: 6px;
   --hq-hero-chart-height: 320px;
-  padding: 0 8px 6px;
+  
   /* Stable height to prevent layout shift during loading */
   min-height: calc(var(--hq-hero-chart-height) + 36px);
 }
@@ -1167,7 +1182,7 @@
   }
 
   .heroChartBar {
-    gap: 8px;
+    gap: 6px;
   }
 
   .heroChartBarRight {
@@ -1175,7 +1190,16 @@
   }
 
   .chartPills {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+
+  .chartPills::-webkit-scrollbar {
+    display: none;
   }
 
   .toolbarDivider {
@@ -1217,5 +1241,62 @@
   .midCardWide {
     grid-column: auto;
   }
+
+  /* Hide 3-button series segment on phones, show compact selector instead */
+  .seriesSegment {
+    display: none;
+  }
+
+  .heroChartBarRight {
+    gap: 6px;
+  }
+
+  .heroChartBar {
+    padding: 0;
+    gap: 6px;
+    min-height: 36px;
+  }
 }
 
+/* Mobile series pill - compact, never overflows, opens bottom sheet */
+.mobileSeriesPill {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .mobileSeriesPill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 0 1 auto;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .mobileSeriesPill:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+
+  .mobileSeriesPillLabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobileSeriesPillChevron {
+    color: rgba(255, 255, 255, 0.45);
+    flex-shrink: 0;
+  }
+}
