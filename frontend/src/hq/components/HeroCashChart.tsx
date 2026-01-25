@@ -129,6 +129,9 @@ const HeroCashChart: React.FC<Props> = ({ balance, inflow, outflow, range, visib
         borderVisible: false,
         scaleMargins: { top: 0.12, bottom: 0.18 },
         visible: true,
+        minimumWidth: 1,
+        autoScale: true,
+        entireTextOnly: true,
       },
       rightPriceScale: {
         visible: false,
@@ -212,7 +215,7 @@ const HeroCashChart: React.FC<Props> = ({ balance, inflow, outflow, range, visib
           barSpacing: isMobile ? 10 : 14,
         },
         leftPriceScale: {
-          minimumWidth: isMobile ? 36 : 44,
+          minimumWidth: 1,
         },
       });
 

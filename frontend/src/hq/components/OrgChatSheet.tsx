@@ -29,7 +29,6 @@ const OrgChatSheet: React.FC<OrgChatSheetProps> = ({
       snapPoints={[92]}
       title={orgName ? `${orgName} Chat` : "HQ Chat"}
       contentClassName={styles.content}
-      disableSwipeToDismiss
     >
       <div className={styles.threadWrap}>
         <OrgMessagesThread
