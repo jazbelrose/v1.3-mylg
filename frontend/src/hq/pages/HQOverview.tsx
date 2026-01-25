@@ -824,7 +824,8 @@ const HQOverview: React.FC = () => {
     setIsFilesOpen(false);
   }, []);
 
-  const actions = (
+  // On mobile, chat/files are in the org bottom sheet; Import/Add account are in the HQ Overview FAB or sheet
+  const actions = !isMobile ? (
     <div className={styles.actions}>
       <button
         type="button"
@@ -861,7 +862,7 @@ const HQOverview: React.FC = () => {
         </>
       ) : null}
     </div>
-  );
+  ) : null;
 
   const heroVisibleSeries: VisibleHeroCashSeries = React.useMemo(
     () => ({ balance: showBalance, inflow: showInflow, outflow: showOutflow }),

@@ -1,16 +1,21 @@
 /**
  * MobileSelectionBar - Floating action bar for multi-selection mode
  * =============================================================================
- * Shows when 1+ rows are selected on mobile, provides quick bulk actions.
+ * Shows in selection mode, provides quick bulk actions.
+ * - Left: "X selected" (tappable → Select all / Clear)
+ * - Right: 2-3 primary actions + More
  * =============================================================================
  */
-import React from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Tag, CreditCard, MoreHorizontal } from "lucide-react";
+import { Tag, CreditCard, MoreHorizontal, CheckCircle2, XCircle } from "lucide-react";
 import styles from "./MobileSelectionBar.module.css";
 
 interface MobileSelectionBarProps {
+  isSelectionMode: boolean;
   selectedCount: number;
+  totalCount: number;
+  onSelectAll: () => void;
   onClearSelection: () => void;
   onSetCategory: () => void;
   onSetPaymentType: () => void;
@@ -18,17 +23,25 @@ interface MobileSelectionBarProps {
 }
 
 export default function MobileSelectionBar({
+  isSelectionMode,
   selectedCount,
+  totalCount,
+  onSelectAll,
   onClearSelection,
   onSetCategory,
   onSetPaymentType,
   onMoreActions,
 }: MobileSelectionBarProps) {
-  if (selectedCount === 0) return null;
+  const [isSelectMenuOpen, setIsSelectMenuOpen] = useState(false);
+
+  // Only show when in selection mode
+  if (!isSelectionMode) return null;
+
+  const allSelected = selectedCount > 0 && selectedCount === totalCount;
 
   return (
     <AnimatePresence>
-      {selectedCount > 0 && (
+      {isSelectionMode && (
         <motion.div
           className={styles.bar}
           initial={{ y: 100, opacity: 0 }}
@@ -36,23 +49,66 @@ export default function MobileSelectionBar({
           exit={{ y: 100, opacity: 0 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
         >
+          {/* Left: Count (tappable) */}
           <div className={styles.left}>
             <button
               type="button"
-              className={styles.closeButton}
-              onClick={onClearSelection}
-              aria-label="Clear selection"
+              className={styles.countButton}
+              onClick={() => setIsSelectMenuOpen((prev) => !prev)}
+              aria-label="Selection options"
+              aria-expanded={isSelectMenuOpen}
             >
-              <X size={18} />
+              <span className={styles.count}>
+                {selectedCount === 0 ? "None selected" : `${selectedCount} selected`}
+              </span>
             </button>
-            <span className={styles.count}>{selectedCount} selected</span>
+
+            {/* Select all / Clear popover */}
+            <AnimatePresence>
+              {isSelectMenuOpen && (
+                <motion.div
+                  className={styles.selectMenu}
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <button
+                    type="button"
+                    className={styles.selectMenuItem}
+                    onClick={() => {
+                      onSelectAll();
+                      setIsSelectMenuOpen(false);
+                    }}
+                    disabled={allSelected}
+                  >
+                    <CheckCircle2 size={16} />
+                    Select all ({totalCount})
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.selectMenuItem}
+                    onClick={() => {
+                      onClearSelection();
+                      setIsSelectMenuOpen(false);
+                    }}
+                    disabled={selectedCount === 0}
+                  >
+                    <XCircle size={16} />
+                    Clear selection
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
+          {/* Right: Actions */}
           <div className={styles.actions}>
             <button
               type="button"
               className={styles.actionButton}
               onClick={onSetCategory}
+              disabled={selectedCount === 0}
               aria-label="Set category"
             >
               <Tag size={18} />
@@ -61,6 +117,7 @@ export default function MobileSelectionBar({
               type="button"
               className={styles.actionButton}
               onClick={onSetPaymentType}
+              disabled={selectedCount === 0}
               aria-label="Set payment type"
             >
               <CreditCard size={18} />
@@ -69,6 +126,7 @@ export default function MobileSelectionBar({
               type="button"
               className={styles.actionButton}
               onClick={onMoreActions}
+              disabled={selectedCount === 0}
               aria-label="More actions"
             >
               <MoreHorizontal size={18} />

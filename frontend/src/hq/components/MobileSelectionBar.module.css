@@ -26,25 +26,23 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  position: relative;
 }
 
-.closeButton {
-  width: 36px;
-  height: 36px;
+/* Tappable count button */
+.countButton {
   display: flex;
   align-items: center;
-  justify-content: center;
+  padding: 8px 14px;
   border: none;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 10px;
-  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease;
 }
 
-.closeButton:active {
-  background: rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.95);
+.countButton:active {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .count {
@@ -52,6 +50,53 @@
   font-weight: 600;
   color: rgba(250, 51, 86, 0.95);
   white-space: nowrap;
+}
+
+/* Select all / Clear menu */
+.selectMenu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  min-width: 180px;
+  padding: 6px;
+  background: rgba(35, 35, 40, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 10;
+}
+
+.selectMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: left;
+}
+
+.selectMenuItem:hover,
+.selectMenuItem:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.selectMenuItem:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.selectMenuItem:disabled:hover {
+  background: transparent;
 }
 
 .actions {
@@ -71,10 +116,19 @@
   border-radius: 12px;
   color: rgba(250, 51, 86, 0.95);
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.1s ease;
+  transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
 }
 
 .actionButton:active {
   background: rgba(250, 51, 86, 0.25);
   transform: scale(0.95);
+}
+
+.actionButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.actionButton:disabled:active {
+  transform: none;
 }

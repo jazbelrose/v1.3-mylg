@@ -25,6 +25,23 @@
   border: 1px solid transparent;
 }
 
+/* Header Select/Done button (Mail-style) */
+.headerSelectBtn {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(250, 51, 86, 0.35);
+  background: rgba(250, 51, 86, 0.12);
+  color: rgba(250, 51, 86, 0.95);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.headerSelectBtn:active {
+  background: rgba(250, 51, 86, 0.22);
+}
+
 .primaryButton {
   background: #fa3356;
   color: white;
@@ -49,14 +66,16 @@
   min-width: 0;
 }
 
+/* NOTE: .selectModeBtn and .mobileSelectionHeader removed — Select/Done now in header */
+
 .filterButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  width: 44px;
+  width: 32px;
   min-width: 44px;
-  height: 44px;
+  height: 36px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.04);
@@ -353,6 +372,14 @@
   -ms-overflow-style: none;
   flex-wrap: nowrap;
   gap: 16px;
+}
+
+/* On mobile, left-align totals so txn count shows first */
+@media (max-width: 599px) {
+  .totalsBar {
+    justify-content: flex-start;
+    padding: 0 10px 8px;
+  }
 }
 
 .totalsBar::-webkit-scrollbar {
@@ -918,7 +945,7 @@
   }
 }
 
-@media (max-width: 599px) {
+@media (max-width: 639px) {
   .filters {
     grid-template-columns: 1fr;
   }
@@ -933,22 +960,117 @@
   .tableScroll {
     overflow-x: hidden;
   }
+
   /* ============================================
-     MOBILE ROW - simplified 2-line layout
-     Grid: [main] [amount]
+     MOBILE SWIPE ROW - Premium ledger style
      ============================================ */
+
+  /* Swipe wrapper: overflow hidden, holds actions + content */
+  .swipeWrapper {
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .swipeWrapper:first-child {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* Swipe actions: positioned behind content, revealed on swipe */
+  .swipeActions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 144px;
+    display: flex;
+    z-index: 0;
+  }
+  .swipeAction {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    gap: 4px;
+    border: none;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .swipeAction.edit {
+    background: rgba(59, 130, 246, 0.95);
+  }
+  .swipeAction.category {
+    background: rgba(250, 51, 86, 0.95);
+  }
+  .swipeAction:active {
+    opacity: 0.8;
+  }
+
+  /* Swipe content: the actual row, translates on swipe */
+  .swipeContent {
+    position: relative;
+    background: var(--bg-primary, rgba(17, 17, 19, 1));
+    z-index: 1;
+    touch-action: pan-y pinch-zoom;
+    transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    will-change: transform;
+  }
+
+  /* Swiped open state */
+  .swipeContent.swiped {
+    transform: translateX(-144px);
+  }
+
+  /* Row inside swipe content */
   .row {
     display: grid;
     grid-template-columns: 1fr auto;
     gap: 12px;
-    padding: 14px 16px;
+    padding: 12px 16px;
     align-items: center;
-    min-height: 60px;
+    min-height: 56px;
+    background: transparent;
+    border-bottom: none;
   }
+
+  /* Hover/press state */
+  .rowClickable:active {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  /* Selection rail hidden on mobile */
   .selectionRail {
     display: none;
   }
-  /* txnCell = main content wrapper - needs min-width: 0 for ellipsis */
+
+  /* Selection mode: add checkbox column */
+  .row.inSelectionMode {
+    grid-template-columns: 44px 1fr auto;
+  }
+  .selectionCheckbox {
+    display: none;
+  }
+  .row.inSelectionMode .selectionCheckbox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Larger touch target */
+    width: 44px;
+    height: 44px;
+    margin: -8px 0;
+  }
+  .selectionCheckbox input {
+    width: 24px;
+    height: 24px;
+    accent-color: rgba(250, 51, 86, 0.95);
+    cursor: pointer;
+    /* Ensure input is tappable */
+    pointer-events: auto;
+  }
+
+  /* txnCell = main content wrapper */
   .txnCell {
     display: flex;
     flex-direction: column;
@@ -956,19 +1078,23 @@
     min-width: 0;
     align-items: flex-start;
   }
+
   /* Hide icon on mobile */
   .icon {
     display: none;
   }
-  /* Hide mobile action button in row (use long-press / context sheet) */
+
+  /* Hide mobile action button (swipe replaces it) */
   .mobileActionBtn {
     display: none;
   }
-  /* Main text container - use contents so children inherit min-width constraint */
+
+  /* Main text container */
   .txnMain {
     display: contents;
   }
-  /* Line 1: Merchant/payee - single line, ellipsis */
+
+  /* Line 1: Merchant/payee */
   .txnTitle {
     width: 100%;
     font-size: 14px;
@@ -980,7 +1106,8 @@
     line-height: 1.35;
     text-align: left;
   }
-  /* Line 2: Meta (date • account • last4) - block for proper ellipsis */
+
+  /* Line 2: Meta */
   .txnMeta {
     display: block;
     width: 100%;
@@ -992,19 +1119,14 @@
     line-height: 1.3;
     text-align: left;
   }
-  /* Hide separators inside meta on mobile - just space */
-  .txnMeta > span {
-    /* Keep inline flow */
-  }
-  /* Hide category in list (show in bottom sheet only) */
-  .categoryCell {
-    display: none;
-  }
-  /* Hide allocation in list */
+
+  /* Hide category/allocation in list */
+  .categoryCell,
   .allocationCell {
     display: none;
   }
-  /* Amount column - right aligned, auto width */
+
+  /* Amount column */
   .amountCol {
     justify-self: end;
     text-align: right;

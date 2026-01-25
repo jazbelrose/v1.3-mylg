@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import { useParams } from "react-router-dom";
 import HQLayout from "../components/HQLayout";
 import ImportBundleModal from "../components/ImportBundleModal";
+import { useIsMobile } from "@/shared/hooks/useBreakpoints";
 import { downloadHqBundle, downloadHqCsv } from "../lib/hqApi";
 import styles from "./ReportsPage.module.css";
 
@@ -72,7 +73,10 @@ const ReportsPage: React.FC = () => {
     toast.info("Refresh the page to see updated categories.");
   }, []);
 
-  const actions = (
+  const isMobile = useIsMobile();
+
+  // On mobile, export/import actions move to a bottom sheet or are accessed differently
+  const actions = !isMobile ? (
     <div className={styles.actionsRow}>
       <button
         type="button"
@@ -101,7 +105,7 @@ const ReportsPage: React.FC = () => {
         Import Backup
       </button>
     </div>
-  );
+  ) : null;
 
   return (
     <HQLayout

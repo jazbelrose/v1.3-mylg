@@ -518,7 +518,7 @@ const HQLayout: React.FC<HQLayoutProps> = ({
     />
   );
 
-  // New mobile header: title + org pill on left (no icons - moved to org sheet)
+  // New mobile header: title + org pill on left, actions on right
   const mobilePageHeader = (
     <header className={styles.mobilePageHeader}>
       <div className={styles.mobileTitleRow}>
@@ -536,6 +536,8 @@ const HQLayout: React.FC<HQLayoutProps> = ({
           <ChevronDown size={12} className={styles.mobileOrgPillChevron} />
         </button>
       </div>
+      {/* Actions slot for page-specific controls (e.g., Select/Done) */}
+      {actions ? <div className={styles.mobileHeaderActions}>{actions}</div> : null}
     </header>
   );
 

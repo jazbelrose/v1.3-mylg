@@ -18,6 +18,7 @@ import {
   Link2,
   SlidersHorizontal,
   MoreHorizontal,
+  Tag,
 } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import HQLayout from "../components/HQLayout";
@@ -253,8 +254,12 @@ const TransactionsPage: React.FC = () => {
   const [selectedRows, setSelectedRows] = React.useState<Set<string>>(new Set());
   const [lastClickedIndex, setLastClickedIndex] = React.useState<number | null>(null);
   const [focusedRowIndex, setFocusedRowIndex] = React.useState<number | null>(null);
+  const [isSelectionMode, setIsSelectionMode] = React.useState(false);
   const tableRef = React.useRef<HTMLDivElement>(null);
   const totalsBarRef = React.useRef<HTMLDivElement>(null);
+
+  // Mobile swipe state
+  const [swipedRowHash, setSwipedRowHash] = React.useState<string | null>(null);
 
   // Context menu state (desktop)
   const [contextMenuPos, setContextMenuPos] = React.useState<{ x: number; y: number } | null>(null);
@@ -341,6 +346,24 @@ const TransactionsPage: React.FC = () => {
     if (!isMobile || !totalsBarRef.current) return;
     totalsBarRef.current.scrollLeft = 0;
   }, [isMobile, totals]);
+
+  // Close swiped row when clicking outside or scrolling
+  React.useEffect(() => {
+    if (!swipedRowHash) return;
+    const handleClick = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as HTMLElement;
+      // If click is inside swipe actions, don't close
+      if (target.closest(`.${styles.swipeAction}`)) return;
+      setSwipedRowHash(null);
+    };
+    const handleScroll = () => setSwipedRowHash(null);
+    document.addEventListener("click", handleClick, true);
+    document.addEventListener("scroll", handleScroll, true);
+    return () => {
+      document.removeEventListener("click", handleClick, true);
+      document.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [swipedRowHash]);
 
   React.useEffect(() => {
     if (!amountPopoverOpen) return;
@@ -731,7 +754,7 @@ const TransactionsPage: React.FC = () => {
     [openMobileContextSheet]
   );
 
-  // Mobile: long press handlers
+  // Mobile: long press handlers — enters selection mode (Mail-style)
   const handleTouchStart = React.useCallback(
     (txn: HqTransaction, index: number) => {
       if (!isMobile || !canAdmin) return;
@@ -743,10 +766,12 @@ const TransactionsPage: React.FC = () => {
         if (navigator.vibrate) {
           navigator.vibrate(50);
         }
-        openMobileContextSheet(txn);
+        // Enter selection mode and select this row (Mail-style)
+        setIsSelectionMode(true);
+        setSelectedRows(new Set([txn.dedupeHash]));
       }, 500);
     },
-    [isMobile, canAdmin, openMobileContextSheet]
+    [isMobile, canAdmin]
   );
 
   const handleTouchEnd = React.useCallback(() => {
@@ -1143,6 +1168,7 @@ const TransactionsPage: React.FC = () => {
   ].filter(Boolean).length;
 
   // Hide Import CSV on mobile (destructive action)
+  // Mobile: Select/Done in header (Mail-style)
   const actions = (
     <div className={styles.actions}>
       {canAdmin && !isMobile ? (
@@ -1155,9 +1181,28 @@ const TransactionsPage: React.FC = () => {
           </button>
         </>
       ) : canAdmin && isMobile ? (
-        <button type="button" className={styles.primaryButton} onClick={openAddAccount}>
-          Add account
-        </button>
+        <>
+          {isSelectionMode ? (
+            <button
+              type="button"
+              className={styles.headerSelectBtn}
+              onClick={() => {
+                setIsSelectionMode(false);
+                setSelectedRows(new Set());
+              }}
+            >
+              Done
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={styles.headerSelectBtn}
+              onClick={() => setIsSelectionMode(true)}
+            >
+              Select
+            </button>
+          )}
+        </>
       ) : null}
     </div>
   );
@@ -1182,7 +1227,7 @@ const TransactionsPage: React.FC = () => {
       <div className={styles.page}>
         <div className={styles.transactionsShell}>
           <div className={styles.stickyStack}>
-            {/* Mobile: search + filter button */}
+            {/* Mobile filter row — stable, no changes in selection mode */}
             {isMobile ? (
               <div className={styles.mobileFilterRow}>
                 <input
@@ -1543,8 +1588,8 @@ const TransactionsPage: React.FC = () => {
           ) : null}
           </div>
 
-          {/* Bulk action bar */}
-          {selectedCount > 0 && canAdmin ? (
+          {/* Bulk action bar — desktop only (mobile uses MobileSelectionBar) */}
+          {!isMobile && selectedCount > 0 && canAdmin ? (
             <div className={styles.bulkBar}>
               <span className={styles.bulkCount}>{selectedCount} selected</span>
               <div className={styles.bulkActions}>
@@ -1638,6 +1683,289 @@ const TransactionsPage: React.FC = () => {
                     const iconType = effectivePaymentType(txn);
                     const isSelected = selectedRows.has(txn.dedupeHash);
                     const isFocused = focusedRowIndex === index;
+                    const isSwiped = swipedRowHash === txn.dedupeHash;
+
+                    // Swipe constants
+                    const REVEAL_WIDTH = 144; // 2 buttons × 72px
+                    const SWIPE_THRESHOLD = REVEAL_WIDTH * 0.35; // 35% to trigger open
+                    const DIRECTION_LOCK_RATIO = 1.2; // horizontal must be 1.2x vertical
+
+                    // Mobile swipe handlers with proper thresholds + long-press support
+                    const handleSwipeStart = (e: React.TouchEvent) => {
+                      if (!isMobile) return;
+                      
+                      // Don't intercept touches on checkboxes or buttons
+                      const target = e.target as HTMLElement;
+                      if (target.tagName === "INPUT" || target.tagName === "BUTTON" || target.closest("button") || target.closest("input")) {
+                        return;
+                      }
+                      
+                      const touch = e.touches[0];
+                      const el = e.currentTarget as HTMLElement;
+                      el.dataset.startX = String(touch.clientX);
+                      el.dataset.startY = String(touch.clientY);
+                      el.dataset.startTime = String(Date.now());
+                      el.dataset.locked = "false";
+                      el.dataset.lockedDir = "";
+
+                      // Start long-press timer (for entering selection mode)
+                      if (canAdmin && !isSelectionMode) {
+                        longPressTriggedRef.current = false;
+                        longPressTimerRef.current = setTimeout(() => {
+                          longPressTriggedRef.current = true;
+                          if (navigator.vibrate) navigator.vibrate(50);
+                          setIsSelectionMode(true);
+                          setSelectedRows(new Set([txn.dedupeHash]));
+                        }, 500);
+                      }
+                    };
+
+                    const handleSwipeMove = (e: React.TouchEvent) => {
+                      if (!isMobile) return;
+                      
+                      // Don't intercept touches on checkboxes or buttons
+                      const target = e.target as HTMLElement;
+                      if (target.tagName === "INPUT" || target.tagName === "BUTTON" || target.closest("button") || target.closest("input")) {
+                        return;
+                      }
+                      
+                      const touch = e.touches[0];
+                      const el = e.currentTarget as HTMLElement;
+                      const startX = Number(el.dataset.startX || 0);
+                      const startY = Number(el.dataset.startY || 0);
+                      const deltaX = startX - touch.clientX; // positive = swipe left
+                      const deltaY = Math.abs(touch.clientY - startY);
+
+                      // Cancel long-press if user moves
+                      if (Math.abs(deltaX) > 8 || deltaY > 8) {
+                        if (longPressTimerRef.current) {
+                          clearTimeout(longPressTimerRef.current);
+                          longPressTimerRef.current = null;
+                        }
+                      }
+
+                      // In selection mode, allow vertical scrolling
+                      if (isSelectionMode) return;
+
+                      // Direction lock: once locked, stay locked
+                      if (el.dataset.locked === "false" && (Math.abs(deltaX) > 10 || deltaY > 10)) {
+                        if (Math.abs(deltaX) > deltaY * DIRECTION_LOCK_RATIO) {
+                          el.dataset.locked = "true";
+                          el.dataset.lockedDir = "horizontal";
+                        } else {
+                          el.dataset.locked = "true";
+                          el.dataset.lockedDir = "vertical";
+                        }
+                      }
+
+                      // Only handle horizontal swipes
+                      if (el.dataset.lockedDir !== "horizontal") return;
+
+                      // Prevent vertical scroll while swiping horizontally
+                      e.preventDefault();
+
+                      // Apply transform based on delta (with resistance)
+                      let translateX = -Math.min(Math.max(deltaX, 0), REVEAL_WIDTH);
+                      if (isSwiped) {
+                        // Already open, allow closing
+                        translateX = -REVEAL_WIDTH + Math.max(-deltaX, -REVEAL_WIDTH);
+                        translateX = Math.max(translateX, -REVEAL_WIDTH);
+                        translateX = Math.min(translateX, 0);
+                      }
+                      el.style.transform = `translateX(${translateX}px)`;
+                      el.style.transition = "none";
+                    };
+
+                    const handleSwipeEnd = (e: React.TouchEvent) => {
+                      if (!isMobile) return;
+
+                      // Don't intercept touches on checkboxes or buttons
+                      const target = e.target as HTMLElement;
+                      if (target.tagName === "INPUT" || target.tagName === "BUTTON" || target.closest("button") || target.closest("input")) {
+                        // Still cancel long-press timer if it was running
+                        if (longPressTimerRef.current) {
+                          clearTimeout(longPressTimerRef.current);
+                          longPressTimerRef.current = null;
+                        }
+                        return;
+                      }
+
+                      // Cancel long-press timer
+                      if (longPressTimerRef.current) {
+                        clearTimeout(longPressTimerRef.current);
+                        longPressTimerRef.current = null;
+                      }
+
+                      // If long press triggered, don't process swipe
+                      if (longPressTriggedRef.current) {
+                        longPressTriggedRef.current = false;
+                        return;
+                      }
+
+                      // In selection mode, don't process swipes
+                      if (isSelectionMode) return;
+
+                      const el = e.currentTarget as HTMLElement;
+                      const startX = Number(el.dataset.startX || 0);
+                      const startTime = Number(el.dataset.startTime || 0);
+                      const touch = e.changedTouches[0];
+                      const deltaX = startX - touch.clientX;
+                      const elapsed = Date.now() - startTime;
+                      const velocity = Math.abs(deltaX) / elapsed; // px/ms
+
+                      // Reset inline styles
+                      el.style.transform = "";
+                      el.style.transition = "";
+
+                      // Only process horizontal swipes
+                      if (el.dataset.lockedDir !== "horizontal") return;
+
+                      // Fast swipe or threshold reached
+                      const shouldOpen = deltaX > SWIPE_THRESHOLD || (deltaX > 30 && velocity > 0.5);
+
+                      if (isSwiped) {
+                        // Already open - check if should close
+                        if (deltaX < -20 || !shouldOpen) {
+                          setSwipedRowHash(null);
+                        }
+                      } else {
+                        // Closed - check if should open
+                        if (shouldOpen) {
+                          setSwipedRowHash(txn.dedupeHash);
+                        }
+                      }
+                    };
+
+                    // Row click handler for selection mode
+                    const handleMobileRowClick = (e: React.MouseEvent) => {
+                      // Ignore if long press just triggered
+                      if (longPressTriggedRef.current) {
+                        longPressTriggedRef.current = false;
+                        return;
+                      }
+                      if (isSelectionMode && isMobile) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSelectedRows((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(txn.dedupeHash)) {
+                            next.delete(txn.dedupeHash);
+                          } else {
+                            next.add(txn.dedupeHash);
+                          }
+                          return next;
+                        });
+                        return;
+                      }
+                      // Close any swiped row
+                      if (swipedRowHash && swipedRowHash !== txn.dedupeHash) {
+                        setSwipedRowHash(null);
+                      }
+                      handleRowClick(txn, index, e);
+                    };
+
+                    // Render mobile row with swipe support
+                    if (isMobile) {
+                      return (
+                        <div key={txn.dedupeHash} className={styles.swipeWrapper}>
+                          {/* Swipe actions (revealed on swipe left) */}
+                          <div className={styles.swipeActions}>
+                            <button
+                              type="button"
+                              className={`${styles.swipeAction} ${styles.edit}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSwipedRowHash(null);
+                                setSelectedTxn(txn);
+                                setIsApplyOpen(true);
+                              }}
+                            >
+                              <Edit2 size={18} />
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className={`${styles.swipeAction} ${styles.category}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSwipedRowHash(null);
+                                setMobileContextTxn(txn);
+                                setIsMobileContextSheetOpen(true);
+                              }}
+                            >
+                              <Tag size={18} />
+                              More
+                            </button>
+                          </div>
+                          {/* Swipeable content */}
+                          <div
+                            className={`${styles.swipeContent} ${isSwiped ? styles.swiped : ""}`}
+                            onTouchStart={handleSwipeStart}
+                            onTouchMove={handleSwipeMove}
+                            onTouchEnd={handleSwipeEnd}
+                          >
+                            <div
+                              data-row-index={index}
+                              className={[
+                                styles.row,
+                                canAdmin ? styles.rowClickable : "",
+                                isSelected ? styles.rowSelected : "",
+                                isFocused ? styles.rowFocused : "",
+                                isSelectionMode ? styles.inSelectionMode : "",
+                              ].filter(Boolean).join(" ")}
+                              role={canAdmin ? "row" : undefined}
+                              tabIndex={canAdmin ? 0 : undefined}
+                              aria-selected={isSelected}
+                              onClick={handleMobileRowClick}
+                            >
+                              {/* Selection mode checkbox */}
+                              {isSelectionMode && (
+                                <div className={styles.selectionCheckbox}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedRows((prev) => {
+                                        const next = new Set(prev);
+                                        if (e.target.checked) {
+                                          next.add(txn.dedupeHash);
+                                        } else {
+                                          next.delete(txn.dedupeHash);
+                                        }
+                                        return next;
+                                      });
+                                    }}
+                                  />
+                                </div>
+                              )}
+                              <div className={styles.txnCell}>
+                                <div className={styles.txnMain}>
+                                  <div className={styles.txnTitle}>{txnTitle(txn)}</div>
+                                  <div className={styles.txnMeta}>
+                                    <span>{txn.postedAt}</span>
+                                    <span> · </span>
+                                    <span>{accountLabel}</span>
+                                    {txn.cardLast4 ? (
+                                      <>
+                                        <span> · </span>
+                                        <span>••••{txn.cardLast4}</span>
+                                      </>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className={[styles.amountCol, directionClass].join(" ")}>
+                                {txn.amount < 0 ? "-" : "+"}
+                                {currency.format(Math.abs(txn.amount))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Desktop row (unchanged)
                     return (
                       <div
                         key={txn.dedupeHash}
@@ -1680,21 +2008,6 @@ const TransactionsPage: React.FC = () => {
                               ) : null}
                             </div>
                           </div>
-                          {/* Mobile action button - hidden via CSS, kept for potential future use */}
-                          {isMobile && canAdmin ? (
-                            <button
-                              type="button"
-                              className={styles.mobileActionBtn}
-                              onClick={(e) => handleMobileActionButton(txn, e)}
-                              onTouchEnd={(e) => {
-                                e.stopPropagation();
-                                handleTouchEnd();
-                              }}
-                              aria-label="Transaction actions"
-                            >
-                              <MoreHorizontal size={18} />
-                            </button>
-                          ) : null}
                         </div>
 
                         <div className={styles.categoryCell}>
@@ -1885,17 +2198,20 @@ const TransactionsPage: React.FC = () => {
         }}
       />
 
-      {/* Mobile Selection Bar */}
+      {/* Mobile Selection Bar — floating footer, single source of truth */}
       {isMobile && (
         <MobileSelectionBar
+          isSelectionMode={isSelectionMode}
           selectedCount={selectedCount}
+          totalCount={items.length}
+          onSelectAll={() => {
+            // Select all visible items
+            setSelectedRows(new Set(items.map((t) => t.dedupeHash)));
+          }}
           onClearSelection={clearSelection}
           onSetCategory={() => {
             // Open context sheet in category mode
-            if (selectedCount === 1 && mobileContextTxn) {
-              setIsMobileContextSheetOpen(true);
-            } else if (selectedCount > 0) {
-              // For bulk, we need to pick a transaction or just set on all
+            if (selectedCount > 0) {
               const firstHash = Array.from(selectedRows)[0];
               const firstTxn = items.find((t) => t.dedupeHash === firstHash);
               if (firstTxn) {

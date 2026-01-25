@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import HQLayout from "../components/HQLayout";
 import ImportCsvModal from "@/hq/components/ImportCsvModal";
+import { useIsMobile } from "@/shared/hooks/useBreakpoints";
 import AddAccountModal from "@/hq/components/AddAccountModal";
 import { useHqStore } from "@/hq/lib/hqStore";
 import { useUser } from "@/app/contexts/useUser";
@@ -35,20 +36,19 @@ const ImportPage: React.FC = () => {
     setIsAddAccountOpen(true);
   }, [canAdmin]);
 
-  const actions = (
+  const isMobile = useIsMobile();
+
+  // On mobile, these actions are accessible via the org bottom sheet
+  const actions = !isMobile && canAdmin ? (
     <div className={styles.actions}>
-      {canAdmin ? (
-        <>
-          <button type="button" className={styles.secondaryButton} onClick={openImport}>
-            Import CSV
-          </button>
-          <button type="button" className={styles.primaryButton} onClick={openAddAccount}>
-            Add account
-          </button>
-        </>
-      ) : null}
+      <button type="button" className={styles.secondaryButton} onClick={openImport}>
+        Import CSV
+      </button>
+      <button type="button" className={styles.primaryButton} onClick={openAddAccount}>
+        Add account
+      </button>
     </div>
-  );
+  ) : null;
 
   const handleDeleteImportRun = React.useCallback(
     async (importRunId: string) => {

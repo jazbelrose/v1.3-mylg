@@ -3,6 +3,7 @@ import HQLayout from "../components/HQLayout";
 import AddAccountModal from "@/hq/components/AddAccountModal";
 import ImportCsvModal from "@/hq/components/ImportCsvModal";
 import SetAnchorModal from "@/hq/components/SetAnchorModal";
+import { useIsMobile } from "@/shared/hooks/useBreakpoints";
 import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { useSocket } from "@/app/contexts/useSocket";
@@ -109,20 +110,19 @@ const AccountsPage: React.FC = () => {
     [activeOrgId, canAdmin, ws]
   );
 
-  const actions = (
+  const isMobile = useIsMobile();
+
+  // On mobile, these actions are accessible via the org bottom sheet
+  const actions = !isMobile && canAdmin ? (
     <div className={styles.actions}>
-      {canAdmin ? (
-        <>
-          <button type="button" className={styles.secondaryButton} onClick={openImport}>
-            Import CSV
-          </button>
-          <button type="button" className={styles.primaryButton} onClick={openAdd}>
-            Add account
-          </button>
-        </>
-      ) : null}
+      <button type="button" className={styles.secondaryButton} onClick={openImport}>
+        Import CSV
+      </button>
+      <button type="button" className={styles.primaryButton} onClick={openAdd}>
+        Add account
+      </button>
     </div>
-  );
+  ) : null;
 
   return (
     <HQLayout
