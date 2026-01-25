@@ -56,28 +56,28 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  padding: 18px 20px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color, rgba(255, 255, 255, 0.08)) 70%, transparent);
-  background: color-mix(in srgb, var(--bg2, #101112) 90%, transparent);
+  gap: 12px;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line, rgba(255, 255, 255, 0.08)) 80%, transparent);
+  background: transparent;
 }
 
 .titleGroup {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 14px;
-  background: var(--brand-12, rgba(250, 51, 86, 0.12));
-  color: var(--text, #eaecee);
-  box-shadow: inset 0 0 0 1px var(--brand-20, rgba(250, 51, 86, 0.2));
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: color-mix(in srgb, var(--text, #eaecee) 85%, var(--muted, #9aa0a6));
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .titleText {
@@ -87,14 +87,14 @@
 
 .title {
   margin: 0;
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 1.05rem;
+  font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 .subtitle {
   margin: 4px 0 0;
-  font-size: 0.92rem;
+  font-size: 0.8rem;
   color: var(--muted, #9aa0a6);
 }
 
@@ -105,8 +105,8 @@
   width: 36px;
   height: 36px;
   border-radius: 12px;
-  border: 1px solid var(--line, rgba(255, 255, 255, 0.06));
-  background: color-mix(in srgb, var(--bg2, #101112) 70%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text, #eaecee);
   opacity: 0.9;
   cursor: pointer;
@@ -114,8 +114,8 @@
 }
 
 .iconButton:hover {
-  background: color-mix(in srgb, var(--bg2, #101112) 84%, transparent);
-  border-color: color-mix(in srgb, var(--border-color, rgba(255, 255, 255, 0.08)) 92%, transparent);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: color-mix(in srgb, rgba(255, 255, 255, 0.12) 85%, transparent);
   transform: translateY(-1px);
   opacity: 1;
 }
@@ -125,7 +125,7 @@
 }
 
 .iconButton:focus-visible {
-  outline: 2px solid var(--accent, #FA3356);
+  outline: 2px solid var(--color-focus, var(--accent, #FA3356));
   outline-offset: 2px;
 }
 
