@@ -17,6 +17,7 @@ import {
   Edit2,
   Link2,
   SlidersHorizontal,
+  MoreHorizontal,
 } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import HQLayout from "../components/HQLayout";
@@ -24,6 +25,8 @@ import OrgChatSheet from "@/hq/components/OrgChatSheet";
 import AddAccountModal from "@/hq/components/AddAccountModal";
 import ImportCsvModal from "@/hq/components/ImportCsvModal";
 import TransactionsFilterSheet from "@/hq/components/TransactionsFilterSheet";
+import TransactionContextSheet from "@/hq/components/TransactionContextSheet";
+import MobileSelectionBar from "@/hq/components/MobileSelectionBar";
 import { HQ_CATEGORY_LABEL, HQ_CATEGORY_OPTIONS } from "@/hq/lib/hqCategories";
 import { applyHqTransactionsBulk, fetchHqSummary, fetchHqTransactions } from "@/hq/lib/hqApi";
 import { hydrateHqState, readHqState, useHqStore } from "@/hq/lib/hqStore";
@@ -43,6 +46,7 @@ import styles from "./TransactionsPage.module.css";
 import HqSelect from "@/hq/components/HqSelect";
 import DateRangePopover, { type DateRangePreset } from "@/hq/components/DateRangePopover";
 import TxnModalApply from "@/hq/components/TxnModalApply";
+import TxnEditSheet from "@/hq/components/TxnEditSheet";
 import HqCategoryPicker from "@/hq/components/HqCategoryPicker";
 import AllocationModal from "@/hq/components/AllocationModal";
 import TxnProjectChip from "@/hq/components/TxnProjectChip";
@@ -251,9 +255,16 @@ const TransactionsPage: React.FC = () => {
   const [focusedRowIndex, setFocusedRowIndex] = React.useState<number | null>(null);
   const tableRef = React.useRef<HTMLDivElement>(null);
 
-  // Context menu state
+  // Context menu state (desktop)
   const [contextMenuPos, setContextMenuPos] = React.useState<{ x: number; y: number } | null>(null);
   const [contextMenuTxn, setContextMenuTxn] = React.useState<HqTransaction | null>(null);
+
+  // Mobile context sheet state
+  const [isMobileContextSheetOpen, setIsMobileContextSheetOpen] = React.useState(false);
+  const [mobileContextTxn, setMobileContextTxn] = React.useState<HqTransaction | null>(null);
+  // Long press tracking for mobile
+  const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggedRef = React.useRef(false);
 
   // Undo state for bulk actions
   const [undoStack, setUndoStack] = React.useState<Array<{
@@ -680,15 +691,111 @@ const TransactionsPage: React.FC = () => {
     setFocusedRowIndex(null);
   }, [listQueryKey]);
 
+  // Mobile: open context sheet for a transaction
+  const openMobileContextSheet = React.useCallback(
+    (txn: HqTransaction) => {
+      if (!canAdmin) return;
+      const hash = txn.dedupeHash;
+      if (!hash) return;
+
+      // If this transaction isn't selected, select only it
+      if (!selectedRows.has(hash)) {
+        setSelectedRows(new Set([hash]));
+      }
+
+      setMobileContextTxn(txn);
+      setIsMobileContextSheetOpen(true);
+    },
+    [canAdmin, selectedRows]
+  );
+
+  const closeMobileContextSheet = React.useCallback(() => {
+    setIsMobileContextSheetOpen(false);
+    setMobileContextTxn(null);
+  }, []);
+
+  // Mobile: handle row action button click (opens context sheet)
+  const handleMobileActionButton = React.useCallback(
+    (txn: HqTransaction, e: React.MouseEvent | React.TouchEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      openMobileContextSheet(txn);
+    },
+    [openMobileContextSheet]
+  );
+
+  // Mobile: long press handlers
+  const handleTouchStart = React.useCallback(
+    (txn: HqTransaction, index: number) => {
+      if (!isMobile || !canAdmin) return;
+
+      longPressTriggedRef.current = false;
+      longPressTimerRef.current = setTimeout(() => {
+        longPressTriggedRef.current = true;
+        // Haptic feedback if available
+        if (navigator.vibrate) {
+          navigator.vibrate(50);
+        }
+        openMobileContextSheet(txn);
+      }, 500);
+    },
+    [isMobile, canAdmin, openMobileContextSheet]
+  );
+
+  const handleTouchEnd = React.useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handleTouchMove = React.useCallback(() => {
+    // Cancel long press if user scrolls
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
   // Selection handlers
   const handleRowClick = React.useCallback(
     (txn: HqTransaction, index: number, e: React.MouseEvent) => {
       if (!canAdmin) return;
       e.preventDefault();
 
+      // If long press just triggered, don't do anything
+      if (longPressTriggedRef.current) {
+        longPressTriggedRef.current = false;
+        return;
+      }
+
       const hash = txn.dedupeHash;
       if (!hash) return;
 
+      // Mobile behavior
+      if (isMobile) {
+        // If multi-select is active, tap toggles selection
+        if (selectedRows.size > 0) {
+          setSelectedRows((prev) => {
+            const next = new Set(prev);
+            if (next.has(hash)) {
+              next.delete(hash);
+            } else {
+              next.add(hash);
+            }
+            return next;
+          });
+          setLastClickedIndex(index);
+          return;
+        }
+
+        // No multi-select: single tap opens edit
+        setSelectedTxn(txn);
+        setIsApplyOpen(true);
+        return;
+      }
+
+      // Desktop behavior
       if (e.shiftKey && lastClickedIndex !== null) {
         // Range select
         const start = Math.min(lastClickedIndex, index);
@@ -719,7 +826,7 @@ const TransactionsPage: React.FC = () => {
       setLastClickedIndex(index);
       setFocusedRowIndex(index);
     },
-    [canAdmin, items, lastClickedIndex]
+    [canAdmin, items, lastClickedIndex, isMobile, selectedRows.size]
   );
 
   const handleRowDoubleClick = React.useCallback(
@@ -1541,6 +1648,10 @@ const TransactionsPage: React.FC = () => {
                         onDoubleClick={() => handleRowDoubleClick(txn)}
                         onKeyDown={(e) => handleRowKeyDown(txn, index, e)}
                         onContextMenu={(e) => handleContextMenu(txn, index, e)}
+                        onTouchStart={() => handleTouchStart(txn, index)}
+                        onTouchEnd={handleTouchEnd}
+                        onTouchMove={handleTouchMove}
+                        onTouchCancel={handleTouchEnd}
                       >
                         {/* Selection rail indicator */}
                         {isSelected ? <div className={styles.selectionRail} aria-hidden /> : null}
@@ -1562,6 +1673,21 @@ const TransactionsPage: React.FC = () => {
                               ) : null}
                             </div>
                           </div>
+                          {/* Mobile action button */}
+                          {isMobile && canAdmin ? (
+                            <button
+                              type="button"
+                              className={styles.mobileActionBtn}
+                              onClick={(e) => handleMobileActionButton(txn, e)}
+                              onTouchEnd={(e) => {
+                                e.stopPropagation();
+                                handleTouchEnd();
+                              }}
+                              aria-label="Transaction actions"
+                            >
+                              <MoreHorizontal size={18} />
+                            </button>
+                          ) : null}
                         </div>
 
                         <div className={styles.categoryCell}>
@@ -1706,6 +1832,94 @@ const TransactionsPage: React.FC = () => {
         canAdmin={canAdmin}
       />
 
+      {/* Mobile Context Sheet */}
+      <TransactionContextSheet
+        orgId={orgId}
+        isOpen={isMobileContextSheetOpen && canAdmin}
+        txn={mobileContextTxn}
+        selectedCount={selectedCount}
+        onClose={closeMobileContextSheet}
+        onSetCategory={(categoryId) => {
+          applyBulkAction({ categoryId });
+          closeMobileContextSheet();
+        }}
+        onSetPaymentType={(paymentType) => {
+          applyBulkAction({ paymentType });
+          closeMobileContextSheet();
+        }}
+        onToggleBurnRunway={() => {
+          if (mobileContextTxn) {
+            applyBulkAction({ isRecurring: !mobileContextTxn.isRecurring });
+          } else {
+            applyBulkAction({ isRecurring: true });
+          }
+          closeMobileContextSheet();
+        }}
+        onFindSimilar={() => {
+          if (mobileContextTxn) {
+            setSelectedTxn(mobileContextTxn);
+            setIsApplyOpen(true);
+          }
+          closeMobileContextSheet();
+        }}
+        onLinkToBudget={() => {
+          if (mobileContextTxn) {
+            setAllocationTxn(mobileContextTxn);
+            setIsAllocationOpen(true);
+          }
+          closeMobileContextSheet();
+        }}
+        onEdit={() => {
+          if (mobileContextTxn) {
+            setSelectedTxn(mobileContextTxn);
+            setIsApplyOpen(true);
+          }
+          closeMobileContextSheet();
+        }}
+      />
+
+      {/* Mobile Selection Bar */}
+      {isMobile && (
+        <MobileSelectionBar
+          selectedCount={selectedCount}
+          onClearSelection={clearSelection}
+          onSetCategory={() => {
+            // Open context sheet in category mode
+            if (selectedCount === 1 && mobileContextTxn) {
+              setIsMobileContextSheetOpen(true);
+            } else if (selectedCount > 0) {
+              // For bulk, we need to pick a transaction or just set on all
+              const firstHash = Array.from(selectedRows)[0];
+              const firstTxn = items.find((t) => t.dedupeHash === firstHash);
+              if (firstTxn) {
+                setMobileContextTxn(firstTxn);
+                setIsMobileContextSheetOpen(true);
+              }
+            }
+          }}
+          onSetPaymentType={() => {
+            if (selectedCount > 0) {
+              const firstHash = Array.from(selectedRows)[0];
+              const firstTxn = items.find((t) => t.dedupeHash === firstHash);
+              if (firstTxn) {
+                setMobileContextTxn(firstTxn);
+                setIsMobileContextSheetOpen(true);
+              }
+            }
+          }}
+          onMoreActions={() => {
+            if (selectedCount > 0) {
+              const firstHash = Array.from(selectedRows)[0];
+              const firstTxn = items.find((t) => t.dedupeHash === firstHash);
+              if (firstTxn) {
+                setMobileContextTxn(firstTxn);
+                setIsMobileContextSheetOpen(true);
+              }
+            }
+          }}
+        />
+      )}
+
       {activeOrgId ? (
         <>
           <ImportCsvModal
@@ -1731,26 +1945,46 @@ const TransactionsPage: React.FC = () => {
             isOpen={isAddAccountOpen}
             onRequestClose={() => setIsAddAccountOpen(false)}
           />
-          <TxnModalApply
-            orgId={activeOrgId}
-            isOpen={isApplyOpen}
-            txn={selectedTxn}
-            batchHashes={selectedCount > 1 ? Array.from(selectedRows) : undefined}
-            from={startDate || undefined}
-            to={endDate || undefined}
-            onSaved={() => {
-              // Refresh list after transaction update.
-              // Small delay to allow DynamoDB eventual consistency to propagate writes.
-              setTimeout(() => {
-                loadPage({ cursor: null, append: false, includeTotals: true });
-              }, 150);
-              setSelectedRows(new Set());
-            }}
-            onRequestClose={() => {
-              setIsApplyOpen(false);
-              setSelectedTxn(null);
-            }}
-          />
+          {/* Transaction Edit - Desktop: Modal, Mobile: Bottom Sheet */}
+          {isMobile ? (
+            <TxnEditSheet
+              orgId={activeOrgId}
+              isOpen={isApplyOpen}
+              txn={selectedTxn}
+              batchHashes={selectedCount > 1 ? Array.from(selectedRows) : undefined}
+              onSaved={() => {
+                setTimeout(() => {
+                  loadPage({ cursor: null, append: false, includeTotals: true });
+                }, 150);
+                setSelectedRows(new Set());
+              }}
+              onClose={() => {
+                setIsApplyOpen(false);
+                setSelectedTxn(null);
+              }}
+            />
+          ) : (
+            <TxnModalApply
+              orgId={activeOrgId}
+              isOpen={isApplyOpen}
+              txn={selectedTxn}
+              batchHashes={selectedCount > 1 ? Array.from(selectedRows) : undefined}
+              from={startDate || undefined}
+              to={endDate || undefined}
+              onSaved={() => {
+                // Refresh list after transaction update.
+                // Small delay to allow DynamoDB eventual consistency to propagate writes.
+                setTimeout(() => {
+                  loadPage({ cursor: null, append: false, includeTotals: true });
+                }, 150);
+                setSelectedRows(new Set());
+              }}
+              onRequestClose={() => {
+                setIsApplyOpen(false);
+                setSelectedTxn(null);
+              }}
+            />
+          )}
           <AllocationModal
             orgId={activeOrgId}
             isOpen={isAllocationOpen}

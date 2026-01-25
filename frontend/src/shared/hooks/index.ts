@@ -34,5 +34,12 @@ export {
 // Nav collapsed state
 export { useNavCollapsed } from "./useNavCollapsed";
 
+// Long press gesture
+export {
+  useLongPress,
+  type UseLongPressOptions,
+  type UseLongPressReturn,
+} from "./useLongPress";
+
 // File reference tracking
 export { useFileReferenceTracking } from "./useFileReferenceTracking";

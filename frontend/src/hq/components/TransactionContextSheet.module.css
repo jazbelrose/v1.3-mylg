@@ -1,0 +1,215 @@
+/**
+ * TransactionContextSheet - Mobile context actions bottom sheet
+ */
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 4px 16px;
+  min-height: 200px;
+}
+
+/* Header info */
+.headerInfo {
+  padding: 8px 12px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 4px;
+}
+
+.txnTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.selectionLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(250, 51, 86, 0.95);
+}
+
+/* Action groups */
+.actionGroup {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 0 4px;
+}
+
+.actionGroup + .actionGroup {
+  margin-top: 12px;
+}
+
+.actionRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  min-height: 52px;
+}
+
+.actionRow:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.actionRow:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.actionRow svg {
+  color: rgba(255, 255, 255, 0.6);
+  flex-shrink: 0;
+}
+
+.actionLabel {
+  flex: 1;
+}
+
+.actionHint {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  max-width: 120px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Sub-view header */
+.subHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px 12px;
+}
+
+.backButton {
+  padding: 8px 12px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.backButton:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.subTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* Search */
+.searchWrapper {
+  position: relative;
+  margin: 0 8px 12px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 12px 36px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.searchInput::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.searchInput:focus {
+  border-color: rgba(250, 51, 86, 0.5);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.clearSearch {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clearSearch:active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Options list */
+.optionsList {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 0 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.optionRow {
+  padding: 14px 16px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.optionRow:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.optionRow:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.emptyState {
+  padding: 24px 16px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 14px;
+}

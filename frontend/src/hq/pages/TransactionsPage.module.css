@@ -343,10 +343,20 @@
 }
 
 .totalsBar {
-  padding: 0 54px 10px 10px;
+  padding: 0 14px 10px 10px;
   display: flex;
   justify-content: flex-end;
   min-height: 24px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex-wrap: nowrap;
+  gap: 16px;
+}
+
+.totalsBar::-webkit-scrollbar {
+  display: none;
 }
 
 .totalsLine {
@@ -361,6 +371,7 @@
   align-items: baseline;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
 .totalsLine:disabled {
@@ -658,6 +669,29 @@
   flex-shrink: 0;
 }
 
+/* Mobile action button (3-dot menu) */
+.mobileActionBtn {
+  display: none;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-right: -8px;
+  border-radius: 12px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.mobileActionBtn:active {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
 .txnMain {
   min-width: 0;
   display: grid;
@@ -891,13 +925,69 @@
   .tableHeader {
     display: none;
   }
+  /* Hide desktop bulk bar on mobile (we use MobileSelectionBar instead) */
+  .bulkBar {
+    display: none;
+  }
+  /* Mobile transaction card - stacked layout with price top-right */
   .row {
-    grid-template-columns: 1fr;
-    gap: 10px;
-    align-items: flex-start;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 14px;
+    padding-right: 60px;
+    align-items: stretch;
+    position: relative;
+    min-height: 70px;
+  }
+  .txnCell {
+    flex: 1;
+    min-width: 0;
+    padding-right: 0;
+  }
+  /* Show mobile action button - positioned below amount */
+  .mobileActionBtn {
+    display: flex;
+    position: absolute;
+    right: 8px;
+    top: 40px;
+    width: 40px;
+    height: 40px;
+    margin: 0;
+  }
+  .txnTitle {
+    font-size: 14px;
+    font-weight: 500;
+    white-space: normal;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .txnMeta {
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    font-size: 11px;
+  }
+  .categoryCell {
+    display: inline;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.55);
+    order: 3;
+  }
+  .allocationCell {
+    display: none;
   }
   .amountCol {
-    text-align: left;
+    position: absolute;
+    right: 8px;
+    top: 12px;
+    text-align: right;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+    max-width: 55px;
   }
 }
 

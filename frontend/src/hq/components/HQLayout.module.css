@@ -857,7 +857,9 @@
     border-radius: 20px;
     padding: 12px 9px 12px;
     box-shadow: none;
-    margin-top: 4px
+    margin-top: 4px;
+    gap: 6px;
+    
   }
 
   .contentArea {

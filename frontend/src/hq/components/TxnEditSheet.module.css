@@ -1,0 +1,622 @@
+/**
+ * TxnEditSheet - Mobile transaction edit bottom sheet styles
+ */
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 8px 16px;
+  min-height: 200px;
+}
+
+/* Transaction card */
+.txnCard {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.txnMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.txnTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.txnMeta {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.txnAmount {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.txnAmount.in {
+  color: rgba(45, 212, 191, 0.95);
+}
+
+.txnAmount.out {
+  color: rgba(250, 51, 86, 0.95);
+}
+
+/* Batch mode badge */
+.batchBadge {
+  padding: 12px 16px;
+  background: rgba(250, 51, 86, 0.12);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(250, 51, 86, 0.95);
+  text-align: center;
+}
+
+/* Field group */
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.fieldRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  min-height: 56px;
+}
+
+.fieldRow:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.fieldRow:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.fieldRow:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fieldLabel {
+  flex: 1;
+  font-weight: 500;
+}
+
+.fieldValue {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  max-width: 150px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.mixedValue {
+  color: rgba(250, 51, 86, 0.7);
+  font-style: italic;
+}
+
+.fieldChevron {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 18px;
+  font-weight: 300;
+}
+
+/* Toggle row */
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+}
+
+.toggleInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toggleHint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* iOS-style toggle switch */
+.toggle {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggleTrack {
+  display: block;
+  width: 52px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  transition: background 0.2s ease;
+  position: relative;
+}
+
+.toggleTrack::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 28px;
+  height: 28px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle input:checked + .toggleTrack {
+  background: rgba(250, 51, 86, 0.9);
+}
+
+.toggle input:checked + .toggleTrack::after {
+  transform: translateX(20px);
+}
+
+/* Sub-view header */
+.subHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px 16px;
+}
+
+.backButton {
+  padding: 10px 14px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.backButton:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.subTitle {
+  font-size: 17px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* Search */
+.searchWrapper {
+  padding: 0 8px 12px;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.searchInput::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.searchInput:focus {
+  border-color: rgba(250, 51, 86, 0.5);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Options list */
+.optionsList {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 14px;
+  overflow: hidden;
+  margin: 0 8px;
+  max-height: 400px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.optionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.optionRow:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.optionRow:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.optionRow.optionSelected {
+  color: rgba(250, 51, 86, 0.95);
+}
+
+.checkmark {
+  color: rgba(250, 51, 86, 0.95);
+  font-weight: 600;
+}
+
+/* Footer */
+.footer {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.cancelButton {
+  flex: 1;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  border-radius: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.cancelButton:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cancelButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.saveButton {
+  flex: 2;
+  padding: 16px;
+  border: none;
+  background: linear-gradient(135deg, rgba(250, 51, 86, 0.95) 0%, rgba(220, 38, 70, 0.95) 100%);
+  border-radius: 14px;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+  box-shadow: 0 4px 12px rgba(250, 51, 86, 0.3);
+}
+
+.saveButton:active {
+  transform: scale(0.98);
+}
+
+.saveButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Section labels */
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 8px 4px 4px;
+  text-transform: uppercase;
+}
+
+.mixedHint {
+  font-weight: 400;
+  font-style: italic;
+  color: rgba(250, 51, 86, 0.6);
+}
+
+/* Similar transactions header */
+.similarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.similarCount {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.selectActions {
+  display: flex;
+  gap: 16px;
+  padding: 4px 4px 8px;
+}
+
+.linkButton {
+  padding: 8px 12px;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.linkButton:hover,
+.linkButton:active {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.linkButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Find similar section */
+.findSimilar {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+
+.findSimilarTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 10px;
+}
+
+.findSimilarRow {
+  display: flex;
+  gap: 8px;
+}
+
+.findSimilarInput {
+  flex: 1;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.findSimilarInput::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.findSimilarInput:focus {
+  border-color: rgba(250, 51, 86, 0.5);
+}
+
+.findSimilarBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  border: none;
+  background: rgba(250, 51, 86, 0.15);
+  border-radius: 10px;
+  color: rgba(250, 51, 86, 0.95);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.findSimilarBtn:active {
+  background: rgba(250, 51, 86, 0.25);
+}
+
+.findSimilarBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Empty state */
+.emptyState {
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.emptyTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 4px;
+}
+
+.emptyHint {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Similar list */
+.similarList {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 14px;
+  overflow: hidden;
+  max-height: 280px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.similarRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.similarRow:last-child {
+  border-bottom: none;
+}
+
+.similarRow:active,
+.similarRowSelected {
+  background: rgba(250, 51, 86, 0.08);
+}
+
+.similarCheck {
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+
+.similarCheck input {
+  width: 20px;
+  height: 20px;
+  accent-color: rgba(250, 51, 86, 0.95);
+}
+
+.similarMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.similarName {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+  margin-bottom: 3px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.similarMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.matchReason {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(250, 51, 86, 0.7);
+  margin-top: 4px;
+}
+
+.similarAmt {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.similarAmt.in {
+  color: rgba(45, 212, 191, 0.9);
+}
+
+.similarAmt.out {
+  color: rgba(250, 51, 86, 0.9);
+}
+
+/* Show find more button */
+.showFindBtn {
+  width: 100%;
+  padding: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  background: transparent;
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.showFindBtn:hover,
+.showFindBtn:active {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Footer adjustments */
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.saveHint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  padding-bottom: 4px;
+}
+
+.footerButtons {
+  display: flex;
+  gap: 12px;
+}
