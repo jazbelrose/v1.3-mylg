@@ -37,6 +37,66 @@
   border-color: rgba(255, 255, 255, 0.12);
 }
 
+/* Mobile filter row: search + filter button */
+.mobileFilterRow {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+}
+
+.mobileFilterRow .filterField {
+  flex: 1;
+  min-width: 0;
+}
+
+.filterButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.filterButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.filterButton:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.filterButton[data-active="true"] {
+  background: rgba(250, 51, 86, 0.12);
+  border-color: rgba(250, 51, 86, 0.4);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.filterBadge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: rgba(250, 51, 86, 0.9);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 .moreMenuWrapper {
   position: relative;
 }

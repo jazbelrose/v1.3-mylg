@@ -1,0 +1,110 @@
+.header {
+  display: flex;
+  align-items: center;
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 4px 0 24px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 0 4px;
+}
+
+.actionList,
+.orgList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.actionItem,
+.orgItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+
+.actionItem:hover,
+.orgItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.actionItem:active,
+.orgItem:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.actionItem:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actionIcon {
+  color: rgba(255, 255, 255, 0.65);
+  flex-shrink: 0;
+}
+
+.actionLabel {
+  flex: 1;
+  font-weight: 500;
+}
+
+.actionChevron {
+  color: rgba(255, 255, 255, 0.35);
+  flex-shrink: 0;
+}
+
+.orgItem[data-active="true"] {
+  background: rgba(250, 51, 86, 0.1);
+}
+
+.orgName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orgCheck {
+  color: rgba(250, 51, 86, 0.9);
+  font-size: 14px;
+  font-weight: 600;
+}

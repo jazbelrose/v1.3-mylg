@@ -9,14 +9,16 @@ import DashboardNavPanel from "@/shared/ui/DashboardNavPanel";
 import NavigationDrawer from "@/shared/ui/NavigationDrawer";
 import AppHeaderCard from "@/shared/ui/AppHeaderCard";
 import { useNavCollapsed } from "@/shared/hooks/useNavCollapsed";
+import { useIsMobile } from "@/shared/hooks/useBreakpoints";
 import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { toast } from "react-toastify";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { FaExclamationTriangle, FaTrash } from "react-icons/fa";
-import { Download, Upload } from "lucide-react";
+import { Download, Upload, MessageCircle, FolderOpen, ChevronDown } from "lucide-react";
 import { deleteHqImportRun, downloadHqBundle, downloadHqCsv, fetchHqSummary, resetHqData } from "@/hq/lib/hqApi";
 import ImportBundleModal from "@/hq/components/ImportBundleModal";
+import OrgActionsSheet from "@/hq/components/OrgActionsSheet";
 import "@/dashboard/home/pages/dashboard-styles.css";
 import Modal from "@/shared/ui/ModalWithStack";
 import HeaderShell from "@/shared/ui/HeaderShell";
@@ -29,6 +31,10 @@ type HQLayoutProps = {
   children: React.ReactNode;
   /** Optional right panel (e.g., docked chat) rendered inside contentArea flex */
   rightPanel?: React.ReactNode;
+  /** Optional: open chat panel (for mobile org sheet) */
+  onOpenChat?: () => void;
+  /** Optional: open files overlay (for mobile org sheet) */
+  onOpenFiles?: () => void;
 };
 
 type ViewportFlags = {
@@ -51,12 +57,16 @@ const HQLayout: React.FC<HQLayoutProps> = ({
   actions,
   children,
   rightPanel,
+  onOpenChat,
+  onOpenFiles,
 }) => {
   const { isAdmin } = useUser();
   const { orgs, activeOrgId, activeOrgRole, setActiveOrgId, isLoading: orgsLoading, createOrg, deleteOrg } = useOrg();
   const [flags, setFlags] = useState<ViewportFlags>(() => getViewportFlags());
+  const isMobile = useIsMobile();
   const [isNavCollapsed, setIsNavCollapsed] = useNavCollapsed("dashboard");
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
+  const [isOrgSheetOpen, setIsOrgSheetOpen] = useState(false);
   const rawDrawerId = useId();
   const drawerId = useMemo(
     () => `hq-nav-${rawDrawerId.replace(/[^a-zA-Z0-9_-]/g, "")}`,
@@ -508,7 +518,49 @@ const HQLayout: React.FC<HQLayoutProps> = ({
     />
   );
 
+  // New mobile header: single row, no wrapping, org actions via sheet
   const mobilePageHeader = (
+    <header className={styles.mobilePageHeader}>
+      <h1 className={styles.mobilePageTitle}>{title}</h1>
+      <div className={styles.mobileHeaderActions}>
+        {onOpenChat && (
+          <button
+            type="button"
+            className={styles.mobileIconButton}
+            onClick={onOpenChat}
+            aria-label="Open chat"
+          >
+            <MessageCircle size={20} />
+          </button>
+        )}
+        {onOpenFiles && (
+          <button
+            type="button"
+            className={styles.mobileIconButton}
+            onClick={onOpenFiles}
+            aria-label="Open files"
+          >
+            <FolderOpen size={20} />
+          </button>
+        )}
+        <button
+          type="button"
+          className={styles.mobileOrgButton}
+          onClick={() => setIsOrgSheetOpen(true)}
+          disabled={orgsLoading}
+          aria-label="Organization actions"
+        >
+          <span className={styles.mobileOrgName}>
+            {activeOrgName ?? (orgs.length ? "Select…" : "No org")}
+          </span>
+          <ChevronDown size={16} className={styles.mobileOrgChevron} />
+        </button>
+      </div>
+    </header>
+  );
+
+  // Legacy mobile header for non-sheet pages (keeping for backwards compat if needed)
+  const legacyMobilePageHeader = (
     <header className={styles.mobilePageHeader}>
       <div className={styles.headingCopy}>
         <h1 className={styles.mobilePageTitle}>{title}</h1>
@@ -836,6 +888,23 @@ const HQLayout: React.FC<HQLayoutProps> = ({
     </Modal>
   );
 
+  // Mobile org actions sheet (safe actions only - no destructive)
+  const orgActionsSheet = isMobile && activeOrgId ? (
+    <OrgActionsSheet
+      isOpen={isOrgSheetOpen}
+      onClose={() => setIsOrgSheetOpen(false)}
+      orgName={activeOrgName || ""}
+      orgs={orgs}
+      activeOrgId={activeOrgId}
+      onOrgChange={setActiveOrgId}
+      onOpenChat={onOpenChat || (() => {})}
+      onOpenFiles={onOpenFiles || (() => {})}
+      onExportCsv={handleExportCsv}
+      onExportBundle={handleExportBundle}
+      isExporting={isExporting}
+    />
+  ) : null;
+
   const mainContent = (
     <main className="dashboard-main">
       <AppHeaderCard
@@ -849,6 +918,7 @@ const HQLayout: React.FC<HQLayoutProps> = ({
       <div className={`dashboard-wrapper ${styles.wrapper}`}>
         {shredConfirmModal}
         {whatStaysModal}
+        {orgActionsSheet}
         {activeOrgId && (
           <ImportBundleModal
             orgId={activeOrgId}

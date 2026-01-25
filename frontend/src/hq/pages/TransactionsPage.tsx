@@ -16,11 +16,13 @@ import {
   Search,
   Edit2,
   Link2,
+  SlidersHorizontal,
 } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import HQLayout from "../components/HQLayout";
 import AddAccountModal from "@/hq/components/AddAccountModal";
 import ImportCsvModal from "@/hq/components/ImportCsvModal";
+import TransactionsFilterSheet from "@/hq/components/TransactionsFilterSheet";
 import { HQ_CATEGORY_LABEL, HQ_CATEGORY_OPTIONS } from "@/hq/lib/hqCategories";
 import { applyHqTransactionsBulk, fetchHqSummary, fetchHqTransactions } from "@/hq/lib/hqApi";
 import { hydrateHqState, readHqState, useHqStore } from "@/hq/lib/hqStore";
@@ -30,6 +32,7 @@ import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { useSocket } from "@/app/contexts/useSocket";
 import { useProjects } from "@/app/contexts/useProjects";
 import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
+import { useIsMobile } from "@/shared/hooks/useBreakpoints";
 import { todayPacificIsoDate } from "@/hq/lib/hqDate";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { HqCategoryId, HqPaymentType, HqTransaction } from "@/hq/types";
@@ -184,9 +187,13 @@ const TransactionsPage: React.FC = () => {
   const hasOrg = Boolean(activeOrgId);
   const orgId = activeOrgId ?? "__no_org__";
   const canAdmin = hasOrg && isOrgAdmin(activeOrgRole);
+  const isMobile = useIsMobile();
   useHqBootstrap(activeOrgId);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Mobile filter sheet state
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = React.useState(false);
 
   // Get projects for filter and chips
   const { projects } = useProjects();
@@ -965,9 +972,63 @@ const TransactionsPage: React.FC = () => {
 
   const selectedCount = selectedRows.size;
 
+  // Mobile filter sheet handlers
+  const handleFilterChange = React.useCallback((changes: Partial<{
+    accountId: string;
+    direction: "all" | "in" | "out";
+    paymentType: "all" | HqPaymentType;
+    categoryId: "all" | HqCategoryId | "UNCATEGORIZED";
+    projectFilter: ProjectFilterValue;
+    dateRange: DateRangePreset;
+    startDate: string;
+    endDate: string;
+    amountMinCents: number | null;
+    amountMaxCents: number | null;
+    recurringOnly: boolean;
+  }>) => {
+    if (changes.accountId !== undefined) setAccountId(changes.accountId);
+    if (changes.direction !== undefined) setDirection(changes.direction);
+    if (changes.paymentType !== undefined) setPaymentType(changes.paymentType);
+    if (changes.categoryId !== undefined) setCategoryId(changes.categoryId);
+    if (changes.projectFilter !== undefined) setProjectFilter(changes.projectFilter);
+    if (changes.dateRange !== undefined) setDateRange(changes.dateRange);
+    if (changes.startDate !== undefined) setStartDate(changes.startDate);
+    if (changes.endDate !== undefined) setEndDate(changes.endDate);
+    if (changes.amountMinCents !== undefined) setAmountMinCents(changes.amountMinCents);
+    if (changes.amountMaxCents !== undefined) setAmountMaxCents(changes.amountMaxCents);
+    if (changes.recurringOnly !== undefined) setRecurringOnly(changes.recurringOnly);
+  }, []);
+
+  const handleClearFilters = React.useCallback(() => {
+    setAccountId("all");
+    setDirection("all");
+    setPaymentType("all");
+    setCategoryId("all");
+    setProjectFilter({ type: "all" });
+    setDateRange("all");
+    setStartDate("");
+    setEndDate("");
+    setAmountMinCents(null);
+    setAmountMaxCents(null);
+    setRecurringOnly(false);
+  }, []);
+
+  // Count active filters (for badge)
+  const activeFilterCount = [
+    accountId !== "all",
+    direction !== "all",
+    paymentType !== "all",
+    categoryId !== "all",
+    projectFilter.type !== "all",
+    dateRange !== "all",
+    amountMinCents !== null || amountMaxCents !== null,
+    recurringOnly,
+  ].filter(Boolean).length;
+
+  // Hide Import CSV on mobile (destructive action)
   const actions = (
     <div className={styles.actions}>
-      {canAdmin ? (
+      {canAdmin && !isMobile ? (
         <>
           <button type="button" className={styles.secondaryButton} onClick={openImport}>
             Import CSV
@@ -976,6 +1037,10 @@ const TransactionsPage: React.FC = () => {
             Add account
           </button>
         </>
+      ) : canAdmin && isMobile ? (
+        <button type="button" className={styles.primaryButton} onClick={openAddAccount}>
+          Add account
+        </button>
       ) : null}
     </div>
   );
@@ -988,6 +1053,31 @@ const TransactionsPage: React.FC = () => {
       <div className={styles.page}>
         <div className={styles.transactionsShell}>
           <div className={styles.stickyStack}>
+            {/* Mobile: search + filter button */}
+            {isMobile ? (
+              <div className={styles.mobileFilterRow}>
+                <input
+                  className={styles.filterField}
+                  type="search"
+                  placeholder="Search vendor / memo"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  aria-label="Search transactions"
+                />
+                <button
+                  type="button"
+                  className={styles.filterButton}
+                  onClick={() => setIsFilterSheetOpen(true)}
+                  aria-label="Open filters"
+                  data-active={activeFilterCount > 0}
+                >
+                  <SlidersHorizontal size={18} />
+                  {activeFilterCount > 0 && (
+                    <span className={styles.filterBadge}>{activeFilterCount}</span>
+                  )}
+                </button>
+              </div>
+            ) : (
             <div className={styles.filters}>
             <input
               className={styles.filterField}
@@ -1183,6 +1273,7 @@ const TransactionsPage: React.FC = () => {
               <Repeat size={18} aria-hidden="true" />
             </button>
           </div>
+            )}
 
           <div className={styles.totalsBar}>
             <Popover>
@@ -1667,6 +1758,29 @@ const TransactionsPage: React.FC = () => {
               setIsAllocationOpen(false);
               setAllocationTxn(null);
             }}
+          />
+          <TransactionsFilterSheet
+            isOpen={isFilterSheetOpen}
+            onClose={() => setIsFilterSheetOpen(false)}
+            orgId={orgId}
+            accounts={accounts}
+            projects={projects}
+            filters={{
+              accountId,
+              direction,
+              paymentType,
+              categoryId,
+              projectFilter,
+              dateRange,
+              startDate,
+              endDate,
+              amountMinCents,
+              amountMaxCents,
+              recurringOnly,
+            }}
+            onChange={handleFilterChange}
+            onClear={handleClearFilters}
+            onApply={() => {}}
           />
         </>
       ) : null}

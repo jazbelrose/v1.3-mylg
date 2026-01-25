@@ -25,6 +25,8 @@ export interface BottomSheetProps {
   onClose: () => void;
   /** Sheet title (optional, shows header if provided) */
   title?: string;
+  /** Custom header content (alternative to title) */
+  header?: React.ReactNode;
   /** Content of the sheet */
   children: React.ReactNode;
   /** Snap points as viewport percentages (e.g., [50, 90]). Default: [90] */
@@ -54,6 +56,7 @@ export function BottomSheet({
   isOpen,
   onClose,
   title,
+  header,
   children,
   snapPoints = [90],
   initialSnap = 0,
@@ -189,10 +192,14 @@ export function BottomSheet({
             {/* Drag handle */}
             <div className="bottom-sheet-handle" />
 
-            {/* Header (if title provided) */}
-            {(title || showCloseButton) && (
+            {/* Header (if title or header provided) */}
+            {(title || header || showCloseButton) && (
               <div className="bottom-sheet-header">
-                {title && <h2 className="bottom-sheet-title">{title}</h2>}
+                {header ? (
+                  <div className="bottom-sheet-header-content">{header}</div>
+                ) : title ? (
+                  <h2 className="bottom-sheet-title">{title}</h2>
+                ) : null}
                 {showCloseButton && (
                   <button
                     type="button"
