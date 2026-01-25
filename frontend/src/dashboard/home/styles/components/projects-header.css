@@ -32,7 +32,8 @@
   opacity: 0.08;
 }
 
-@media (max-width: 920px) {
+/* Mobile/Tablet: below lg breakpoint (1024px) */
+@media (max-width: 1023px) {
   .projects-header {
     padding: 14px 14px 14px;
   }

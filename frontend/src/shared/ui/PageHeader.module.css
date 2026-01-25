@@ -89,7 +89,8 @@
   min-width: 0;
 }
 
-@media (max-width: 920px) {
+/* Mobile/Tablet: below lg breakpoint (1024px) */
+@media (max-width: 1023px) {
   .pageTitle {
     font-size: var(--pageTitleMobile, 18px);
   }

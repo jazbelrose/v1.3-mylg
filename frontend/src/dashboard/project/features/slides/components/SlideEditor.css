@@ -149,3 +149,25 @@
     padding: 0 16px 0;
   }
 }
+
+/* =============================================================================
+   READ-ONLY MODE (Mobile)
+   Disables editing interactions while still allowing zoom/scroll
+   ============================================================================= */
+.slide-editor--readonly .slide-editor__slide-frame {
+  pointer-events: none;
+  user-select: none;
+}
+
+.slide-editor--readonly .slide-editor__canvas-inner {
+  cursor: default;
+}
+
+/* Make the viewport still scrollable/zoomable */
+.slide-editor--readonly .slide-editor__viewport {
+  cursor: grab;
+}
+
+.slide-editor--readonly .slide-editor__viewport:active {
+  cursor: grabbing;
+}

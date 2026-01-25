@@ -905,9 +905,7 @@
     grid-template-columns: 1fr;
     gap: 14px;
   }
-}
 
-@media (max-width: 920px) {
   .twoCol {
     grid-template-columns: 1fr;
   }

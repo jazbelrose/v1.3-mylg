@@ -221,6 +221,10 @@
   flex-direction: column;
   gap: 16px;
   padding: 16px 32px;
+  /* Safe area handling for notched devices */
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  padding-left: calc(32px + env(safe-area-inset-left, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   position: relative;
   isolation: isolate;
 }

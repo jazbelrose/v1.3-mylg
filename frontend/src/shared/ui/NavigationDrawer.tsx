@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import DashboardNavPanel from "./DashboardNavPanel";
+import { useScrollLock } from "@/shared/hooks/useScrollLock";
 import "./navigation-drawer.css";
 
 interface NavigationDrawerProps {
@@ -16,30 +17,8 @@ const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   setActiveView,
   drawerId,
 }) => {
-  useEffect(() => {
-    if (!open || typeof document === "undefined") {
-      return;
-    }
-
-    const { body, documentElement } = document;
-
-    const originalBodyOverflow = body.style.overflow;
-    const originalHtmlOverflow = documentElement.style.overflow;
-    const originalBodyTouchAction = body.style.touchAction;
-    const originalHtmlTouchAction = documentElement.style.touchAction;
-
-    body.style.overflow = "hidden";
-    documentElement.style.overflow = "hidden";
-    body.style.touchAction = "none";
-    documentElement.style.touchAction = "none";
-
-    return () => {
-      body.style.overflow = originalBodyOverflow;
-      documentElement.style.overflow = originalHtmlOverflow;
-      body.style.touchAction = originalBodyTouchAction;
-      documentElement.style.touchAction = originalHtmlTouchAction;
-    };
-  }, [open]);
+  // Use shared scroll lock hook
+  useScrollLock(open);
 
   return (
     <AnimatePresence>

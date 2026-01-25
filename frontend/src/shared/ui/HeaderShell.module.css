@@ -22,8 +22,10 @@
   opacity: 0.06;
 }
 
-@media (max-width: 920px) {
+/* Mobile/Tablet: below lg breakpoint (1024px) */
+@media (max-width: 1023px) {
   .shell {
-    padding-top: 14px;
+    /* Account for safe area on notched devices */
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
   }
 }

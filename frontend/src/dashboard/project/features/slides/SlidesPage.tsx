@@ -4,6 +4,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useData } from "@/app/contexts/useData";
 import { useSocket } from "@/app/contexts/useSocket";
 import { Slide } from "@/app/contexts/DataProvider";
+import { useIsMobile } from "@/shared/hooks/useBreakpoints";
 import ProjectPageLayout from "@/dashboard/project/components/Shared/ProjectPageLayout";
 import ProjectHeader from "@/dashboard/project/components/Shared/ProjectHeader";
 import QuickLinksComponent from "@/dashboard/project/components/Shared/QuickLinksComponent";
@@ -222,6 +223,9 @@ const SlidesPage: React.FC = () => {
     isAdmin,
     isDesigner,
   } = useData();
+  
+  // Mobile detection - slides are read-only on phones
+  const isMobileDevice = useIsMobile();
   
   // Get user avatar (prefer thumbnailUrl, fallback to thumbnail)
   const userAvatar = user?.thumbnailUrl || user?.thumbnail;
@@ -2358,6 +2362,15 @@ const SlidesPage: React.FC = () => {
       <QuickLinksComponent ref={quickLinksRef} hideTrigger />
       
       <div className="slides-shell">
+        {/* Mobile read-only banner */}
+        {isMobileDevice && (
+          <div className="slides-mobile-readonly-banner" role="status">
+            <span className="slides-mobile-readonly-banner__icon">👁️</span>
+            <span className="slides-mobile-readonly-banner__text">
+              View-only — open on tablet/desktop to edit
+            </span>
+          </div>
+        )}
         {isExportingPdf && pdfExportProgress && (
           <div className="slides-import-banner" role="status" aria-live="polite">
             <div className="slides-import-banner__text">
@@ -2464,6 +2477,7 @@ const SlidesPage: React.FC = () => {
                   currentUserId={userId}
                   currentUserName={userName}
                   commentsEnabled={true}
+                  readOnly={isMobileDevice}
                 />
                 ) : (
                   <div className="slides-main__empty">

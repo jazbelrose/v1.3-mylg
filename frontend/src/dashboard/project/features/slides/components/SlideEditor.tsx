@@ -73,6 +73,8 @@ interface SlideEditorProps {
   currentUserAvatar?: string;
   /** Whether comments mode is enabled (CommentsProvider is available) */
   commentsEnabled?: boolean;
+  /** Read-only mode (mobile devices) - disables editing */
+  readOnly?: boolean;
 }
 
 // Fixed stage dimensions (16:9 aspect ratio) - never changes
@@ -116,6 +118,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
   currentUserName,
   currentUserAvatar,
   commentsEnabled = false,
+  readOnly = false,
 }) => {
   const [toolbarActions, setToolbarActions] = useState<ToolbarActions | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<ContextMenuPosition | null>(null);
@@ -601,11 +604,13 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
     <DropdownProvider>
       <ToolbarContextProvider>
         <div
-          className="slide-editor"
+          className={`slide-editor ${readOnly ? 'slide-editor--readonly' : ''}`}
           data-slide-id={slide.id}
           data-canvas-width={STAGE_WIDTH}
           data-canvas-height={STAGE_HEIGHT}
         >
+          {/* Hide toolbar in read-only mode */}
+          {!readOnly && (
           <div className="slide-editor__toolbar-container" ref={toolbarContainerRef}>
             {toolbarOutput}
             <LayoutGeneratorPanel
@@ -621,6 +626,7 @@ const SlideEditor: React.FC<SlideEditorProps> = ({
               hasExistingContent={!isLexicalContentEffectivelyEmpty(slide.content)}
             />
           </div>
+          )}
 
           {/* Viewport container - handles scrolling */}
           <div 

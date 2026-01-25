@@ -1,3 +1,5 @@
+import { MEDIA_QUERIES } from "@/shared/hooks/useBreakpoints";
+
 export const CATEGORY_OPTIONS = [
   "AUDIO-VISUAL",
   "CLIENT-SERVICES-VIP",
@@ -40,7 +42,8 @@ export const DOT_STROKE = 2;
 export const DOT_MAX_VISIBLE = 4;
 export const DOT_OVERLAP_PX = 3;
 
-export const MOBILE_QUERY = "(max-width: 640px)";
+/** @deprecated Use MEDIA_QUERIES.phone from @/shared/hooks/useBreakpoints */
+export const MOBILE_QUERY = MEDIA_QUERIES.phone;
 export const POPPER_GAP = 12;
 export const FOCUSABLE_SELECTOR =
   'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';

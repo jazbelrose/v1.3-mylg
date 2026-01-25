@@ -353,7 +353,8 @@
   color: rgba(255, 255, 255, 0.65);
 }
 
-@media (max-width: 920px) {
+/* Mobile/Tablet: below lg breakpoint (1024px) */
+@media (max-width: 1023px) {
   .body {
     align-items: stretch;
   }

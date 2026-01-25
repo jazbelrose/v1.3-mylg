@@ -1,25 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { MOBILE_QUERY } from "./constants";
+import { useCallback, useMemo, useState } from "react";
+import { useIsMobile } from "@/shared/hooks/useBreakpoints";
 
-export function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => {
-    if (typeof window === "undefined" || !window.matchMedia) {
-      return false;
-    }
-    return window.matchMedia(MOBILE_QUERY).matches;
-  });
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const matcher = window.matchMedia(MOBILE_QUERY);
-    const listener = (event: MediaQueryListEvent) => setIsMobile(event.matches);
-    setIsMobile(matcher.matches);
-    matcher.addEventListener("change", listener);
-    return () => matcher.removeEventListener("change", listener);
-  }, []);
-
-  return isMobile;
-}
+// Re-export for backward compatibility
+export { useIsMobile } from "@/shared/hooks/useBreakpoints";
 
 interface DayOverlayState {
   anchor: HTMLButtonElement | null;

@@ -4,7 +4,8 @@
   padding: 12px 0;
 }
 
-@media (max-width: 920px) {
+/* Mobile/Tablet: below lg breakpoint (1024px) */
+@media (max-width: 1023px) {
   .commandCenter {
     padding-top: 14px;
   }

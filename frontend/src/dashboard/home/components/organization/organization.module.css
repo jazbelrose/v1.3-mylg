@@ -1805,7 +1805,8 @@
   }
 }
 
-@media (max-width: 920px) {
+/* Mobile/Tablet: below lg breakpoint (1024px) */
+@media (max-width: 1023px) {
   .membersHeaderRow {
     display: none;
   }

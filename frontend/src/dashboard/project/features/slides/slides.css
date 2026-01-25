@@ -162,3 +162,36 @@
     margin: 16px;
   }
 }
+
+/* =============================================================================
+   MOBILE READ-ONLY BANNER
+   Shows on phones (≤639px) to indicate slides are view-only
+   ============================================================================= */
+.slides-mobile-readonly-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255, 180, 50, 0.15), rgba(255, 120, 50, 0.1));
+  border: 1px solid rgba(255, 180, 50, 0.25);
+  color: rgba(255, 220, 150, 0.95);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.slides-mobile-readonly-banner__icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.slides-mobile-readonly-banner__text {
+  line-height: 1.3;
+}
+
+/* Hide toolbar actions on mobile for read-only mode */
+@media (max-width: 639px) {
+  .slides-toolbar-shell {
+    display: none;
+  }
+}

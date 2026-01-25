@@ -1,0 +1,275 @@
+/* Mobile Primitives - Utility Classes & Tokens
+ * =============================================================================
+ * Safe-area utilities, touch target helpers, and mobile-specific spacing.
+ * Import this after design tokens in your main CSS.
+ * =============================================================================
+ */
+
+/* =============================================================================
+ * SAFE AREA UTILITIES
+ * Use these classes on elements that touch viewport edges on iOS.
+ * =============================================================================
+ */
+
+/* Padding utilities */
+.safe-pt {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.safe-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.safe-pl {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+.safe-pr {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+.safe-px {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+.safe-py {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.safe-p {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+/* Margin utilities */
+.safe-mt {
+  margin-top: env(safe-area-inset-top, 0px);
+}
+.safe-mb {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+.safe-ml {
+  margin-left: env(safe-area-inset-left, 0px);
+}
+.safe-mr {
+  margin-right: env(safe-area-inset-right, 0px);
+}
+
+/* Min-height including safe area (useful for bottom sheets) */
+.safe-min-h-screen {
+  min-height: 100svh;
+  min-height: calc(100svh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+}
+
+/* =============================================================================
+ * TOUCH TARGET HELPERS
+ * Apple HIG: minimum 44x44pt. We use 48px for extra comfort.
+ * =============================================================================
+ */
+
+.touch-target {
+  min-width: 48px;
+  min-height: 48px;
+}
+
+.touch-target-44 {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Invisible touch area expansion (for small icons) */
+.touch-expand {
+  position: relative;
+}
+.touch-expand::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+
+/* =============================================================================
+ * MOBILE TOKENS (scoped behind media query)
+ * Override default spacing/sizing on mobile devices.
+ * =============================================================================
+ */
+
+@media (max-width: 1023px) {
+  :root {
+    /* Mobile gutter (container padding) */
+    --mobile-gutter: 16px;
+    
+    /* Card spacing on mobile */
+    --mobile-card-padding: 16px;
+    --mobile-card-radius: 16px;
+    --mobile-card-gap: 12px;
+    
+    /* Touch-friendly input heights */
+    --mobile-input-height: 48px;
+    --mobile-button-height: 48px;
+    
+    /* Bottom sheet */
+    --bottom-sheet-radius: 20px;
+    --bottom-sheet-handle-width: 36px;
+    --bottom-sheet-handle-height: 4px;
+  }
+}
+
+/* Phone-only tokens (smaller gutter) */
+@media (max-width: 639px) {
+  :root {
+    --mobile-gutter: 12px;
+    --mobile-card-padding: 14px;
+    --mobile-card-gap: 10px;
+  }
+}
+
+/* =============================================================================
+ * MOBILE LAYOUT UTILITIES
+ * =============================================================================
+ */
+
+/* Stack layout for mobile forms/content */
+@media (max-width: 1023px) {
+  .mobile-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mobile-card-gap, 12px);
+  }
+
+  .mobile-full-width {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Hide on mobile */
+  .mobile-hidden {
+    display: none !important;
+  }
+}
+
+/* Show only on mobile */
+@media (min-width: 1024px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+/* =============================================================================
+ * SCROLLING UTILITIES
+ * =============================================================================
+ */
+
+/* Smooth momentum scrolling for iOS */
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Hide scrollbar but allow scroll */
+.scroll-hide-bar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-hide-bar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Prevent pull-to-refresh on mobile */
+.no-overscroll {
+  overscroll-behavior: none;
+}
+
+/* =============================================================================
+ * BOTTOM SHEET BASE STYLES
+ * These are shared styles for the BottomSheet component.
+ * =============================================================================
+ */
+
+.bottom-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+}
+
+.bottom-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg2, #1a1a1c);
+  border-top-left-radius: var(--bottom-sheet-radius, 20px);
+  border-top-right-radius: var(--bottom-sheet-radius, 20px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  z-index: 1001;
+  max-height: 90vh;
+  max-height: 90svh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.bottom-sheet-handle {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 8px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.bottom-sheet-handle::before {
+  content: "";
+  width: var(--bottom-sheet-handle-width, 36px);
+  height: var(--bottom-sheet-handle-height, 4px);
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+}
+
+.bottom-sheet-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0 var(--mobile-gutter, 16px) 16px;
+}
+
+.bottom-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--mobile-gutter, 16px) 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bottom-sheet-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text, #fff);
+  margin: 0;
+}
+
+.bottom-sheet-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  color: var(--text, #fff);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.bottom-sheet-close:hover,
+.bottom-sheet-close:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.bottom-sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px var(--mobile-gutter, 16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
