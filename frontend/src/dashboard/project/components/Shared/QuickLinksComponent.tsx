@@ -15,6 +15,8 @@ import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
 import { toast } from "react-toastify";
 import { apiFetch, PROJECTS_SERVICE_URL } from "@/shared/utils/api";
 
+import styles from "./QuickLinksComponent.module.css";
+
 if (typeof document !== "undefined") {
   Modal.setAppElement("#root");
 }
@@ -64,7 +66,8 @@ const QuickLinksComponent = forwardRef<QuickLinksRef, QuickLinksProps>(
       try {
         const data = await apiFetch<{ quickLinks?: QuickLink[] }>(apiUrl);
         if (Array.isArray(data.quickLinks)) {
-          setLinks([...data.quickLinks]);
+          const linksWithIds = data.quickLinks.map((l) => (l.id ? l : { ...l, id: generateId() }));
+          setLinks(linksWithIds);
         }
       } catch (err) {
         console.error("Error fetching quick links:", err);
@@ -75,7 +78,6 @@ const QuickLinksComponent = forwardRef<QuickLinksRef, QuickLinksProps>(
       }
     }, [apiUrl]);
 
-    // Sync with project data when activeProject changes
     useEffect(() => {
       if (Array.isArray(activeProject?.quickLinks)) {
         const linksWithIds = activeProject.quickLinks.map((l: QuickLink) =>
@@ -87,7 +89,7 @@ const QuickLinksComponent = forwardRef<QuickLinksRef, QuickLinksProps>(
 
     const openModal = () => {
       setIsModalOpen(true);
-      fetchQuickLinks(); // ensure fresh data
+      fetchQuickLinks();
     };
 
     const closeModal = () => {
@@ -95,13 +97,12 @@ const QuickLinksComponent = forwardRef<QuickLinksRef, QuickLinksProps>(
       setEditingIndex(null);
       setNewLink({ id: "", name: "", url: "" });
       setError("");
+      setErrorMessage("");
     };
 
     useImperativeHandle(ref, () => ({ openModal }));
 
-    const handleInputChange = (
-      e: ChangeEvent<HTMLInputElement>
-    ): void => {
+    const handleInputChange = (e: ChangeEvent<HTMLInputElement>): void => {
       const { name, value } = e.target;
       setNewLink((prev) => ({ ...prev, [name]: value }));
       if (errorMessage) setErrorMessage("");
@@ -123,11 +124,9 @@ const QuickLinksComponent = forwardRef<QuickLinksRef, QuickLinksProps>(
       }
       try {
         setSaving(true);
-        await enqueueProjectUpdate(
-          updateProjectFields,
-          activeProject.projectId,
-          { quickLinks: updatedLinks }
-        );
+        await enqueueProjectUpdate(updateProjectFields, activeProject.projectId, {
+          quickLinks: updatedLinks,
+        });
         toast.success("Saved. Nice.");
       } catch (err) {
         console.error("Error updating Quick Links:", err);
@@ -149,6 +148,7 @@ const QuickLinksComponent = forwardRef<QuickLinksRef, QuickLinksProps>(
       }
 
       setErrorMessage("");
+
       let updated: QuickLink[];
 
       if (editingIndex !== null) {
@@ -156,13 +156,12 @@ const QuickLinksComponent = forwardRef<QuickLinksRef, QuickLinksProps>(
         updated[editingIndex] = newLink;
       } else {
         const linkWithId: QuickLink = { ...newLink, id: generateId() };
-        updated = [linkWithId, ...links]; // newest on top
+        updated = [linkWithId, ...links];
       }
 
       setLinks(updated);
       await updateQuickLinksToAPI(updated);
 
-      // reset form state
       setEditingIndex(null);
       setNewLink({ id: "", name: "", url: "" });
     };
@@ -196,174 +195,124 @@ const QuickLinksComponent = forwardRef<QuickLinksRef, QuickLinksProps>(
               <Link2 size={24} style={{ marginRight: 8, marginTop: 1 }} />
               <span>Quick Links</span>
             </div>
-            <span style={{ marginLeft: "auto", alignSelf: "flex-start" }}>
-              &gt;
-            </span>
+            <span style={{ marginLeft: "auto", alignSelf: "flex-start" }}>&gt;</span>
           </div>
         )}
 
         <Modal
           isOpen={isModalOpen}
           onRequestClose={closeModal}
-          contentLabel="Quick Links Modal"
-          style={{
-            overlay: {
-              backgroundColor: "rgba(0, 0, 0, 0.75)",
-              zIndex: 1000,
-            },
-            content: {
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              width: "95%",
-              maxWidth: "500px",
-              height: "auto",
-              minHeight: "65vh",
-              maxHeight: "95vh",
-              borderRadius: "10px",
-              padding: "20px",
-              backgroundColor: "rgba(0, 0, 0, 0.85)",
-              color: "#fff",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-            },
+          contentLabel="Quick Links"
+          shouldCloseOnOverlayClick
+          shouldCloseOnEsc
+          closeTimeoutMS={180}
+          className={{
+            base: styles.modal,
+            afterOpen: styles.modalAfterOpen,
+            beforeClose: styles.modalBeforeClose,
+          }}
+          overlayClassName={{
+            base: styles.overlay,
+            afterOpen: styles.overlayAfterOpen,
+            beforeClose: styles.overlayBeforeClose,
           }}
         >
           {loading && <SpinnerOverlay />}
-          {error && (
-            <div style={{ color: "#FA3356", marginBottom: 10 }}>{error}</div>
-          )}
-          {saving && (
-            <div style={{ color: "#FA3356", marginBottom: 10 }}>Saving...</div>
-          )}
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 10,
-            }}
-          >
-            <h3 style={{ margin: 0, color: "#fff", fontSize: "1.2rem" }}>
-              Add Quick Links
-            </h3>
-            <button
-              onClick={closeModal}
-              aria-label="Close modal"
-              style={{ background: "none", border: "none", color: "#fff" }}
-            >
-              <X size={20} />
+          <div className={styles.header}>
+            <div className={styles.titleGroup}>
+              <span className={styles.icon} aria-hidden>
+                <Link2 size={18} />
+              </span>
+              <div className={styles.titleText}>
+                <h3 className={styles.title}>Quick Links</h3>
+                <p className={styles.subtitle}>Manage handy links for this project.</p>
+              </div>
+            </div>
+            <button type="button" onClick={closeModal} aria-label="Close" className={styles.iconButton}>
+              <X size={18} aria-hidden />
             </button>
           </div>
 
-          <div style={{ flexGrow: 1, overflowY: "auto", marginBottom: 15 }}>
-            {links.length > 0 && (
-              <div className="quick-links-list">
-                {links.map((link, index) => (
-                  <div
-                    key={link.id}
-                    className="quick-link-item"
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: 10,
-                      borderBottom: "1px solid #444",
-                    }}
-                  >
+          <div className={styles.body}>
+            {error ? (
+              <div className={`${styles.statusBar} ${styles.statusError}`} role="alert">
+                <span>{error}</span>
+              </div>
+            ) : null}
+
+            {saving ? (
+              <div className={`${styles.statusBar} ${styles.statusSaving}`} role="status">
+                <span>Saving…</span>
+              </div>
+            ) : null}
+
+            <div className={styles.list} aria-label="Quick links">
+              {links.length === 0 ? (
+                <div className={styles.emptyState}>No quick links yet. Add one below.</div>
+              ) : (
+                links.map((link, index) => (
+                  <div key={link.id} className={styles.row}>
                     <a
                       href={link.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ color: "#FA3356", textDecoration: "none" }}
+                      className={styles.rowLink}
+                      title={link.url}
                     >
-                      {link.name}
+                      <span className={styles.rowLinkText}>{link.name}</span>
                     </a>
-                    <div>
-                      <button
-                        onClick={() => handleEdit(index)}
-                        aria-label="Edit link"
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#fff",
-                          marginRight: 10,
-                        }}
-                      >
-                        <Pencil size={16} />
+                    <div className={styles.rowActions}>
+                      <button type="button" onClick={() => handleEdit(index)} aria-label="Edit link" className={styles.iconButton}>
+                        <Pencil size={16} aria-hidden />
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleDelete(index)}
                         aria-label="Delete link"
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#FA3356",
-                        }}
+                        className={`${styles.iconButton} ${styles.iconButtonDanger}`}
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={16} aria-hidden />
                       </button>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                ))
+              )}
+            </div>
 
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-              marginTop: "auto",
-            }}
-          >
-            <input
-              type="text"
-              name="name"
-              placeholder="Enter name"
-              value={newLink.name}
-              onChange={handleInputChange}
-              className="modal-input"
-              style={{ marginBottom: 5 }}
-            />
-            <input
-              type="url"
-              name="url"
-              placeholder="Enter URL"
-              value={newLink.url}
-              onChange={handleInputChange}
-              className="modal-input"
-              style={{ marginBottom: 5 }}
-            />
-            {errorMessage && (
-              <span style={{ color: "#ff6b6b", fontSize: "0.9rem" }}>
-                {errorMessage}
-              </span>
-            )}
-            <button
-              onClick={handleSubmit}
-              disabled={
-                !newLink.name || !newLink.url || Boolean(errorMessage)
-              }
-              style={{
-                width: "100%",
-                padding: 10,
-                background: "#FA3356",
-                color: "#fff",
-                border: "none",
-                opacity:
-                  !newLink.name || !newLink.url || errorMessage ? 0.6 : 1,
-                cursor:
-                  !newLink.name || !newLink.url || errorMessage
-                    ? "not-allowed"
-                    : "pointer",
-              }}
-            >
-              {editingIndex !== null ? "Save Changes" : "Add Link"}
-            </button>
+            <div className={styles.form} aria-label="Add quick link">
+              <input
+                type="text"
+                name="name"
+                placeholder="Link name"
+                value={newLink.name}
+                onChange={handleInputChange}
+                className={styles.input}
+                autoComplete="off"
+              />
+              <input
+                type="url"
+                name="url"
+                placeholder="https://…"
+                value={newLink.url}
+                onChange={handleInputChange}
+                className={styles.input}
+                autoComplete="off"
+              />
+
+              {errorMessage ? <div className={styles.fieldError}>{errorMessage}</div> : null}
+
+              <div className={styles.actions}>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={!newLink.name || !newLink.url || Boolean(errorMessage) || saving}
+                  className={styles.primaryButton}
+                >
+                  {editingIndex !== null ? "Save changes" : "Add link"}
+                </button>
+              </div>
+            </div>
           </div>
         </Modal>
       </>

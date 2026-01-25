@@ -23,6 +23,7 @@ interface UseInvoiceGroupingResult {
   setGroupLabels: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   handleGroupLabelChange: (group: string, label: string) => void;
   getGroupDisplayLabel: (group: string) => string;
+  handleResetGrouping: () => void;
 }
 
 export function useInvoiceGrouping({ items }: UseInvoiceGroupingOptions): UseInvoiceGroupingResult {
@@ -115,6 +116,12 @@ export function useInvoiceGrouping({ items }: UseInvoiceGroupingOptions): UseInv
     [groupLabels]
   );
 
+  const handleResetGrouping = useCallback(() => {
+    setGroupValues(groupOptions);
+    setGroupDisplayModes({});
+    setGroupLabels({});
+  }, [groupOptions]);
+
   return {
     groupField,
     setGroupField,
@@ -132,6 +139,7 @@ export function useInvoiceGrouping({ items }: UseInvoiceGroupingOptions): UseInv
     setGroupLabels,
     handleGroupLabelChange,
     getGroupDisplayLabel,
+    handleResetGrouping,
   };
 }
 

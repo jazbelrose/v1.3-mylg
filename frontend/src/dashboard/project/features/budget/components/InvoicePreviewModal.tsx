@@ -43,6 +43,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     getGroupDisplayLabel,
     showItemizedNote,
     handleToggleItemizedNote,
+    handleResetGrouping,
     selectedPages,
     handleTogglePage,
     handleToggleAllPages,
@@ -156,6 +157,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   getGroupDisplayLabel={getGroupDisplayLabel}
                   showItemizedNote={showItemizedNote}
                   onToggleItemizedNote={handleToggleItemizedNote}
+                  onResetGrouping={handleResetGrouping}
                   pages={pages}
                   selectedPages={selectedPages}
                   onTogglePage={handleTogglePage}

@@ -45,6 +45,7 @@ interface InvoicePreviewContentProps {
   getGroupDisplayLabel: (group: string) => string;
   showItemizedNote: boolean;
   onToggleItemizedNote: () => void;
+  onResetGrouping: () => void;
   pages: RowData[][];
   selectedPages: number[];
   onTogglePage: (index: number) => void;
@@ -155,6 +156,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   getGroupDisplayLabel,
   showItemizedNote,
   onToggleItemizedNote,
+  onResetGrouping,
   pages,
   selectedPages,
   onTogglePage,
@@ -253,6 +255,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   const [taxRateInput, setTaxRateInput] = useState<string>(() => formatNumberInput(taxRate));
   const [totalDueInput, setTotalDueInput] = useState<string>(() => formatNumberInput(totalDue));
   const [hasDraftChanges, setHasDraftChanges] = useState(false);
+  const [draftGroupLabels, setDraftGroupLabels] = useState<Record<string, string>>(() => ({ ...groupLabels }));
 
   const formattedTaxRate = useMemo(() => formatPercent(taxRate), [taxRate]);
   const formattedLastSaved = useMemo(() => {
@@ -332,6 +335,11 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     setTotalDueInput(formatNumberInput(committedValues.totalDue));
   }, [committedSnapshot, committedValues]);
 
+  // Sync draftGroupLabels when groupLabels changes externally (e.g., restore from saved)
+  useEffect(() => {
+    setDraftGroupLabels({ ...groupLabels });
+  }, [groupLabels]);
+
   const updateDraftField = useCallback((field: FormDraftField, value: string) => {
     setHasDraftChanges(true);
     setFormDraft((prev) => ({ ...prev, [field]: value }));
@@ -356,6 +364,39 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
     setHasDraftChanges(true);
     setTotalDueInput(value);
   }, []);
+
+  // Local-only change for group label (no preview refresh)
+  const handleDraftGroupLabelChange = useCallback((group: string, value: string) => {
+    setDraftGroupLabels((prev) => ({ ...prev, [group]: value }));
+  }, []);
+
+  // Commit label change on blur or Enter (triggers preview refresh)
+  const handleCommitGroupLabel = useCallback(
+    (group: string) => {
+      const draftValue = draftGroupLabels[group] || "";
+      const currentValue = groupLabels[group] || "";
+      if (draftValue !== currentValue) {
+        onGroupLabelChange(group, draftValue);
+      }
+    },
+    [draftGroupLabels, groupLabels, onGroupLabelChange]
+  );
+
+  // Check if a group label has unsaved local changes
+  const hasLabelDraft = useCallback(
+    (group: string) => {
+      return (draftGroupLabels[group] || "") !== (groupLabels[group] || "");
+    },
+    [draftGroupLabels, groupLabels]
+  );
+
+  // Revert to committed value on Escape
+  const handleRevertGroupLabel = useCallback(
+    (group: string) => {
+      setDraftGroupLabels((prev) => ({ ...prev, [group]: groupLabels[group] || "" }));
+    },
+    [groupLabels]
+  );
 
   const {
     brandName: draftBrandName,
@@ -973,33 +1014,42 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                         />
                         {value || "UNCATEGORIZED"}
                       </label>
-                      {value && groupValues.includes(value) && (
-                        <>
-                          <button
-                            type="button"
-                            className={`${styles.displayModeToggle} ${
-                              groupDisplayModes[value] === "ROLLED_UP" ? styles.rolledUp : ""
-                            }`}
-                            onClick={() => onToggleGroupDisplayMode(value)}
-                            title={
-                              groupDisplayModes[value] === "ROLLED_UP"
-                                ? "Show detailed items"
-                                : "Roll up to single line"
+                      {value && groupValues.includes(value) && groupDisplayModes[value] === "ROLLED_UP" && (
+                        <input
+                          type="text"
+                          className={`${styles.groupLabelInput}${hasLabelDraft(value) ? ` ${styles.hasChanges}` : ""}`}
+                          placeholder="Invoice label..."
+                          value={draftGroupLabels[value] || ""}
+                          onChange={(e) => handleDraftGroupLabelChange(value, e.target.value)}
+                          onBlur={() => handleCommitGroupLabel(value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleCommitGroupLabel(value);
+                              (e.target as HTMLInputElement).blur();
+                            } else if (e.key === "Escape") {
+                              handleRevertGroupLabel(value);
+                              (e.target as HTMLInputElement).blur();
                             }
-                          >
-                            {groupDisplayModes[value] === "ROLLED_UP" ? "LS" : "ITEMS"}
-                          </button>
-                          {groupDisplayModes[value] === "ROLLED_UP" && (
-                            <input
-                              type="text"
-                              className={styles.groupLabelInput}
-                              placeholder="Invoice label..."
-                              value={groupLabels[value] || ""}
-                              onChange={(e) => onGroupLabelChange(value, e.target.value)}
-                              title="Client-facing label for this rolled-up line"
-                            />
-                          )}
-                        </>
+                          }}
+                          title="Client-facing label for this rolled-up line (commit on blur/Enter, Esc to revert)"
+                        />
+                      )}
+                      {value && groupValues.includes(value) && (
+                        <button
+                          type="button"
+                          className={`${styles.displayModeToggle} ${
+                            groupDisplayModes[value] === "ROLLED_UP" ? styles.rolledUp : ""
+                          }`}
+                          onClick={() => onToggleGroupDisplayMode(value)}
+                          title={
+                            groupDisplayModes[value] === "ROLLED_UP"
+                              ? "Show detailed items"
+                              : "Roll up to single line"
+                          }
+                        >
+                          {groupDisplayModes[value] === "ROLLED_UP" ? "LS" : "ITEMS"}
+                        </button>
                       )}
                     </div>
                   ))}
@@ -1018,6 +1068,16 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                   />
                   Show &quot;Itemized details available upon request&quot; note
                 </label>
+              </div>
+              <div className={styles.groupingFooter}>
+                <button
+                  type="button"
+                  className={styles.resetGroupingButton}
+                  onClick={onResetGrouping}
+                  title="Reset grouping to defaults (select all, no rollups, clear labels)"
+                >
+                  Reset
+                </button>
               </div>
             </div>
 

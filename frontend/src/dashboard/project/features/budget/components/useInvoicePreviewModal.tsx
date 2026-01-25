@@ -311,6 +311,7 @@ export function useInvoicePreviewModal({
     setGroupLabels,
     handleGroupLabelChange,
     getGroupDisplayLabel,
+    handleResetGrouping,
   } = grouping;
 
   const [showItemizedNote, setShowItemizedNote] = useState(false);
@@ -610,6 +611,11 @@ export function useInvoicePreviewModal({
     markInvoiceDirty();
   }, [markInvoiceDirty]);
 
+  const handleResetGroupingWrapped = useCallback(() => {
+    handleResetGrouping();
+    markInvoiceDirty();
+  }, [handleResetGrouping, markInvoiceDirty]);
+
   const saveInvoice = useCallback(async () => {
     const revisionBudgetItemId =
       (revision as { budgetItemId?: string } | null)?.budgetItemId ??
@@ -824,6 +830,7 @@ export function useInvoicePreviewModal({
     getGroupDisplayLabel,
     showItemizedNote,
     handleToggleItemizedNote,
+    handleResetGrouping: handleResetGroupingWrapped,
     selectedPages,
     handleTogglePage,
     handleToggleAllPages,

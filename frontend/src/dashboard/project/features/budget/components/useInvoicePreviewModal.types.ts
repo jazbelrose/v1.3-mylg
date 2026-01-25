@@ -37,6 +37,7 @@ export interface UseInvoicePreviewModalResult {
   getGroupDisplayLabel: (group: string) => string;
   showItemizedNote: boolean;
   handleToggleItemizedNote: () => void;
+  handleResetGrouping: () => void;
   selectedPages: number[];
   handleTogglePage: (index: number) => void;
   handleToggleAllPages: (checked: boolean) => void;
