@@ -23,6 +23,7 @@ import { OPEN_IMAGE_COMMAND } from "../commands";
 import { FileManagerV2 } from "@/dashboard/project/components/FileManager";
 import type { FileItem } from "@/dashboard/project/components/FileManager";
 import { notify } from "@/shared/ui/ToastNotifications";
+import { useFileReferenceTracking } from "@/shared/hooks/useFileReferenceTracking";
 import styles from "./ImagePlugin.module.css";
 
 type Props = {
@@ -56,6 +57,7 @@ export default function ImagePlugin({ showToolbarButton = true, slidesMode = fal
   const inputRef = useRef<HTMLInputElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const [editor] = useLexicalComposerContext();
+  const { trackFileUsage } = useFileReferenceTracking();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -152,6 +154,11 @@ export default function ImagePlugin({ showToolbarButton = true, slidesMode = fal
         } else {
           $insertNodes([node]);
         }
+        // Track file reference for Lexical editor images
+        const containerId = activeProject?.projectId ? `lexical-${activeProject.projectId}` : 'lexical-unknown';
+        trackFileUsage(src, 'lexical', containerId, 'element').catch(() => {
+          // Silent fail - don't block image insertion
+        });
         return;
       }
 
@@ -176,6 +183,12 @@ export default function ImagePlugin({ showToolbarButton = true, slidesMode = fal
       const selection = $createNodeSelection();
       selection.add(node.getKey());
       $setSelection(selection);
+
+      // Track file reference for slide images
+      const containerId = activeProject?.projectId ? `slide-${activeProject.projectId}` : 'slide-unknown';
+      trackFileUsage(src, 'slide', containerId, 'element').catch(() => {
+        // Silent fail - don't block image insertion
+      });
     });
   };
 

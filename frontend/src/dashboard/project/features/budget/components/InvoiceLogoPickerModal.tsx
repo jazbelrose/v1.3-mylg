@@ -17,6 +17,7 @@ import { toast } from "react-toastify";
 import Modal from "@/shared/ui/ModalWithStack";
 import { getFileUrl } from "@/shared/utils/api";
 import { useOrg } from "@/app/contexts/useOrg";
+import { useFileReferenceTracking } from "@/shared/hooks/useFileReferenceTracking";
 
 import modalStyles from "@/dashboard/home/components/finish-line-component.module.css";
 import styles from "./invoice-logo-picker-modal.module.css";
@@ -53,6 +54,7 @@ const InvoiceLogoPickerModal: React.FC<InvoiceLogoPickerModalProps> = ({
   onRemoveLogo,
 }) => {
   const { activeOrgId, updateOrgBranding } = useOrg();
+  const { trackFileUsage } = useFileReferenceTracking();
   const [activeTab, setActiveTab] = useState<TabId>("org-files");
   const [orgImages, setOrgImages] = useState<OrgImageFile[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
@@ -173,6 +175,12 @@ const InvoiceLogoPickerModal: React.FC<InvoiceLogoPickerModalProps> = ({
 
       const fullKey = uploadKey.startsWith("public/") ? uploadKey : `public/${uploadKey}`;
 
+      // Track file reference for org logo
+      const logoUrl = getFileUrl(fullKey);
+      trackFileUsage(logoUrl, 'org', activeOrgId, 'logo').catch(() => {
+        // Silent fail - don't block logo selection
+      });
+
       // Update org branding (optional, don't block on failure)
       try {
         await updateOrgBranding(activeOrgId, { logoUrl: fullKey });
@@ -196,7 +204,7 @@ const InvoiceLogoPickerModal: React.FC<InvoiceLogoPickerModalProps> = ({
     } finally {
       setIsUploading(false);
     }
-  }, [pendingUploadFile, activeOrgId, updateOrgBranding, onSelectLogo, onClose, uploadPreview]);
+  }, [pendingUploadFile, activeOrgId, updateOrgBranding, onSelectLogo, onClose, uploadPreview, trackFileUsage]);
 
   const handleSelectFromOrgFiles = useCallback(async () => {
     if (!selectedImageKey) {
@@ -205,6 +213,14 @@ const InvoiceLogoPickerModal: React.FC<InvoiceLogoPickerModalProps> = ({
     }
 
     try {
+      // Track file reference for org logo (from existing files)
+      if (activeOrgId) {
+        const logoUrl = getFileUrl(selectedImageKey);
+        trackFileUsage(logoUrl, 'org', activeOrgId, 'logo').catch(() => {
+          // Silent fail - don't block logo selection
+        });
+      }
+
       // Update org branding (optional, don't block on failure)
       if (activeOrgId) {
         try {
@@ -222,7 +238,7 @@ const InvoiceLogoPickerModal: React.FC<InvoiceLogoPickerModalProps> = ({
       console.error("Failed to select logo:", error);
       toast.error("Failed to select logo");
     }
-  }, [selectedImageKey, activeOrgId, updateOrgBranding, onSelectLogo, onClose]);
+  }, [selectedImageKey, activeOrgId, updateOrgBranding, onSelectLogo, onClose, trackFileUsage]);
 
   const handleRemoveLogo = useCallback(async () => {
     try {

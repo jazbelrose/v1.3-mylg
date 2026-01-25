@@ -198,7 +198,7 @@ functions:
           path: /orgs/{orgId}/files/register
           method: OPTIONS
 
-  # Background reconciliation job (scheduled - disabled by default)
+  # Background reconciliation job (scheduled)
   reconciliation:
     name: ${self:custom.app}-${self:custom.ver}-files-reconciliation-${sls:stage}
     handler: reconciliation.handler
@@ -209,25 +209,25 @@ functions:
     events:
       - schedule:
           rate: rate(1 day)
-          enabled: false
+          enabled: true
           input:
             action: reconcile
 
   # Hard delete cleanup triggered by DynamoDB TTL streams
-  # NOTE: Enable this after the Files table stream ARN is available
-  # hardDeleteCleanup:
-  #   name: ${self:custom.app}-${self:custom.ver}-files-cleanup-${sls:stage}
-  #   handler: hardDeleteCleanup.handler
-  #   layers:
-  #     - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
-  #   events:
-  #     - stream:
-  #         type: dynamodb
-  #         arn: !ImportValue FilesTableStreamArn
-  #         batchSize: 10
-  #         startingPosition: LATEST
-  #         filterPatterns:
-  #           - eventName: [REMOVE]
+  # Triggered when TTL removes a DELETED file record after 30 days
+  hardDeleteCleanup:
+    name: ${self:custom.app}-${self:custom.ver}-files-cleanup-${sls:stage}
+    handler: hardDeleteCleanup.handler
+    layers:
+      - ${cf:shared-layer-${sls:stage}.SharedUtilsLayerArn}
+    events:
+      - stream:
+          type: dynamodb
+          arn: arn:aws:dynamodb:us-west-2:221025630675:table/Files/stream/2026-01-24T23:19:09.936
+          batchSize: 10
+          startingPosition: LATEST
+          filterPatterns:
+            - eventName: [REMOVE]
 
 package:
   individually: true

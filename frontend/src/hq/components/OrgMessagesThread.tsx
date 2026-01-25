@@ -35,6 +35,7 @@ import {
   X,
 } from "lucide-react";
 import { uploadData } from "aws-amplify/storage";
+import { useFileReferenceTracking } from "@/shared/hooks/useFileReferenceTracking";
 import MessageItem, { ChatMessage } from "@/dashboard/features/messages/MessageItem";
 import "@/dashboard/features/messages/project-messages-thread.css";
 import {
@@ -204,6 +205,7 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
   const { user, userData, allUsers } = useUser();
   const { orgs } = useOrg();
   const { ws } = useSocket() || {};
+  const { trackFileUsage } = useFileReferenceTracking();
 
   const activeOrg = useMemo(() => orgs.find((o) => o.orgId === orgId), [orgs, orgId]);
   const orgName = activeOrg?.name || orgId;
@@ -766,7 +768,7 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
   };
 
   // File upload helper
-  const handleFileUpload = async (oid: string, file: File): Promise<FileObj | undefined> => {
+  const handleFileUpload = async (oid: string, file: File, messageId?: string): Promise<FileObj | undefined> => {
     const baseKey = `orgs/${oid}/${folderKey}/${file.name}`;
     const storedKey = `public/${baseKey}`;
     try {
@@ -778,6 +780,13 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
       await uploadTask.result;
       await new Promise((resolve) => setTimeout(resolve, 2000));
       const fileUrl = getFileUrl(storedKey);
+      
+      // Track file reference for chat attachment
+      const containerId = messageId || `message-${Date.now()}`;
+      trackFileUsage(fileUrl, 'message', containerId, 'attachment').catch(() => {
+        // Silent fail - don't block message sending
+      });
+      
       return { fileName: file.name, url: fileUrl, key: storedKey };
     } catch (error) {
       console.error("Error uploading file:", error);
@@ -814,7 +823,7 @@ const OrgMessagesThread: React.FC<OrgMessagesThreadProps> = ({
     });
 
     try {
-      const uploadedFile = await handleFileUpload(orgId, file);
+      const uploadedFile = await handleFileUpload(orgId, file, optimisticId);
       if (!uploadedFile) throw new Error("File upload failed");
 
       setOrgMessages((prev) => {

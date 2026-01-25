@@ -45,6 +45,7 @@ import AttachmentPreviewModal from "@/shared/ui/AttachmentPreviewModal";
 import NoteEditorModal from "@/dashboard/features/messages/components/NoteEditorModal";
 import { FileManagerV2 } from "@/dashboard/project/components/FileManager";
 import type { FileItem, FileManagerRef } from "@/dashboard/project/components/FileManager";
+import { useFileReferenceTracking } from "@/shared/hooks/useFileReferenceTracking";
 
 import styles from "./QuickCreateTaskModal.module.css";
 import type {
@@ -455,6 +456,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
 }) => {
   const { userData, allUsers, userId, isAdmin, updateUserProfile, refreshUser } = useUser();
   const { activeProject, projects: detailedProjects, fetchProjectDetails } = useData();
+  const { trackFileUsage } = useFileReferenceTracking();
   useModalStack(open);
   const [projectId, setProjectId] = useState<string>("");
   const [title, setTitle] = useState("");
@@ -2224,12 +2226,18 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       try {
         // Upload to S3 and get CloudFront URL
         const uploadedUrl = await uploadFile(file);
+        const attachmentId = generateAttachmentId();
         created.push({
-          id: generateAttachmentId(),
+          id: attachmentId,
           fileName: file.name || "Attachment",
           mimeType: file.type || undefined,
           url: uploadedUrl, // Store URL instead of dataUrl
           uploadedAt: new Date().toISOString(),
+        });
+        // Track file reference for task attachment
+        const containerId = taskId || `task-pending-${attachmentId}`;
+        trackFileUsage(uploadedUrl, 'task', containerId, 'attachment').catch(() => {
+          // Silent fail - don't block attachment creation
         });
       } catch (error) {
         console.error("Failed to upload attachment", error);
@@ -2279,12 +2287,18 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       try {
         // Upload to S3 and get CloudFront URL
         const uploadedUrl = await uploadFile(file);
+        const attachmentId = generateAttachmentId();
         created.push({
-          id: generateAttachmentId(),
+          id: attachmentId,
           fileName: file.name || "Attachment",
           mimeType: file.type || undefined,
           url: uploadedUrl, // Store URL instead of dataUrl
           uploadedAt: new Date().toISOString(),
+        });
+        // Track file reference for task attachment (drag-drop)
+        const containerId = taskId || `task-pending-${attachmentId}`;
+        trackFileUsage(uploadedUrl, 'task', containerId, 'attachment').catch(() => {
+          // Silent fail - don't block attachment creation
         });
       } catch (error) {
         console.error("Failed to upload attachment", error);
@@ -2295,7 +2309,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
     if (created.length) {
       setNoteAttachments((prev) => [...prev, ...created]);
     }
-  }, []);
+  }, [taskId, trackFileUsage]);
 
   const handleProjectFilesSelected = useCallback((files: FileItem[]) => {
     if (!files.length) return;
@@ -2313,11 +2327,17 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
         invalidFiles = true;
         return;
       }
+      const attachmentId = generateAttachmentId();
       attachments.push({
-        id: generateAttachmentId(),
+        id: attachmentId,
         fileName: file.fileName || "Attachment",
         mimeType: guessMimeTypeFromExtension(extension),
         url: file.url,
+      });
+      // Track file reference for task attachment from project files
+      const containerId = taskId || `task-pending-${attachmentId}`;
+      trackFileUsage(file.url, 'task', containerId, 'attachment').catch(() => {
+        // Silent fail - don't block attachment creation
       });
     });
 
@@ -2332,7 +2352,7 @@ const QuickCreateTaskModal: React.FC<QuickCreateTaskModalProps> = ({
       const toAdd = attachments.filter((attachment) => !existingUrls.has(attachment.url));
       return toAdd.length ? [...prev, ...toAdd] : prev;
     });
-  }, []);
+  }, [taskId, trackFileUsage]);
 
   const canBrowseProjectFiles = Boolean(projectId && activeProject?.projectId === projectId);
 

@@ -13,6 +13,7 @@ import { useData } from "@/app/contexts/useData";
 import SpinnerOverlay from "@/shared/ui/SpinnerOverlay";
 import { S3_PUBLIC_BASE } from "@/shared/utils/api";
 import { notify } from "@/shared/ui/ToastNotifications";
+import { useFileReferenceTracking } from "@/shared/hooks/useFileReferenceTracking";
 import { $createResizableImageNode } from "./nodes/ResizableImageNode";
 import { $createSvgNode } from "./nodes/SvgNodeUtils";
 import { cropSvgToVisibleBounds, resolveSvgDimensions } from "./nodes/svgDimensions";
@@ -133,6 +134,7 @@ export default function DragAndDropPlugin({ slidesMode = false }: DragAndDropPlu
   const [editor] = useLexicalComposerContext();
   const { activeProject } = useData() as { activeProject: ProjectLike };
   const [isLoading, setIsLoading] = useState(false);
+  const { trackFileUsage } = useFileReferenceTracking();
 
   const insertSvgNode = useCallback(
     (svgMarkup: string) => {
@@ -249,6 +251,16 @@ export default function DragAndDropPlugin({ slidesMode = false }: DragAndDropPlu
             $insertNodes([node]);
           }
         });
+
+        // Track file reference for drag-dropped images
+        const containerType = slidesMode ? 'slide' : 'lexical';
+        const containerId = activeProject?.projectId
+          ? `${containerType}-${activeProject.projectId}`
+          : `${containerType}-unknown`;
+        trackFileUsage(payload.src, containerType, containerId, 'element').catch(() => {
+          // Silent fail - don't block image insertion
+        });
+
         setIsLoading(false);
       };
 

@@ -801,24 +801,25 @@ export const handler = async (event) => {
 
 ### Sprint 3: Container Integration (Slides, Chat)
 
-- [ ] Update chat upload to create File + FileRef
+- [x] Update chat upload to create File + FileRef
 - [ ] Update slide import to create File records
-- [ ] Handle deleted files in UI (placeholders)
-- [ ] Emit events on ref add/remove
+- [x] Handle deleted files in UI (placeholders) - TrashView component
+- [x] Emit events on ref add/remove
 
 ### Sprint 4: Remaining Containers
 
-- [ ] Tasks attachments
-- [ ] Budget invoices
-- [ ] Org logos
-- [ ] Lexical editor images
+- [x] Tasks attachments - QuickCreateTaskModal with trackFileUsage
+- [x] Budget invoices - InvoiceLogoPickerModal with trackFileUsage
+- [x] Org logos - InvoiceLogoPickerModal with trackFileUsage
+- [x] Lexical editor images - ImagePlugin + DragAndDropPlugin with trackFileUsage
 
 ### Sprint 5: Migration & Cleanup
 
-- [ ] Run backfill script for existing files
-- [ ] Deploy reconciliation Lambda (scheduled)
-- [ ] Deploy hard-delete cleanup Lambda
-- [ ] Remove deprecated inline URL patterns
+- [x] Run backfill script for existing files - 1,313 files created
+- [x] Deploy reconciliation Lambda (scheduled) - enabled in serverless.yml
+- [x] Deploy hard-delete cleanup Lambda - enabled with stream trigger
+- [x] Chat attachments - OrgMessagesThread with trackFileUsage
+- [ ] Remove deprecated inline URL patterns (future cleanup)
 
 ---
 
