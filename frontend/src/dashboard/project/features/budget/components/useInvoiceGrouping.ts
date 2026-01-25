@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import type { BudgetItem, GroupField } from "./invoicePreviewTypes";
+import type { BudgetItem, GroupDisplayMode, GroupField } from "./invoicePreviewTypes";
 
 interface UseInvoiceGroupingOptions {
   items: BudgetItem[];
@@ -16,11 +16,15 @@ interface UseInvoiceGroupingResult {
   handleGroupFieldChange: (field: GroupField) => void;
   handleToggleGroupValue: (value: string) => void;
   handleToggleAllGroupValues: (checked: boolean) => void;
+  groupDisplayModes: Record<string, GroupDisplayMode>;
+  setGroupDisplayModes: React.Dispatch<React.SetStateAction<Record<string, GroupDisplayMode>>>;
+  handleToggleGroupDisplayMode: (group: string) => void;
 }
 
 export function useInvoiceGrouping({ items }: UseInvoiceGroupingOptions): UseInvoiceGroupingResult {
   const [groupField, setGroupField] = useState<GroupField>("invoiceGroup");
   const [groupValues, setGroupValues] = useState<string[]>([]);
+  const [groupDisplayModes, setGroupDisplayModes] = useState<Record<string, GroupDisplayMode>>({});
 
   useEffect(() => {
     if (!items.length) return;
@@ -83,6 +87,13 @@ export function useInvoiceGrouping({ items }: UseInvoiceGroupingOptions): UseInv
     [groupOptions]
   );
 
+  const handleToggleGroupDisplayMode = useCallback((group: string) => {
+    setGroupDisplayModes((prev) => ({
+      ...prev,
+      [group]: prev[group] === "ROLLED_UP" ? "DETAILED" : "ROLLED_UP",
+    }));
+  }, []);
+
   return {
     groupField,
     setGroupField,
@@ -93,6 +104,9 @@ export function useInvoiceGrouping({ items }: UseInvoiceGroupingOptions): UseInv
     handleGroupFieldChange,
     handleToggleGroupValue,
     handleToggleAllGroupValues,
+    groupDisplayModes,
+    setGroupDisplayModes,
+    handleToggleGroupDisplayMode,
   };
 }
 

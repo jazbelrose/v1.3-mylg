@@ -199,6 +199,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#fafafa",
     fontWeight: 700,
   },
+  rollupSublabel: {
+    fontSize: 8,
+    color: "#666666",
+    marginTop: 2,
+  },
   summarySection: {
     marginTop: 16,
     display: "flex",
@@ -294,13 +299,21 @@ const styles = StyleSheet.create({
 type PdfRowSegment =
   | { type: "group"; group: string }
   | { type: "groupWithItem"; group: string; item: BudgetItem | null }
-  | { type: "item"; item: BudgetItem };
+  | { type: "item"; item: BudgetItem }
+  | { type: "rollup"; group: string; total: number; itemCount: number };
 
 const groupRowsForPdf = (rows: RowData[]): PdfRowSegment[] => {
   const segments: PdfRowSegment[] = [];
   for (let i = 0; i < rows.length; i += 1) {
     const row = rows[i];
-    if (row.type === "group") {
+    if (row.type === "rollup") {
+      segments.push({
+        type: "rollup",
+        group: row.group,
+        total: row.total,
+        itemCount: row.itemCount,
+      });
+    } else if (row.type === "group") {
       const next = rows[i + 1];
       if (next && next.type === "item") {
         segments.push({ type: "groupWithItem", group: row.group, item: next.item });
@@ -464,6 +477,21 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
           </View>
 
           {rowSegments.map((segment, index) => {
+            if (segment.type === "rollup") {
+              return (
+                <View key={`r-${segment.group}-${index}`} style={styles.tableRow} wrap={false}>
+                  <View style={[styles.tableCell, styles.descriptionColumn]}>
+                    <Text>{segment.group}</Text>
+                    <Text style={styles.rollupSublabel}>Includes {segment.itemCount} items</Text>
+                  </View>
+                  <Text style={[styles.tableCell, styles.numericColumn]}>1</Text>
+                  <Text style={[styles.tableCell, styles.numericColumn]}>LOT</Text>
+                  <Text style={[styles.tableCell, styles.numericColumn]}>{formatCurrency(segment.total)}</Text>
+                  <Text style={[styles.tableCell, styles.numericColumn]}>{formatCurrency(segment.total)}</Text>
+                </View>
+              );
+            }
+
             if (segment.type === "group") {
               return (
                 <View key={`g-${segment.group}-${index}`} style={[styles.tableRow, styles.groupRow]} wrap={false}>

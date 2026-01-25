@@ -55,10 +55,20 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
     .map((idx) => {
       const pageRows = pages[idx] || [];
       const rowsHtml = pageRows
-        .map((row) =>
-          row.type === "group"
-            ? `<tr class="group-header"><td colSpan="5">${row.group || "UNCATEGORIZED"}</td></tr>`
-            : `<tr>
+        .map((row) => {
+          if (row.type === "group") {
+            return `<tr class="group-header"><td colSpan="5">${row.group || "UNCATEGORIZED"}</td></tr>`;
+          }
+          if (row.type === "rollup") {
+            return `<tr class="rollup-row">
+                     <td>${row.group}<span class="rollup-sublabel"> (Includes ${row.itemCount} items)</span></td>
+                     <td>1</td>
+                     <td>LOT</td>
+                     <td>${formatCurrency(row.total)}</td>
+                     <td>${formatCurrency(row.total)}</td>
+                   </tr>`;
+          }
+          return `<tr>
                  <td>${row.item.description || ""}</td>
                  <td>${row.item.quantity || ""}</td>
                  <td>${row.item.unit || ""}</td>
@@ -67,8 +77,8 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
                      (parseFloat(String(row.item.quantity || 1)) || 1)
                  )}</td>
                  <td>${formatCurrency(parseFloat(String(row.item.itemFinalCost || 0)) || 0)}</td>
-               </tr>`
-        )
+               </tr>`;
+        })
         .join("");
 
       const headerName = brandName.trim();

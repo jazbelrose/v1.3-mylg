@@ -15,6 +15,7 @@ import PdfInvoice from "./PdfInvoice";
 import InvoiceLogoPickerModal from "./InvoiceLogoPickerModal";
 import styles from "./invoice-preview-modal.module.css";
 import type {
+  GroupDisplayMode,
   GroupField,
   OrganizationInfoLine,
   ProjectLike,
@@ -37,6 +38,8 @@ interface InvoicePreviewContentProps {
   groupValues: string[];
   onToggleGroupValue: (value: string) => void;
   onToggleAllGroupValues: (checked: boolean) => void;
+  groupDisplayModes: Record<string, GroupDisplayMode>;
+  onToggleGroupDisplayMode: (group: string) => void;
   pages: RowData[][];
   selectedPages: number[];
   onTogglePage: (index: number) => void;
@@ -140,6 +143,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   groupValues,
   onToggleGroupValue,
   onToggleAllGroupValues,
+  groupDisplayModes,
+  onToggleGroupDisplayMode,
   pages,
   selectedPages,
   onTogglePage,
@@ -422,12 +427,29 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, idx) =>
-                row.type === "group" ? (
-                  <tr className="group-header" key={`g-${rowsKeyPrefix}-${idx}`}>
-                    <td colSpan={5}>{row.group || "UNCATEGORIZED"}</td>
-                  </tr>
-                ) : (
+              {rows.map((row, idx) => {
+                if (row.type === "group") {
+                  return (
+                    <tr className="group-header" key={`g-${rowsKeyPrefix}-${idx}`}>
+                      <td colSpan={5}>{row.group || "UNCATEGORIZED"}</td>
+                    </tr>
+                  );
+                }
+                if (row.type === "rollup") {
+                  return (
+                    <tr key={`r-${rowsKeyPrefix}-${idx}`} className="rollup-row">
+                      <td>
+                        {row.group}
+                        <span className="rollup-sublabel"> (Includes {row.itemCount} items)</span>
+                      </td>
+                      <td>1</td>
+                      <td>LOT</td>
+                      <td>{formatCurrency(row.total)}</td>
+                      <td>{formatCurrency(row.total)}</td>
+                    </tr>
+                  );
+                }
+                return (
                   <tr key={row.item.budgetItemId || `row-${rowsKeyPrefix}-${idx}`}>
                     <td>{row.item.description || ""}</td>
                     <td>{row.item.quantity || ""}</td>
@@ -442,8 +464,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                       {formatCurrency(parseFloat(String(row.item.itemFinalCost || 0)) || 0)}
                     </td>
                   </tr>
-                )
-              )}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -651,6 +673,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .items-table th,.items-table td{border:1px solid #ddd;padding:8px;font-size:0.85rem;text-align:left;}
         .items-table th{background:#f5f5f5;font-weight:bold;}
         .group-header td{font-weight:bold;background:#fafafa;}
+        .rollup-row td{font-weight:500;}
+        .rollup-row td:first-child{font-weight:600;}
+        .rollup-sublabel{font-size:0.75em;color:#666;font-weight:normal;margin-left:4px;}
         .totals{margin-top:50px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:0.95rem;}
         .totals-row{display:flex;gap:6px;align-items:baseline;}
         .totals-divider{height:1px;background:#ddd;width:60%;align-self:flex-end;margin:4px 0;}
@@ -922,14 +947,32 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                     Select All
                   </label>
                   {groupOptions.map((value) => (
-                    <label key={value} className={styles.groupItem}>
-                      <input
-                        type="checkbox"
-                        checked={groupValues.includes(value)}
-                        onChange={() => onToggleGroupValue(value)}
-                      />
-                      {value}
-                    </label>
+                    <div key={value} className={styles.groupItemRow}>
+                      <label className={styles.groupItem}>
+                        <input
+                          type="checkbox"
+                          checked={groupValues.includes(value)}
+                          onChange={() => onToggleGroupValue(value)}
+                        />
+                        {value || "UNCATEGORIZED"}
+                      </label>
+                      {value && groupValues.includes(value) && (
+                        <button
+                          type="button"
+                          className={`${styles.displayModeToggle} ${
+                            groupDisplayModes[value] === "ROLLED_UP" ? styles.rolledUp : ""
+                          }`}
+                          onClick={() => onToggleGroupDisplayMode(value)}
+                          title={
+                            groupDisplayModes[value] === "ROLLED_UP"
+                              ? "Show detailed items"
+                              : "Roll up to single line"
+                          }
+                        >
+                          {groupDisplayModes[value] === "ROLLED_UP" ? "LOT" : "ITEMS"}
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
               ) : (

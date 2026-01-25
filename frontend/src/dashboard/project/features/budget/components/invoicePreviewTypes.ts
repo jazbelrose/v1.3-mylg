@@ -20,6 +20,8 @@ export interface ProjectLike {
 
 export type GroupField = "invoiceGroup" | "areaGroup" | "category";
 
+export type GroupDisplayMode = "DETAILED" | "ROLLED_UP";
+
 export interface BudgetItem {
   budgetItemId?: string;
   description?: string;
@@ -34,7 +36,8 @@ export interface BudgetItem {
 
 export type RowData =
   | { type: "group"; group: string }
-  | { type: "item"; item: BudgetItem };
+  | { type: "item"; item: BudgetItem }
+  | { type: "rollup"; group: string; total: number; itemCount: number };
 
 export interface SavedInvoice {
   name: string;
@@ -83,6 +86,7 @@ export interface InvoiceDetailsPayload {
   organization: OrganizationInfoFields;
   groupField: GroupField;
   groupValues: string[];
+  groupDisplayModes?: Record<string, GroupDisplayMode>;
   savedAt: string;
 }
 

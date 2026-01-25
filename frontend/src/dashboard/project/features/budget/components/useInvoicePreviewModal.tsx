@@ -16,6 +16,7 @@ import { useBudget } from "@/dashboard/project/features/budget/context/BudgetCon
 import { updateBudgetItem } from "@/shared/utils/api";
 import type {
   BudgetItem,
+  GroupDisplayMode,
   GroupField,
   InvoiceDetailsPayload,
   InvoicePreviewModalProps,
@@ -303,6 +304,9 @@ export function useInvoicePreviewModal({
     handleGroupFieldChange,
     handleToggleGroupValue,
     handleToggleAllGroupValues,
+    groupDisplayModes,
+    setGroupDisplayModes,
+    handleToggleGroupDisplayMode,
   } = grouping;
 
   useEffect(() => {
@@ -339,6 +343,16 @@ export function useInvoicePreviewModal({
     });
   }, [groupOptions, isOpen, resolvedInvoiceDetails, setGroupValues]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const storedModes = resolvedInvoiceDetails?.groupDisplayModes;
+    if (storedModes && typeof storedModes === "object") {
+      setGroupDisplayModes(storedModes as Record<string, GroupDisplayMode>);
+    } else {
+      setGroupDisplayModes({});
+    }
+  }, [isOpen, resolvedInvoiceDetails, setGroupDisplayModes]);
+
   const subtotal = useMemo(
     () =>
       filteredItems.reduce((sum, item) => {
@@ -364,12 +378,29 @@ export function useInvoicePreviewModal({
     const regularGroups = groups.filter((g) => g !== "");
     const hasUncategorized = groups.includes("");
 
-    // Add grouped items (with group headers) for regular groups
+    // Add grouped items (with group headers or rollups) for regular groups
     regularGroups.forEach((group) => {
-      if (group) rows.push({ type: "group", group });
-      items
-        .filter((item) => String((item as BudgetItem)[groupField]).trim() === group)
-        .forEach((item) => rows.push({ type: "item", item }));
+      const groupItems = items.filter(
+        (item) => String((item as BudgetItem)[groupField]).trim() === group
+      );
+
+      if (groupDisplayModes[group] === "ROLLED_UP") {
+        // Emit a single rollup row for this group
+        const total = groupItems.reduce((sum, item) => {
+          const amount = parseFloat(String(item.itemFinalCost ?? 0)) || 0;
+          return sum + amount;
+        }, 0);
+        rows.push({
+          type: "rollup",
+          group,
+          total,
+          itemCount: groupItems.length,
+        });
+      } else {
+        // Emit group header + individual items (existing DETAILED behavior)
+        if (group) rows.push({ type: "group", group });
+        groupItems.forEach((item) => rows.push({ type: "item", item }));
+      }
     });
 
     // Add UNCATEGORIZED items as standalone rows (no group header) at the bottom
@@ -379,7 +410,7 @@ export function useInvoicePreviewModal({
         .forEach((item) => rows.push({ type: "item", item }));
     }
     return rows;
-  }, [items, groupValues, groupField, groupOptions]);
+  }, [items, groupValues, groupField, groupOptions, groupDisplayModes]);
 
   const {
     invoiceRef,
@@ -535,6 +566,14 @@ export function useInvoicePreviewModal({
     [handleToggleAllGroupValues, markInvoiceDirty]
   );
 
+  const handleToggleGroupDisplayModeWrapped = useCallback(
+    (group: string) => {
+      handleToggleGroupDisplayMode(group);
+      markInvoiceDirty();
+    },
+    [handleToggleGroupDisplayMode, markInvoiceDirty]
+  );
+
   const saveInvoice = useCallback(async () => {
     const revisionBudgetItemId =
       (revision as { budgetItemId?: string } | null)?.budgetItemId ??
@@ -610,6 +649,7 @@ export function useInvoicePreviewModal({
       organization,
       groupField,
       groupValues: groupValues.length > 0 ? [...groupValues] : [],
+      groupDisplayModes: Object.keys(groupDisplayModes).length > 0 ? { ...groupDisplayModes } : undefined,
       savedAt: new Date().toISOString(),
     };
 
@@ -658,6 +698,7 @@ export function useInvoicePreviewModal({
     contextBudgetHeader,
     customerSummary,
     groupField,
+    groupDisplayModes,
     groupValues,
     invoiceNumber,
     issueDate,
@@ -738,6 +779,8 @@ export function useInvoicePreviewModal({
     groupValues,
     handleToggleGroupValue: handleToggleGroupValueWrapped,
     handleToggleAllGroupValues: handleToggleAllGroupValuesWrapped,
+    groupDisplayModes,
+    handleToggleGroupDisplayMode: handleToggleGroupDisplayModeWrapped,
     selectedPages,
     handleTogglePage,
     handleToggleAllPages,

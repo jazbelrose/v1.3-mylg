@@ -7,6 +7,7 @@ import type {
 } from "react";
 import type {
   BudgetItem,
+  GroupDisplayMode,
   GroupField,
   OrganizationInfoLine,
   RowData,
@@ -29,6 +30,8 @@ export interface UseInvoicePreviewModalResult {
   groupValues: string[];
   handleToggleGroupValue: (value: string) => void;
   handleToggleAllGroupValues: (checked: boolean) => void;
+  groupDisplayModes: Record<string, GroupDisplayMode>;
+  handleToggleGroupDisplayMode: (group: string) => void;
   selectedPages: number[];
   handleTogglePage: (index: number) => void;
   handleToggleAllPages: (checked: boolean) => void;
