@@ -35,6 +35,8 @@ interface PdfInvoiceProps {
   totalDue: number;
   notes: string;
   organizationLines: OrganizationInfoLine[];
+  getGroupDisplayLabel: (group: string) => string;
+  showItemizedNote: boolean;
 }
 
 const styles = StyleSheet.create({
@@ -263,6 +265,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 1.5,
   },
+  itemizedNote: {
+    fontSize: 9,
+    fontStyle: "italic",
+    color: "#666666",
+    marginTop: 8,
+  },
   paymentSpacerColumn: {
     flex: 0.3,
   },
@@ -368,6 +376,8 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
     totalDue,
     notes,
     organizationLines,
+    getGroupDisplayLabel,
+    showItemizedNote,
   } = props;
   const rowSegments = useMemo(() => groupRowsForPdf(rows), [rows]);
   const paymentInformationText = useMemo(() => toPlainText(notes), [notes]);
@@ -480,12 +490,11 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
             if (segment.type === "rollup") {
               return (
                 <View key={`r-${segment.group}-${index}`} style={styles.tableRow} wrap={false}>
-                  <View style={[styles.tableCell, styles.descriptionColumn]}>
-                    <Text>{segment.group}</Text>
-                    <Text style={styles.rollupSublabel}>Includes {segment.itemCount} items</Text>
-                  </View>
+                  <Text style={[styles.tableCell, styles.descriptionColumn]}>
+                    {getGroupDisplayLabel(segment.group)}
+                  </Text>
                   <Text style={[styles.tableCell, styles.numericColumn]}>1</Text>
-                  <Text style={[styles.tableCell, styles.numericColumn]}>LOT</Text>
+                  <Text style={[styles.tableCell, styles.numericColumn]}>LS</Text>
                   <Text style={[styles.tableCell, styles.numericColumn]}>{formatCurrency(segment.total)}</Text>
                   <Text style={[styles.tableCell, styles.numericColumn]}>{formatCurrency(segment.total)}</Text>
                 </View>
@@ -557,6 +566,11 @@ const PdfInvoice: React.FC<PdfInvoiceProps> = (props) => {
                       {line}
                     </Text>
                   ))}
+                  {showItemizedNote && (
+                    <Text style={styles.itemizedNote}>
+                      Itemized details available upon request.
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.paymentSpacerColumn} />
                 <View style={styles.organizationColumn}>

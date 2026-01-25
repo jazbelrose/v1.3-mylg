@@ -25,6 +25,8 @@ interface InvoiceHtmlBuilderOptions {
   subtotal: number;
   totalDue: number;
   organizationLines: OrganizationInfoLine[];
+  getGroupDisplayLabel: (group: string) => string;
+  showItemizedNote: boolean;
 }
 
 export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
@@ -47,6 +49,8 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
     subtotal,
     totalDue,
     organizationLines,
+    getGroupDisplayLabel,
+    showItemizedNote,
   } = options;
   const style = document.getElementById("invoice-preview-styles")?.innerHTML || "";
   const pageIndexes = selectedPages.length > 0 ? selectedPages : pages.map((_, index) => index);
@@ -61,9 +65,9 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
           }
           if (row.type === "rollup") {
             return `<tr class="rollup-row">
-                     <td>${row.group}<span class="rollup-sublabel"> (Includes ${row.itemCount} items)</span></td>
+                     <td>${getGroupDisplayLabel(row.group)}</td>
                      <td>1</td>
-                     <td>LOT</td>
+                     <td>LS</td>
                      <td>${formatCurrency(row.total)}</td>
                      <td>${formatCurrency(row.total)}</td>
                    </tr>`;
@@ -143,6 +147,7 @@ export function buildInvoiceHtml(options: InvoiceHtmlBuilderOptions): string {
                <div class="payment-info-column">
                   <div class="payment-info-title">Payment Information</div>
                   <div class="payment-info-body">${notesText}</div>
+                  ${showItemizedNote ? '<div class="itemized-note">Itemized details available upon request.</div>' : ''}
                 </div>
                 <div class="payment-spacer-column"></div>
                  ${organizationHtml}

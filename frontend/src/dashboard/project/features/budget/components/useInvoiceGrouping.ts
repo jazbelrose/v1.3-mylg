@@ -19,12 +19,17 @@ interface UseInvoiceGroupingResult {
   groupDisplayModes: Record<string, GroupDisplayMode>;
   setGroupDisplayModes: React.Dispatch<React.SetStateAction<Record<string, GroupDisplayMode>>>;
   handleToggleGroupDisplayMode: (group: string) => void;
+  groupLabels: Record<string, string>;
+  setGroupLabels: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  handleGroupLabelChange: (group: string, label: string) => void;
+  getGroupDisplayLabel: (group: string) => string;
 }
 
 export function useInvoiceGrouping({ items }: UseInvoiceGroupingOptions): UseInvoiceGroupingResult {
   const [groupField, setGroupField] = useState<GroupField>("invoiceGroup");
   const [groupValues, setGroupValues] = useState<string[]>([]);
   const [groupDisplayModes, setGroupDisplayModes] = useState<Record<string, GroupDisplayMode>>({});
+  const [groupLabels, setGroupLabels] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!items.length) return;
@@ -94,6 +99,22 @@ export function useInvoiceGrouping({ items }: UseInvoiceGroupingOptions): UseInv
     }));
   }, []);
 
+  const handleGroupLabelChange = useCallback((group: string, label: string) => {
+    setGroupLabels((prev) => ({
+      ...prev,
+      [group]: label.trim(),
+    }));
+  }, []);
+
+  const getGroupDisplayLabel = useCallback(
+    (group: string) => {
+      const customLabel = groupLabels[group];
+      if (customLabel && customLabel.trim()) return customLabel.trim();
+      return group || "UNCATEGORIZED";
+    },
+    [groupLabels]
+  );
+
   return {
     groupField,
     setGroupField,
@@ -107,6 +128,10 @@ export function useInvoiceGrouping({ items }: UseInvoiceGroupingOptions): UseInv
     groupDisplayModes,
     setGroupDisplayModes,
     handleToggleGroupDisplayMode,
+    groupLabels,
+    setGroupLabels,
+    handleGroupLabelChange,
+    getGroupDisplayLabel,
   };
 }
 

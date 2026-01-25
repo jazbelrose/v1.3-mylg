@@ -87,6 +87,8 @@ export interface InvoiceDetailsPayload {
   groupField: GroupField;
   groupValues: string[];
   groupDisplayModes?: Record<string, GroupDisplayMode>;
+  groupLabels?: Record<string, string>;
+  showItemizedNote?: boolean;
   savedAt: string;
 }
 

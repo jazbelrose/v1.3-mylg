@@ -40,6 +40,11 @@ interface InvoicePreviewContentProps {
   onToggleAllGroupValues: (checked: boolean) => void;
   groupDisplayModes: Record<string, GroupDisplayMode>;
   onToggleGroupDisplayMode: (group: string) => void;
+  groupLabels: Record<string, string>;
+  onGroupLabelChange: (group: string, label: string) => void;
+  getGroupDisplayLabel: (group: string) => string;
+  showItemizedNote: boolean;
+  onToggleItemizedNote: () => void;
   pages: RowData[][];
   selectedPages: number[];
   onTogglePage: (index: number) => void;
@@ -145,6 +150,11 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
   onToggleAllGroupValues,
   groupDisplayModes,
   onToggleGroupDisplayMode,
+  groupLabels,
+  onGroupLabelChange,
+  getGroupDisplayLabel,
+  showItemizedNote,
+  onToggleItemizedNote,
   pages,
   selectedPages,
   onTogglePage,
@@ -438,12 +448,9 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                 if (row.type === "rollup") {
                   return (
                     <tr key={`r-${rowsKeyPrefix}-${idx}`} className="rollup-row">
-                      <td>
-                        {row.group}
-                        <span className="rollup-sublabel"> (Includes {row.itemCount} items)</span>
-                      </td>
+                      <td>{getGroupDisplayLabel(row.group)}</td>
                       <td>1</td>
-                      <td>LOT</td>
+                      <td>LS</td>
                       <td>{formatCurrency(row.total)}</td>
                       <td>{formatCurrency(row.total)}</td>
                     </tr>
@@ -471,7 +478,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         </div>
       </>
     ),
-    []
+    [getGroupDisplayLabel]
   );
 
   const renderHeader = useCallback(() => {
@@ -562,6 +569,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         totalDue={totalDue}
         notes={notes}
         organizationLines={organizationLines}
+        getGroupDisplayLabel={getGroupDisplayLabel}
+        showItemizedNote={showItemizedNote}
       />
     ),
     [
@@ -582,6 +591,8 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
       taxAmount,
       taxRate,
       totalDue,
+      getGroupDisplayLabel,
+      showItemizedNote,
     ]
   );
 
@@ -684,6 +695,7 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
         .payment-info-title{font-size:0.95rem;font-weight:600;margin-bottom:0.5rem;}
         .payment-info-body{font-size:0.9rem;line-height:1.5;}
         .payment-info-body p{margin:0 0 0.5rem;}
+        .itemized-note{font-size:0.85rem;font-style:italic;color:#666;margin-top:0.75rem;}
         .payment-spacer-column{min-height:1px;}
         .organization-info-column{display:flex;flex-direction:column;gap:0.25rem;}
         .organization-line{font-size:0.9rem;line-height:1.5;color:#1a1a1a;}
@@ -732,6 +744,11 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
             <div className="payment-info-column">
               <div className="payment-info-title">Payment Information</div>
               <div className="payment-info-body" dangerouslySetInnerHTML={{ __html: notes }} />
+              {showItemizedNote && (
+                <div className="itemized-note">
+                  Itemized details available upon request.
+                </div>
+              )}
             </div>
             <div className="payment-spacer-column" aria-hidden="true" />
             <div className="organization-info-column">
@@ -957,20 +974,32 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                         {value || "UNCATEGORIZED"}
                       </label>
                       {value && groupValues.includes(value) && (
-                        <button
-                          type="button"
-                          className={`${styles.displayModeToggle} ${
-                            groupDisplayModes[value] === "ROLLED_UP" ? styles.rolledUp : ""
-                          }`}
-                          onClick={() => onToggleGroupDisplayMode(value)}
-                          title={
-                            groupDisplayModes[value] === "ROLLED_UP"
-                              ? "Show detailed items"
-                              : "Roll up to single line"
-                          }
-                        >
-                          {groupDisplayModes[value] === "ROLLED_UP" ? "LOT" : "ITEMS"}
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className={`${styles.displayModeToggle} ${
+                              groupDisplayModes[value] === "ROLLED_UP" ? styles.rolledUp : ""
+                            }`}
+                            onClick={() => onToggleGroupDisplayMode(value)}
+                            title={
+                              groupDisplayModes[value] === "ROLLED_UP"
+                                ? "Show detailed items"
+                                : "Roll up to single line"
+                            }
+                          >
+                            {groupDisplayModes[value] === "ROLLED_UP" ? "LS" : "ITEMS"}
+                          </button>
+                          {groupDisplayModes[value] === "ROLLED_UP" && (
+                            <input
+                              type="text"
+                              className={styles.groupLabelInput}
+                              placeholder="Invoice label..."
+                              value={groupLabels[value] || ""}
+                              onChange={(e) => onGroupLabelChange(value, e.target.value)}
+                              title="Client-facing label for this rolled-up line"
+                            />
+                          )}
+                        </>
                       )}
                     </div>
                   ))}
@@ -980,6 +1009,16 @@ const InvoicePreviewContent: React.FC<InvoicePreviewContentProps> = ({
                   No groups available for the selected field.
                 </div>
               )}
+              <div className={styles.itemizedNoteToggle}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={showItemizedNote}
+                    onChange={onToggleItemizedNote}
+                  />
+                  Show &quot;Itemized details available upon request&quot; note
+                </label>
+              </div>
             </div>
 
             <div className={styles.formSection}>

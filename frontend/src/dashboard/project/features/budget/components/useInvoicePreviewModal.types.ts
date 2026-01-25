@@ -32,6 +32,11 @@ export interface UseInvoicePreviewModalResult {
   handleToggleAllGroupValues: (checked: boolean) => void;
   groupDisplayModes: Record<string, GroupDisplayMode>;
   handleToggleGroupDisplayMode: (group: string) => void;
+  groupLabels: Record<string, string>;
+  handleGroupLabelChange: (group: string, label: string) => void;
+  getGroupDisplayLabel: (group: string) => string;
+  showItemizedNote: boolean;
+  handleToggleItemizedNote: () => void;
   selectedPages: number[];
   handleTogglePage: (index: number) => void;
   handleToggleAllPages: (checked: boolean) => void;

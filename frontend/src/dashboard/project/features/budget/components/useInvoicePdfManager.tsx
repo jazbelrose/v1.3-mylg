@@ -32,6 +32,8 @@ interface UseInvoicePdfManagerOptions {
   pages: RowData[][];
   selectedPages: number[];
   organizationLines: OrganizationInfoLine[];
+  getGroupDisplayLabel: (group: string) => string;
+  showItemizedNote: boolean;
 }
 
 interface UseInvoicePdfManagerResult {
@@ -63,6 +65,8 @@ export function useInvoicePdfManager({
   pages,
   selectedPages,
   organizationLines,
+  getGroupDisplayLabel,
+  showItemizedNote,
 }: UseInvoicePdfManagerOptions): UseInvoicePdfManagerResult {
   const pdfPreviewUrlRef = useRef<string | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -95,6 +99,8 @@ export function useInvoicePdfManager({
         totalDue={totalDue}
         notes={notes}
         organizationLines={organizationLines}
+        getGroupDisplayLabel={getGroupDisplayLabel}
+        showItemizedNote={showItemizedNote}
       />
     );
   }, [
@@ -170,6 +176,8 @@ export function useInvoicePdfManager({
       subtotal,
       totalDue,
       organizationLines,
+      getGroupDisplayLabel,
+      showItemizedNote,
     });
   }, [
     pages,
@@ -190,6 +198,8 @@ export function useInvoicePdfManager({
     subtotal,
     totalDue,
     organizationLines,
+    getGroupDisplayLabel,
+    showItemizedNote,
   ]);
 
   return {

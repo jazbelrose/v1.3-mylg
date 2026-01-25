@@ -307,7 +307,13 @@ export function useInvoicePreviewModal({
     groupDisplayModes,
     setGroupDisplayModes,
     handleToggleGroupDisplayMode,
+    groupLabels,
+    setGroupLabels,
+    handleGroupLabelChange,
+    getGroupDisplayLabel,
   } = grouping;
+
+  const [showItemizedNote, setShowItemizedNote] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -352,6 +358,21 @@ export function useInvoicePreviewModal({
       setGroupDisplayModes({});
     }
   }, [isOpen, resolvedInvoiceDetails, setGroupDisplayModes]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const storedLabels = resolvedInvoiceDetails?.groupLabels;
+    if (storedLabels && typeof storedLabels === "object") {
+      setGroupLabels(storedLabels as Record<string, string>);
+    } else {
+      setGroupLabels({});
+    }
+  }, [isOpen, resolvedInvoiceDetails, setGroupLabels]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setShowItemizedNote(resolvedInvoiceDetails?.showItemizedNote === true);
+  }, [isOpen, resolvedInvoiceDetails]);
 
   const subtotal = useMemo(
     () =>
@@ -466,6 +487,8 @@ export function useInvoicePreviewModal({
     pages,
     selectedPages,
     organizationLines,
+    getGroupDisplayLabel,
+    showItemizedNote,
   });
 
   useEffect(() => {
@@ -574,6 +597,19 @@ export function useInvoicePreviewModal({
     [handleToggleGroupDisplayMode, markInvoiceDirty]
   );
 
+  const handleGroupLabelChangeWrapped = useCallback(
+    (group: string, label: string) => {
+      handleGroupLabelChange(group, label);
+      markInvoiceDirty();
+    },
+    [handleGroupLabelChange, markInvoiceDirty]
+  );
+
+  const handleToggleItemizedNote = useCallback(() => {
+    setShowItemizedNote((prev) => !prev);
+    markInvoiceDirty();
+  }, [markInvoiceDirty]);
+
   const saveInvoice = useCallback(async () => {
     const revisionBudgetItemId =
       (revision as { budgetItemId?: string } | null)?.budgetItemId ??
@@ -650,6 +686,8 @@ export function useInvoicePreviewModal({
       groupField,
       groupValues: groupValues.length > 0 ? [...groupValues] : [],
       groupDisplayModes: Object.keys(groupDisplayModes).length > 0 ? { ...groupDisplayModes } : undefined,
+      groupLabels: Object.keys(groupLabels).length > 0 ? { ...groupLabels } : undefined,
+      showItemizedNote,
       savedAt: new Date().toISOString(),
     };
 
@@ -781,6 +819,11 @@ export function useInvoicePreviewModal({
     handleToggleAllGroupValues: handleToggleAllGroupValuesWrapped,
     groupDisplayModes,
     handleToggleGroupDisplayMode: handleToggleGroupDisplayModeWrapped,
+    groupLabels,
+    handleGroupLabelChange: handleGroupLabelChangeWrapped,
+    getGroupDisplayLabel,
+    showItemizedNote,
+    handleToggleItemizedNote,
     selectedPages,
     handleTogglePage,
     handleToggleAllPages,

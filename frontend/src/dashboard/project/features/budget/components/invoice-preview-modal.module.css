@@ -675,6 +675,49 @@
   color: white;
 }
 
+.groupLabelInput {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: #1a1a1a;
+  color: #ccc;
+  margin-left: 4px;
+}
+
+.groupLabelInput::placeholder {
+  color: #666;
+  font-style: italic;
+}
+
+.groupLabelInput:focus {
+  outline: none;
+  border-color: #FA3356;
+}
+
+.itemizedNoteToggle {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.itemizedNoteToggle label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: #aaa;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.itemizedNoteToggle input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
 .invoiceList {
   margin-top: 10px;
   display: flex;
