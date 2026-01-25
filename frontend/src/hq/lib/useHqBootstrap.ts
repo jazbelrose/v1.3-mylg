@@ -57,10 +57,10 @@ export function useHqBootstrap(orgId: string | null) {
     };
 
     // Listen for websocket hqUpdated events from other org members
-    const handleWsMessage = (event: CustomEvent<{ action?: string; orgId?: string }>) => {
+    const handleWsMessage = (event: CustomEvent<{ action?: string; orgId?: string; updateType?: string }>) => {
       const data = event.detail;
       if (data?.action === "hqUpdated" && data?.orgId === orgId) {
-        console.log("📊 [useHqBootstrap] Received hqUpdated from another org member, refreshing...");
+        console.log("📊 [useHqBootstrap] Received hqUpdated from another org member, refreshing...", data.updateType);
         handleRefresh();
       }
     };

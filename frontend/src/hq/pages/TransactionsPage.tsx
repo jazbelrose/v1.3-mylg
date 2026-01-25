@@ -43,6 +43,7 @@ import HqCategoryPicker from "@/hq/components/HqCategoryPicker";
 import AllocationModal from "@/hq/components/AllocationModal";
 import TxnProjectChip from "@/hq/components/TxnProjectChip";
 import ProjectFilter, { type ProjectFilterValue } from "@/hq/components/ProjectFilter";
+import TransactionContextMenu from "@/hq/components/TransactionContextMenu";
 import { getTransactionAllocatedTotal } from "@/hq/lib/hqStore";
 
 // Allocation state for display consistency
@@ -587,15 +588,28 @@ const TransactionsPage: React.FC = () => {
 
     const handleWsMessage = (event: CustomEvent<{ action?: string; orgId?: string; updateType?: HqUpdateType }>) => {
       const data = event.detail;
-      if (data?.action === "hqUpdated" && data?.orgId === activeOrgId && data?.updateType === "transaction") {
-        console.log("📊 [TransactionsPage] Received hqUpdated for transactions, refreshing list...");
+      // Refresh on both "transaction" and "import" update types
+      if (data?.action === "hqUpdated" && data?.orgId === activeOrgId && 
+          (data?.updateType === "transaction" || data?.updateType === "import")) {
+        console.log("📊 [TransactionsPage] Received hqUpdated, refreshing list...", data.updateType);
+        loadPage({ cursor: null, append: false, includeTotals: true });
+      }
+    };
+
+    // Also listen for local import complete event (same-user import)
+    const handleImportComplete = (event: CustomEvent<{ orgId?: string }>) => {
+      if (event.detail?.orgId === activeOrgId) {
+        console.log("📊 [TransactionsPage] Import complete, refreshing list...");
         loadPage({ cursor: null, append: false, includeTotals: true });
       }
     };
 
     window.addEventListener("ws-message", handleWsMessage as EventListener);
+    window.addEventListener("mylg:hq-import-complete", handleImportComplete as EventListener);
+    
     return () => {
       window.removeEventListener("ws-message", handleWsMessage as EventListener);
+      window.removeEventListener("mylg:hq-import-complete", handleImportComplete as EventListener);
     };
   }, [activeOrgId, loadPage]);
 
@@ -1545,151 +1559,54 @@ const TransactionsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Context menu */}
-      {contextMenuPos && canAdmin ? (
-        <div
-          className={styles.contextMenu}
-          style={{ left: contextMenuPos.x, top: contextMenuPos.y }}
-          role="menu"
-          aria-label="Transaction actions"
-        >
-          {selectedCount === 1 ? (
-            <>
-              <button type="button" className={styles.contextMenuItem} onClick={openSingleEdit} role="menuitem">
-                <Edit2 size={14} />
-                Edit…
-              </button>
-              <div className={styles.contextMenuSeparator} />
-              <div className={styles.contextMenuLabel}>Set category</div>
-              {HQ_CATEGORY_OPTIONS.slice(0, 8).map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  className={styles.contextMenuItem}
-                  onClick={() => applyBulkAction({ categoryId: opt.value as HqCategoryId })}
-                  role="menuitem"
-                >
-                  {opt.label}
-                </button>
-              ))}
-              <div className={styles.contextMenuSeparator} />
-              <div className={styles.contextMenuLabel}>Set payment type</div>
-              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "card_purchase" })} role="menuitem">
-                Card purchase
-              </button>
-              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "transfer" })} role="menuitem">
-                Transfer
-              </button>
-              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "zelle" })} role="menuitem">
-                Zelle
-              </button>
-              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "wire" })} role="menuitem">
-                Wire
-              </button>
-              <div className={styles.contextMenuSeparator} />
-              <button
-                type="button"
-                className={styles.contextMenuItem}
-                onClick={() => {
-                  const txn = contextMenuTxn;
-                  if (txn) applyBulkAction({ isRecurring: !txn.isRecurring });
-                }}
-                role="menuitem"
-              >
-                <Repeat size={14} />
-                Toggle burn/runway
-              </button>
-              <div className={styles.contextMenuSeparator} />
-              <button
-                type="button"
-                className={styles.contextMenuItem}
-                onClick={() => {
-                  if (contextMenuTxn) {
-                    setSelectedTxn(contextMenuTxn);
-                    setIsApplyOpen(true);
-                  }
-                  closeContextMenu();
-                }}
-                role="menuitem"
-              >
-                <Search size={14} />
-                Find similar…
-              </button>
-              {/* Allocate to budget - only for outgoing transactions */}
-              {contextMenuTxn && (contextMenuTxn.direction === "out" || contextMenuTxn.amount < 0) ? (
-                <>
-                  <div className={styles.contextMenuSeparator} />
-                  <button
-                    type="button"
-                    className={styles.contextMenuItem}
-                    onClick={() => {
-                      if (contextMenuTxn) {
-                        setAllocationTxn(contextMenuTxn);
-                        setIsAllocationOpen(true);
-                      }
-                      closeContextMenu();
-                    }}
-                    role="menuitem"
-                  >
-                    <Link2 size={14} />
-                    Link to budget…
-                  </button>
-                </>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <div className={styles.contextMenuLabel}>{selectedCount} selected</div>
-              <div className={styles.contextMenuSeparator} />
-              <div className={styles.contextMenuLabel}>Set category</div>
-              {HQ_CATEGORY_OPTIONS.slice(0, 8).map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  className={styles.contextMenuItem}
-                  onClick={() => applyBulkAction({ categoryId: opt.value as HqCategoryId })}
-                  role="menuitem"
-                >
-                  {opt.label}
-                </button>
-              ))}
-              <div className={styles.contextMenuSeparator} />
-              <div className={styles.contextMenuLabel}>Set payment type</div>
-              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "card_purchase" })} role="menuitem">
-                Card purchase
-              </button>
-              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "transfer" })} role="menuitem">
-                Transfer
-              </button>
-              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "zelle" })} role="menuitem">
-                Zelle
-              </button>
-              <button type="button" className={styles.contextMenuItem} onClick={() => applyBulkAction({ paymentType: "wire" })} role="menuitem">
-                Wire
-              </button>
-              <div className={styles.contextMenuSeparator} />
-              <button
-                type="button"
-                className={styles.contextMenuItem}
-                onClick={() => applyBulkAction({ isRecurring: true })}
-                role="menuitem"
-              >
-                <Repeat size={14} />
-                Toggle burn/runway
-              </button>
-              <div className={styles.contextMenuSeparator} />
-              <button type="button" className={styles.contextMenuItem} onClick={openBulkEdit} role="menuitem">
-                <Edit2 size={14} />
-                Bulk edit…
-              </button>
-            </>
-          )}
-        </div>
-      ) : null}
+      {/* V2 Context Menu - Premium 3-zone layout */}
+      <TransactionContextMenu
+        orgId={orgId}
+        open={contextMenuPos !== null && canAdmin}
+        anchorPos={contextMenuPos || { x: 0, y: 0 }}
+        txn={contextMenuTxn}
+        selectedCount={selectedCount}
+        onClose={closeContextMenu}
+        onSetCategory={(categoryId) => applyBulkAction({ categoryId })}
+        onSetPaymentType={(paymentType) => applyBulkAction({ paymentType })}
+        onToggleBurnRunway={() => {
+          if (contextMenuTxn) {
+            applyBulkAction({ isRecurring: !contextMenuTxn.isRecurring });
+          } else {
+            applyBulkAction({ isRecurring: true });
+          }
+        }}
+        onFindSimilar={() => {
+          if (contextMenuTxn) {
+            setSelectedTxn(contextMenuTxn);
+            setIsApplyOpen(true);
+          }
+        }}
+        onLinkToBudget={() => {
+          if (contextMenuTxn) {
+            setAllocationTxn(contextMenuTxn);
+            setIsAllocationOpen(true);
+          }
+        }}
+        onEdit={openSingleEdit}
+        canAdmin={canAdmin}
+      />
 
       {activeOrgId ? (
         <>
-          <ImportCsvModal orgId={activeOrgId} isOpen={isImportOpen} onRequestClose={() => setIsImportOpen(false)} />
+          <ImportCsvModal
+            orgId={activeOrgId}
+            isOpen={isImportOpen}
+            onRequestClose={() => setIsImportOpen(false)}
+            ws={ws}
+            onImported={() => {
+              // Refresh transaction list immediately after CSV import
+              // Small delay to allow DynamoDB eventual consistency
+              setTimeout(() => {
+                loadPage({ cursor: null, append: false, includeTotals: true });
+              }, 150);
+            }}
+          />
           <AddAccountModal
             orgId={activeOrgId}
             isOpen={isAddAccountOpen}

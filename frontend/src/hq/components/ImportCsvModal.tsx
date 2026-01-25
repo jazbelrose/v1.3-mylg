@@ -168,6 +168,16 @@ const ImportCsvModal: React.FC<ImportCsvModalProps> = ({
       // Notify other org members of the import
       sendHqUpdated(ws, orgId, "import", accountId);
 
+      // Dispatch local event to trigger immediate refresh of metrics/charts
+      // This ensures the current user sees updates without waiting for WebSocket echo
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("mylg:hq-import-complete", {
+          detail: { orgId, accountId, imported: result.imported, duplicates: result.duplicates },
+        }));
+        // Also trigger general HQ refresh for any listening pages
+        window.dispatchEvent(new Event("mylg:hq-refresh"));
+      }
+
       toast.success(`${result.imported} transactions imported, ${result.duplicates} duplicates skipped.`);
       onImported?.({ imported: result.imported, duplicates: result.duplicates });
       onRequestClose();

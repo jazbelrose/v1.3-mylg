@@ -275,6 +275,34 @@ const HQOverview: React.FC = () => {
   const [recurringError, setRecurringError] = React.useState<string | null>(null);
   const [recurringLoading, setRecurringLoading] = React.useState(false);
 
+  // Counter to force refetch of chart/metrics after import
+  const [refreshCounter, setRefreshCounter] = React.useState(0);
+
+  // Listen for import completion events to refresh all metrics immediately
+  React.useEffect(() => {
+    if (!activeOrgId) return;
+
+    const handleImportComplete = (event: CustomEvent<{ orgId?: string }>) => {
+      if (event.detail?.orgId === activeOrgId) {
+        console.log("📊 [HQOverview] Import complete, refreshing charts and metrics...");
+        setRefreshCounter((c) => c + 1);
+      }
+    };
+
+    const handleHqRefresh = () => {
+      console.log("📊 [HQOverview] HQ refresh event received, updating metrics...");
+      setRefreshCounter((c) => c + 1);
+    };
+
+    window.addEventListener("mylg:hq-import-complete", handleImportComplete as EventListener);
+    window.addEventListener("mylg:hq-refresh", handleHqRefresh);
+
+    return () => {
+      window.removeEventListener("mylg:hq-import-complete", handleImportComplete as EventListener);
+      window.removeEventListener("mylg:hq-refresh", handleHqRefresh);
+    };
+  }, [activeOrgId]);
+
   const openImport = React.useCallback(() => {
     if (!canAdmin) return;
     setIsImportOpen(true);
@@ -358,7 +386,7 @@ const HQOverview: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [activeOrgId, accounts, anchorBalanceForChart, transactions]);
+  }, [activeOrgId, accounts, anchorBalanceForChart, transactions, refreshCounter]);
 
   const chartPointsInRange = React.useMemo(() => {
     if (!chart) return null;
@@ -580,7 +608,7 @@ const HQOverview: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [activeOrgId, chartRange, topCategoriesDirection, topCategoriesWindow.end, topCategoriesWindow.start, transactions]);
+  }, [activeOrgId, chartRange, topCategoriesDirection, topCategoriesWindow.end, topCategoriesWindow.start, transactions, refreshCounter]);
 
   React.useEffect(() => {
     if (!activeOrgId) {
@@ -635,7 +663,7 @@ const HQOverview: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [activeOrgId, recurringLocal]);
+  }, [activeOrgId, recurringLocal, refreshCounter]);
 
   const topCategories = React.useMemo(() => {
     return (topCategoriesData?.items || []).slice(0, HQ_OVERVIEW_TOP_CATEGORIES_PREVIEW_LIMIT);
