@@ -197,6 +197,11 @@
   text-overflow: ellipsis;
 }
 
+.menuItemIcon {
+  color: rgba(255, 255, 255, 0.55);
+  flex-shrink: 0;
+}
+
 .emptyState {
   padding: 12px;
   font-size: 12px;

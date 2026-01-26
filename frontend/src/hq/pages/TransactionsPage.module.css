@@ -696,6 +696,10 @@
   flex-shrink: 0;
 }
 
+.rowCategoryIcon {
+  color: rgba(255, 255, 255, 0.7);
+}
+
 /* Mobile action button (3-dot menu) */
 .mobileActionBtn {
   display: none;
@@ -747,6 +751,16 @@
 .categoryCell {
   display: flex;
   justify-content: flex-start;
+  align-items: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.categoryLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .allocationCell {

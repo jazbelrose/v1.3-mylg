@@ -13,7 +13,7 @@ import { toast } from "react-toastify";
 import { Search, ChevronRight } from "lucide-react";
 import { BottomSheet } from "@/shared/components/BottomSheet/BottomSheet";
 import { useSocket } from "@/app/contexts/useSocket";
-import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
+import { getHqCategoryIcon, HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import {
   applyHqTransactionsBulk,
   fetchHqSummary,
@@ -420,7 +420,13 @@ export default function TxnEditSheet({
             {categoryId === "MIXED" ? (
               <span className={styles.mixedValue}>Mixed</span>
             ) : (
-              HQ_CATEGORY_LABEL[categoryId as HqCategoryId] || "Other"
+              <span className={styles.valueWithIcon}>
+                {(() => {
+                  const Icon = getHqCategoryIcon(categoryId);
+                  return <Icon size={16} className={styles.valueIcon} aria-hidden />;
+                })()}
+                <span>{HQ_CATEGORY_LABEL[categoryId as HqCategoryId] || String(categoryId)}</span>
+              </span>
             )}
           </span>
           <ChevronRight size={18} className={styles.fieldChevron} />
@@ -640,7 +646,13 @@ export default function TxnEditSheet({
               setViewMode("main");
             }}
           >
-            <span>{cat.label}</span>
+            <span className={styles.optionLeft}>
+              {(() => {
+                const Icon = getHqCategoryIcon(cat.value);
+                return <Icon size={16} className={styles.optionIcon} aria-hidden />;
+              })()}
+              <span className={styles.optionLabel}>{cat.label}</span>
+            </span>
             {categoryId === cat.value ? <span className={styles.checkmark}>✓</span> : null}
           </button>
         ))}

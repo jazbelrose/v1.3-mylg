@@ -2,16 +2,9 @@ import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
-  ArrowDownToLine,
-  ArrowLeftRight,
-  Circle,
   ChevronDown,
   ChevronUp,
-  CreditCard,
-  Landmark,
-  Minus,
   Repeat,
-  Zap,
   X,
   Search,
   Edit2,
@@ -28,7 +21,7 @@ import ImportCsvModal from "@/hq/components/ImportCsvModal";
 import TransactionsFilterSheet from "@/hq/components/TransactionsFilterSheet";
 import TransactionContextSheet from "@/hq/components/TransactionContextSheet";
 import MobileSelectionBar from "@/hq/components/MobileSelectionBar";
-import { HQ_CATEGORY_LABEL, HQ_CATEGORY_OPTIONS } from "@/hq/lib/hqCategories";
+import { getHqCategoryIcon, HQ_CATEGORY_LABEL, HQ_CATEGORY_OPTIONS } from "@/hq/lib/hqCategories";
 import { applyHqTransactionsBulk, fetchHqSummary, fetchHqTransactions } from "@/hq/lib/hqApi";
 import { hydrateHqState, readHqState, useHqStore } from "@/hq/lib/hqStore";
 import { sendHqUpdated } from "@/hq/lib/hqWebSocket";
@@ -141,25 +134,6 @@ function centsToMoneyInput(cents: number | null): string {
   return String(Math.round(cents) / 100);
 }
 
-function typeIcon(type: HqPaymentType): React.ReactNode {
-  switch (type) {
-    case "card_purchase":
-      return <CreditCard size={16} />;
-    case "transfer":
-      return <ArrowLeftRight size={16} />;
-    case "zelle":
-      return <Zap size={16} />;
-    case "wire":
-      return <Landmark size={16} />;
-    case "deposit":
-      return <ArrowDownToLine size={16} />;
-    case "fee":
-      return <Minus size={16} />;
-    default:
-      return <Circle size={12} />;
-  }
-}
-
 function addDaysIso(isoDate: string, deltaDays: number): string {
   const [yyyy, mm, dd] = String(isoDate || "").split("-");
   const year = Number(yyyy);
@@ -169,15 +143,6 @@ function addDaysIso(isoDate: string, deltaDays: number): string {
   if (!Number.isFinite(base.getTime())) return isoDate;
   base.setUTCDate(base.getUTCDate() + deltaDays);
   return base.toISOString().slice(0, 10);
-}
-
-function effectivePaymentType(txn: HqTransaction): HqPaymentType {
-  const paymentType = txn.paymentType;
-  if (paymentType) return paymentType;
-  const legacy = String(txn.type || "unknown").trim();
-  // Legacy stored `type: "recurring"` should not be treated as a payment type.
-  if (legacy === "recurring") return "unknown";
-  return legacy as HqPaymentType;
 }
 
 function txnTitle(txn: HqTransaction) {
@@ -1680,7 +1645,6 @@ const TransactionsPage: React.FC = () => {
                     const accountLabel = accountsById.get(txn.accountId) || "Account";
                     const currentCategoryId: HqCategoryId = (txn.categoryId || "OTHER") as HqCategoryId;
                     const directionClass = txn.amount < 0 ? styles.out : styles.in;
-                    const iconType = effectivePaymentType(txn);
                     const isSelected = selectedRows.has(txn.dedupeHash);
                     const isFocused = focusedRowIndex === index;
                     const isSwiped = swipedRowHash === txn.dedupeHash;
@@ -1990,14 +1954,17 @@ const TransactionsPage: React.FC = () => {
                       >
                         {/* Selection rail indicator */}
                         {isSelected ? <div className={styles.selectionRail} aria-hidden /> : null}
-                        <div className={styles.txnCell}>
-                          <div className={styles.icon} aria-hidden>
-                            {typeIcon(iconType)}
-                          </div>
-                          <div className={styles.txnMain}>
-                            <div className={styles.txnTitle}>{txnTitle(txn)}</div>
-                            <div className={styles.txnMeta}>
-                              <span>{txn.postedAt}</span>
+                          <div className={styles.txnCell}>
+                            <div className={styles.icon} aria-hidden>
+                              {(() => {
+                                const Icon = getHqCategoryIcon(currentCategoryId);
+                                return <Icon size={16} className={styles.rowCategoryIcon} aria-hidden />;
+                              })()}
+                            </div>
+                            <div className={styles.txnMain}>
+                              <div className={styles.txnTitle}>{txnTitle(txn)}</div>
+                              <div className={styles.txnMeta}>
+                                <span>{txn.postedAt}</span>
                               <span>·</span>
                               <span>{accountLabel}</span>
                               {txn.cardLast4 ? (
@@ -2011,7 +1978,7 @@ const TransactionsPage: React.FC = () => {
                         </div>
 
                         <div className={styles.categoryCell}>
-                          {HQ_CATEGORY_LABEL[currentCategoryId]}
+                          <span className={styles.categoryLabel}>{HQ_CATEGORY_LABEL[currentCategoryId] || String(currentCategoryId)}</span>
                         </div>
 
                         {/* Allocation chip - only show for outgoing transactions */}

@@ -33,6 +33,13 @@
   cursor: not-allowed;
 }
 
+.triggerRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .icon {
   opacity: 0.6;
   font-size: 10px;
@@ -111,6 +118,9 @@
 .itemButton {
   width: 100%;
   text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 10px 12px;
   border-radius: 10px;
   font-size: 13px;
@@ -129,6 +139,19 @@
 .itemButtonActive {
   background: rgba(250, 51, 86, 0.12);
   color: rgba(255, 255, 255, 1);
+}
+
+.itemIcon {
+  color: rgba(255, 255, 255, 0.55);
+  flex-shrink: 0;
+}
+
+.itemLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .emptyHint {

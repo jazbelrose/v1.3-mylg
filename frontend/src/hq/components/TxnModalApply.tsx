@@ -2,7 +2,7 @@ import React from "react";
 import { toast } from "react-toastify";
 import Modal from "@/shared/ui/ModalWithStack";
 import { useSocket } from "@/app/contexts/useSocket";
-import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
+import { getHqCategoryIcon, HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import { applyHqTransactionsBulk, fetchHqSummary, fetchHqTransactions, fetchHqVendorMatches } from "@/hq/lib/hqApi";
 import { hydrateHqState, readHqState, useHqStore } from "@/hq/lib/hqStore";
 import { sendHqUpdated } from "@/hq/lib/hqWebSocket";
@@ -557,7 +557,15 @@ const TxnModalApply: React.FC<Props> = ({ orgId, isOpen, txn, onRequestClose, on
                     <div className={styles.similarMetaRow}>
                       <span>{formatDate(t.postedAt)}</span>
                       <span>·</span>
-                      <span>{HQ_CATEGORY_LABEL[(t.categoryId || "OTHER") as HqCategoryId]}</span>
+                      <span className={styles.metaWithIcon}>
+                        {(() => {
+                          const Icon = getHqCategoryIcon((t.categoryId || "OTHER") as HqCategoryId);
+                          return <Icon size={14} className={styles.metaIcon} aria-hidden />;
+                        })()}
+                        <span>
+                          {HQ_CATEGORY_LABEL[(t.categoryId || "OTHER") as HqCategoryId] || String(t.categoryId || "OTHER")}
+                        </span>
+                      </span>
                       <span>·</span>
                       <span>{String(t.paymentType || (t.type === "recurring" ? "unknown" : t.type) || "unknown")}</span>
                       {t.isRecurring ? (

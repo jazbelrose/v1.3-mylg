@@ -558,9 +558,17 @@
 }
 
 .topCategoriesName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.topCategoriesNameLabel {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .topCategoriesAmount {
@@ -624,6 +632,7 @@
 .recurringPill {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   height: 18px;
   padding: 0 7px;
   border-radius: 999px;
@@ -635,6 +644,18 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   white-space: nowrap;
   flex: 0 0 auto;
+}
+
+.categoryIcon {
+  color: rgba(255, 255, 255, 0.55);
+  flex-shrink: 0;
+}
+
+.categoryLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .recurringSuffix {

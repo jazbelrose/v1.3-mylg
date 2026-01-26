@@ -22,9 +22,8 @@ import {
   X,
   CreditCard,
   Tag,
-  MoreHorizontal,
 } from "lucide-react";
-import { HQ_CATEGORY_LABEL, HQ_CATEGORY_OPTIONS } from "@/hq/lib/hqCategories";
+import { getHqCategoryIcon, HQ_CATEGORY_LABEL, HQ_CATEGORY_OPTIONS } from "@/hq/lib/hqCategories";
 import type { HqCategoryId, HqPaymentType, HqTransaction } from "@/hq/types";
 import styles from "./TransactionContextSheet.module.css";
 
@@ -371,7 +370,11 @@ export default function TransactionContextSheet({
               className={styles.optionRow}
               onClick={() => handleCategorySelect(cat.value)}
             >
-              {cat.label}
+              {(() => {
+                const Icon = getHqCategoryIcon(cat.value);
+                return <Icon size={16} className={styles.optionIcon} aria-hidden />;
+              })()}
+              <span className={styles.optionLabel}>{cat.label}</span>
             </button>
           ))
         )}

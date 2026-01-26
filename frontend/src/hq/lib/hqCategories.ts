@@ -1,4 +1,27 @@
 import type { HqCategoryId } from "@/hq/types";
+import type { LucideIcon } from "lucide-react";
+import {
+  ArrowLeftRight,
+  Banknote,
+  Briefcase,
+  Car,
+  CircleHelp,
+  CloudCog,
+  HardHat,
+  Landmark,
+  MoreHorizontal,
+  Package,
+  PackageOpen,
+  Plane,
+  Receipt,
+  RotateCcw,
+  Scale,
+  ShieldCheck,
+  Truck,
+  Utensils,
+  Users,
+  CarTaxiFront,
+} from "lucide-react";
 
 export type HqCategoryDefinition = {
   id: HqCategoryId;
@@ -83,7 +106,8 @@ export type HqCategoryGroupDefinition = {
     | "travel"
     | "taxes"
     | "transfers_owner"
-    | "refunds_adjustments";
+    | "refunds_adjustments"
+    | "other";
   label: string;
   categoryIds: readonly HqCategoryId[];
 };
@@ -138,7 +162,47 @@ export const HQ_CATEGORY_GROUPS: readonly HqCategoryGroupDefinition[] = [
     label: "Refunds and Adjustments",
     categoryIds: ["CUSTOMER_REFUND", "REFUND_CHARGEBACK", "REFUND_RECEIVED"],
   },
+  { id: "other", label: "Other", categoryIds: ["OTHER"] },
 ] as const;
+
+export type HqCategoryGroupId = HqCategoryGroupDefinition["id"];
+
+export const HQ_CATEGORY_GROUP_ICON: Record<HqCategoryGroupId, LucideIcon> = {
+  income: Banknote,
+  direct_job_costs: Briefcase,
+  operating_expenses: Receipt,
+  payroll: Users,
+  vehicle: Car,
+  travel: Plane,
+  taxes: Landmark,
+  transfers_owner: ArrowLeftRight,
+  refunds_adjustments: RotateCcw,
+  other: MoreHorizontal,
+};
+
+const HQ_CATEGORY_ICON_BY_ID: Partial<Record<HqCategoryId, LucideIcon>> = {
+  // Operating Expenses
+  PROFESSIONAL_SERVICES: Scale,
+  INSURANCE: ShieldCheck,
+  SOFTWARE_SAAS: CloudCog,
+
+  // Direct Job Costs
+  CONTRACTORS_1099: HardHat,
+  MATERIALS_SUPPLIES: Package,
+  SHIPPING: PackageOpen,
+  TRUCKING_TRANSPORT: Truck,
+
+  // Travel
+  GROUND_TRANSPORTATION: CarTaxiFront,
+  MEALS: Utensils,
+};
+
+export type HqCategoryMeta = {
+  id: HqCategoryId;
+  label: string;
+  groupId: HqCategoryGroupId;
+  groupLabel: string;
+};
 
 export const HQ_CATEGORY_LABEL: Record<HqCategoryId, string> = HQ_CATEGORIES.reduce(
   (acc, category) => {
@@ -157,6 +221,59 @@ export const HQ_CATEGORY_LABEL: Record<HqCategoryId, string> = HQ_CATEGORIES.red
     TRANSFERS: "Transfer (Internal) (legacy)",
   } as Record<HqCategoryId, string>
 );
+
+const HQ_CATEGORY_GROUP_BY_ID: Partial<Record<HqCategoryId, HqCategoryGroupId>> = (() => {
+  const map: Partial<Record<HqCategoryId, HqCategoryGroupId>> = {};
+  for (const group of HQ_CATEGORY_GROUPS) {
+    for (const id of group.categoryIds) map[id] = group.id;
+  }
+
+  // Legacy IDs (keep UI stable for historical data).
+  map.PAYROLL = "payroll";
+  map.PRODUCTION = "direct_job_costs";
+  map.SOFTWARE = "operating_expenses";
+  map.MARKETING = "operating_expenses";
+  map.FEES = "operating_expenses";
+  map.TAXES = "taxes";
+  map.TRANSFERS = "transfers_owner";
+
+  return map;
+})();
+
+const HQ_CATEGORY_GROUP_LABEL_BY_ID: Record<HqCategoryGroupId, string> = HQ_CATEGORY_GROUPS.reduce(
+  (acc, group) => {
+    acc[group.id] = group.label;
+    return acc;
+  },
+  {} as Record<HqCategoryGroupId, string>
+);
+
+export const HQ_CATEGORY_META_BY_ID: Partial<Record<HqCategoryId, HqCategoryMeta>> = (() => {
+  const meta: Partial<Record<HqCategoryId, HqCategoryMeta>> = {};
+
+  for (const [id, label] of Object.entries(HQ_CATEGORY_LABEL) as Array<[HqCategoryId, string]>) {
+    const groupId = HQ_CATEGORY_GROUP_BY_ID[id];
+    if (!groupId) continue;
+    meta[id] = { id, label, groupId, groupLabel: HQ_CATEGORY_GROUP_LABEL_BY_ID[groupId] };
+  }
+
+  return meta;
+})();
+
+export function getHqCategoryMeta(categoryId: string | null | undefined): HqCategoryMeta | null {
+  if (!categoryId) return null;
+  const id = categoryId as HqCategoryId;
+  const label = HQ_CATEGORY_LABEL[id];
+  if (!label) return null;
+  const groupId = HQ_CATEGORY_GROUP_BY_ID[id] ?? "other";
+  return { id, label, groupId, groupLabel: HQ_CATEGORY_GROUP_LABEL_BY_ID[groupId] };
+}
+
+export function getHqCategoryIcon(categoryId: string | null | undefined): LucideIcon {
+  const meta = getHqCategoryMeta(categoryId);
+  if (!meta) return CircleHelp;
+  return HQ_CATEGORY_ICON_BY_ID[meta.id] ?? HQ_CATEGORY_GROUP_ICON[meta.groupId] ?? CircleHelp;
+}
 
 /**
  * Options array for dropdowns/selects: { value, label } pairs.

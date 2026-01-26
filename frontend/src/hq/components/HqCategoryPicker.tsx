@@ -1,7 +1,7 @@
 import React from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
-import { HQ_CATEGORY_GROUPS, HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
+import { getHqCategoryIcon, HQ_CATEGORY_GROUPS, HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import { useHqStore } from "@/hq/lib/hqStore";
 import type { HqCategoryId } from "@/hq/types";
 
@@ -72,6 +72,10 @@ export default function HqCategoryPicker({
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   const transactions = useHqStore(orgId, (s) => s.transactions);
+  const isStaticSelection = React.useMemo(
+    () => Boolean(staticOptions?.some((o) => o.value === value)),
+    [staticOptions, value]
+  );
 
   const recent = React.useMemo(() => readRecent(orgId), [orgId, open]);
 
@@ -161,6 +165,7 @@ export default function HqCategoryPicker({
   }, [open]);
 
   const currentLabel = value ? labelForValue(value) : "";
+  const CurrentIcon = !isStaticSelection && value ? getHqCategoryIcon(value) : null;
 
   const selectValue = React.useCallback(
     (next: string) => {
@@ -208,7 +213,10 @@ export default function HqCategoryPicker({
           aria-label={ariaLabel}
           disabled={disabled}
         >
-          <span>{currentLabel || placeholder || "Select category"}</span>
+          <span className={styles.triggerRow}>
+            {CurrentIcon ? <CurrentIcon size={16} className={styles.itemIcon} aria-hidden /> : null}
+            <span className={styles.triggerText}>{currentLabel || placeholder || "Select category"}</span>
+          </span>
           <span className={styles.icon} aria-hidden>
             ▾
           </span>
@@ -257,7 +265,17 @@ export default function HqCategoryPicker({
                     role="option"
                     aria-selected={value === entry.value}
                   >
-                    {entry.label}
+                    {entry.type === "item" ? (
+                      <>
+                        {(() => {
+                          const Icon = getHqCategoryIcon(entry.value);
+                          return <Icon size={16} className={styles.itemIcon} aria-hidden />;
+                        })()}
+                        <span className={styles.itemLabel}>{entry.label}</span>
+                      </>
+                    ) : (
+                      <span className={styles.itemLabel}>{entry.label}</span>
+                    )}
                   </button>
                 );
               })

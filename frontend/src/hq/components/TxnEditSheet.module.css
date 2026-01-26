@@ -122,6 +122,18 @@
   white-space: nowrap;
 }
 
+.valueWithIcon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.valueIcon {
+  color: rgba(255, 255, 255, 0.55);
+  flex-shrink: 0;
+}
+
 .mixedValue {
   color: rgba(250, 51, 86, 0.7);
   font-style: italic;
@@ -291,6 +303,25 @@
 
 .optionRow.optionSelected {
   color: rgba(250, 51, 86, 0.95);
+}
+
+.optionLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.optionIcon {
+  color: rgba(255, 255, 255, 0.55);
+  flex-shrink: 0;
+}
+
+.optionLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .checkmark {

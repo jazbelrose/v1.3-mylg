@@ -14,7 +14,7 @@ import { useUser } from "@/app/contexts/useUser";
 import { isOrgAdmin, useOrg } from "@/app/contexts/useOrg";
 import { useSocket } from "@/app/contexts/useSocket";
 import { useIsMobile } from "@/shared/hooks/useBreakpoints";
-import { HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
+import { getHqCategoryIcon, HQ_CATEGORY_LABEL } from "@/hq/lib/hqCategories";
 import { useHqStore, readHqState, hydrateHqState } from "@/hq/lib/hqStore";
 import { useHqBootstrap } from "@/hq/lib/useHqBootstrap";
 import {
@@ -1304,7 +1304,13 @@ const HQOverview: React.FC = () => {
                       <span className={styles.recurringName}>{entry.label}</span>
                       {entry.categoryId && entry.categoryId !== "OTHER" ? (
                         <span className={styles.recurringPill}>
-                          {HQ_CATEGORY_LABEL[entry.categoryId as keyof typeof HQ_CATEGORY_LABEL] || entry.categoryId}
+                          {(() => {
+                            const Icon = getHqCategoryIcon(entry.categoryId);
+                            return <Icon size={12} className={styles.categoryIcon} aria-hidden />;
+                          })()}
+                          <span className={styles.categoryLabel}>
+                            {HQ_CATEGORY_LABEL[entry.categoryId as keyof typeof HQ_CATEGORY_LABEL] || entry.categoryId}
+                          </span>
                         </span>
                       ) : null}
                       {recurringSuffixBySeriesKey.get(entry.seriesKey) ? (
@@ -1377,8 +1383,17 @@ const HQOverview: React.FC = () => {
                         }
                       }}
                     >
-                      <span className={styles.topCategoriesName} title={HQ_CATEGORY_LABEL[entry.categoryId as keyof typeof HQ_CATEGORY_LABEL]}>
-                        {HQ_CATEGORY_LABEL[entry.categoryId as keyof typeof HQ_CATEGORY_LABEL] || entry.categoryId}
+                      <span
+                        className={styles.topCategoriesName}
+                        title={HQ_CATEGORY_LABEL[entry.categoryId as keyof typeof HQ_CATEGORY_LABEL]}
+                      >
+                        {(() => {
+                          const Icon = getHqCategoryIcon(entry.categoryId);
+                          return <Icon size={14} className={styles.categoryIcon} aria-hidden />;
+                        })()}
+                        <span className={styles.topCategoriesNameLabel}>
+                          {HQ_CATEGORY_LABEL[entry.categoryId as keyof typeof HQ_CATEGORY_LABEL] || entry.categoryId}
+                        </span>
                       </span>
                       <div className={styles.chartBar} aria-hidden>
                         <div className={styles.chartBarFill} style={{ width: `${pct}%` }} />

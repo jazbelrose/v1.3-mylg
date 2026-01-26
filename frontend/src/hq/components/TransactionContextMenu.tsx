@@ -6,7 +6,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { HQ_CATEGORY_LABEL, HQ_CATEGORY_OPTIONS } from "@/hq/lib/hqCategories";
+import { getHqCategoryIcon, HQ_CATEGORY_LABEL, HQ_CATEGORY_OPTIONS } from "@/hq/lib/hqCategories";
 import type { HqCategoryId, HqPaymentType, HqTransaction } from "@/hq/types";
 import styles from "./TransactionContextMenu.module.css";
 
@@ -370,6 +370,7 @@ export default function TransactionContextMenu({
             ) : (
               filteredCategories.map((cat, index) => {
                 const isHighlighted = highlightedIndex === index;
+                const Icon = getHqCategoryIcon(cat.value);
                 return (
                   <button
                     key={cat.value}
@@ -379,6 +380,7 @@ export default function TransactionContextMenu({
                     onMouseEnter={() => setHighlightedIndex(index)}
                     role="menuitem"
                   >
+                    <Icon size={14} className={styles.menuItemIcon} aria-hidden />
                     <span className={styles.menuItemLabel}>{cat.label}</span>
                   </button>
                 );

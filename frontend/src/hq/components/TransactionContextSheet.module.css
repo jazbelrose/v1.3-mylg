@@ -189,6 +189,9 @@
 }
 
 .optionRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 14px 16px;
   border: none;
   background: transparent;
@@ -197,6 +200,7 @@
   text-align: left;
   cursor: pointer;
   transition: background 0.15s ease;
+  min-width: 0;
 }
 
 .optionRow:not(:last-child) {
@@ -205,6 +209,19 @@
 
 .optionRow:active {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.optionIcon {
+  color: rgba(255, 255, 255, 0.55);
+  flex-shrink: 0;
+}
+
+.optionLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .emptyState {
